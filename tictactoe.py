@@ -23,12 +23,18 @@ print("Starting Board")
 print(board)
 print("--"*10)
 # Next thing
-#todo Place a move onto the board, play a game against yourself, and check who win
-# This is how to place a move board[0][0] = -1
 
-
+board[0][0] = -1
+board[1][1] = 1
+board[0][1] = -1
+board[0][2] = 1
+board[2][0] = -1
+board[1][0] = 1
+board[1][2] = -1
+board[2][2] = 1
+board[2][1] = -1
 print(board)
-
+print("draw")
 
 
 
