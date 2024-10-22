@@ -1,3 +1,4 @@
-#print("hello brian!")
-print("Hi Jessy")
-print("Hi Jessy2")
+import numpy as np
+# todo Make Board
+
+
