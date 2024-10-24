@@ -44,9 +44,12 @@ import numpy as np
 # returns the board with the newly placed board
 #
 # def b_func(board, x, y, player):
-#     board = [[0, 0, 0],
-#              [0, 0, 0],
-#              [0, 0, 0]]
+#     board = [[0, 0, 1],
+#              [0, 1, 0],
+#              [1, 0, 0]]
+#     board = [[1, 0, 0],
+#              [0, 1, 0],
+#              [0, 0, 1]]
 #     board[x][y] = player
 #     print(board)
 #
@@ -66,11 +69,11 @@ def foo(inputs):
 # class
 class House:
     def __init__(self, new_owner): # constructor
-        self.owner = "Brian" # Brian
-        self.owner = new_owner # Jessy 2.0, over writes Brian
+        self.owner = "Jessica" # Jessica
+        self.owner = new_owner # Brian overwrites Jessica
 
-house = House("Jessy 2.0") # this is calling constructor
-# print(house.owner)
+house = House("Brian") # this is calling constructor
+print(f"Ha Ha {house.owner} is the new owner")
 
 
 class TicTacToe:
@@ -83,27 +86,32 @@ class TicTacToe:
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
 
+    def _check_row(self, row):
+        # before optimization
+        return sum(row) == -3 or sum(row) == 3
+
+        # after optimization
+        sum_row = sum(row)
+        return sum_row == -3 or sum_row == 3
+        # return -sum_row == 3 == sum_row # dumbest thing I've done
+
+
+    def _check_diagnal(self, board):
+        np.diag(board, 0) # returns the diagonal check numpy docs for more info
+        # see: https://numpy.org/doc/stable/reference/generated/numpy.diagonal.html
+        # flipping a board see: https://numpy.org/doc/stable/reference/generated/numpy.fliplr.html
+        raise NotImplementedError("Implement check diagonal")
+    def check_win(self):
+        raise NotImplementedError("Implement check win with other methods")
+
+
 game = TicTacToe()
 game.place_move(1, 1)
-# game.place_move(0, 0)
-# game.place_move(0, 0)
-# print(game.board)
+game.place_move(0, 0)
+print(game.board)
+game.check_win()
 
 
 
 # todo Jump Ian Patrick Tang
 
-
-class Container:
-    def __init__(self, filter):
-        self.filter = filter
-        self.storage = []
-
-    def add(self, item):
-        if item in self.filter:
-            self.storage.append(item)
-
-
-container = Container([2, 3, 5, 7, 11])
-container.add(2)
-print(container.storage)
