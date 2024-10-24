@@ -82,7 +82,10 @@ class TicTacToe:
         self.board = np.zeros((3, 3), dtype=np.int8)
         # doesn't return anything
 
-    def place_move(self, x, y):
+        # todo make move_history and add the played move everytime do_action is called
+
+    def do_action(self, action): # must conform to this format - Brian
+        x, y = action
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
 
@@ -96,7 +99,7 @@ class TicTacToe:
         # return -sum_row == 3 == sum_row # dumbest thing I've done
 
 
-    def _check_diagnal(self, board):
+    def _check_diagonal(self, board):
         np.diag(board, 0) # returns the diagonal check numpy docs for more info
         # see: https://numpy.org/doc/stable/reference/generated/numpy.diagonal.html
         # flipping a board see: https://numpy.org/doc/stable/reference/generated/numpy.fliplr.html
@@ -106,8 +109,8 @@ class TicTacToe:
 
 
 game = TicTacToe()
-game.place_move(1, 1)
-game.place_move(0, 0)
+game.do_action((1, 1))
+game.do_action((0, 0))
 print(game.board)
 game.check_win()
 
