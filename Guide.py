@@ -1,5 +1,5 @@
 import numpy as np
-# this is going to be the format in which all game classes must 5 to
+# this is going to be the format in which all game classes must conform to
 
 class Game:
     def __init__(self):
@@ -18,7 +18,7 @@ class Game:
         pass
 
     def get_state(self):
-        # gets the numpy array for the neual network
+        # gets the numpy array for the neural network
         # for now just return the board
         # Brian will probably implement this later
         pass
