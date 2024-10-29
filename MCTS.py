@@ -71,7 +71,7 @@ class MCTS:
     def get_dummy_policy_value(self, state):
 
         return np.random.normal((3, 3)), np.random.random() # policy and value
-    def _expand(self, node: Node) -> Node:
+    def _expand(self, node: Node) -> tuple[Node, float]:
         # note that node is the parent of the child
         # create the child to expand
         child_action = node.child_legal_actions.pop(-1) # this must be -1 because list pop is O(1) only poping from the right
@@ -80,9 +80,15 @@ class MCTS:
         child_policy, child_value = self.get_dummy_policy_value(self.game.get_state_MCTS(node.board))
 
         child_board = self.game.do_action_MCTS(node.board, child_action)
-        child_legal_actions = self.game.get_legal_moves()
-        child = Node(child_board, child_action, )
+        child_legal_actions = self.game.get_legal_actions_MCTS(child_board) # assuming a list of actions
+        child_prob_prior = self.game.parse_policy(child_policy)
+        child = Node(child_board, child_action, child_legal_actions, child_prob_prior, parent=node)
+        node.children.append(child)
 
+        # since we got the policy and value from inputs node.board
+        # we can delete it because the NN will not evaluate it again thus saving more memory
+        del node.board
+        return child, child_value # for value backpropagation
 
     def _back_prop(self, node):
         pass
