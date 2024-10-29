@@ -16,18 +16,24 @@ from collections import deque
 #     return x
 
 class Node:
-    __slots__ = "foo", "bar"
+    __slots__ = "bar"
 
-    def __init__(self):
-        self.bar = []
-@njit(cache=True)
-def numba_func(arr1):
-    return np.argwhere(arr1)
+    def __init__(self, board):
+        self.bar = board.copy()
+
+    def foo(self):
+        self.bar[1] = 5
 
     # return actions, arr2
 
 if __name__ == "__main__":
     import time
-    s = time.time()
-    print(numba_func(np.array([[1, 2, 3], [1, 2, 3]])))
+    print(sys.getsizeof(None))
+    # board = np.array([1 ,2 ,3])
+    # node = Node(board)
+    # node.foo()
+    # print(board)
+    # print(node.bar)
+
+
 

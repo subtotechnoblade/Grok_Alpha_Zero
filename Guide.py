@@ -70,10 +70,11 @@ class Game:
         pass
     @staticmethod
     # @njit(cache=True)
-    def get_policy_legal_actions_MCTS(board: np.array, policy: np.array, shuffle=False):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
         """
+        THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board
-        :param policy: a numpy array os shape = self.policy shape defined in __init__
+        :param policy: a numpy array of shape = self.policy shape defined in __init__, straight from the neural network's policy head
         :param shuffle: You might want to shuffle the policy and legal_actions because the last index is where the search starts
         if it is too hard you don't implement anything much will happen, its just that randomizing might improve convergence just by a but
         :return: legal_actions as a list [action0, action1, ...], child_prob_prior as a numpy array
@@ -83,6 +84,10 @@ class Game:
         legal_actions =             [0,     1,   2,   3,    4,    5,    6,    7,    8,    9]
         child_prob_prior / policy = [0.1, 0.1, 0.3, 0.2, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05] (I made these up, shape=(9,))
         it means that action 0 will have a predicted chance of 10% of being the best move, 1 will have 10%, 2 will have 30% and so on
+        Note that this is a probability distribution, after removing the un wanted actions you have to normalize it to sum up to 1
+        do that with policy /= np.sum(policy)
+
+
         Anyway, if your self.policy shape matches the action shape you can just return the policy without doing anything
         recommend to use numba njit to speed up this method for MCTS
         """
@@ -92,6 +97,7 @@ class Game:
         # board = board.reshape((-1)) flatten the 3 by 3 board into a length 9 array
         # policy = policy.reshape(-1) flatten the policy
         # policy = policy[board == 0] keep the values that correspond to an empty part of the board
+        # policy /= np.sum(policy) # normalize it
         # legal_actions = np.argwhere(board == 0) # get the indexes where the board is empty
         # if shuffle:
             # shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
@@ -99,10 +105,6 @@ class Game:
         # return legal_moves, policy
         pass
 
-    def parse_policy(self, neural_network_policy_output):
-        # if you want to do some parsing if you want to
-        # recommend to just return the neural_network_policy_output
-        return neural_network_policy_output
 
     def do_action(self, action):
         # places the move onto the board
@@ -136,6 +138,13 @@ class Game:
     def check_win_MCTS(self, board, last_action):
         #Used to check if MCTS has reached a terminal node
         pass
+    @staticmethod
+    @njit(cache=True)
+    def get_winning_actions_MCTS(self, board):
+        # Brian will be looking very closely at this code when u implement this
+        # reocmment to use check_win_MCTS unless there is a more efficient way
+        # making sure that this doesn't slow this MCTS to a halt
+        pass
 
 
 # example for gomoku
@@ -153,9 +162,13 @@ class Gomoku:
         return np.argwhere(self.board[self.board == 0]).reshape(-1)
     @staticmethod
     @njit(cache=True)
-    def get_policy_legal_actions_MCTS(board: np.array, policy: np.array, shuffle=False):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
         board = board.reshape(-1)
         policy = policy[board == 0] # keep the probabilities where the board is not filled
+        # [board == 0] creates a mask and when the mask element is True policy at that index is returned
+        # normalize the policy back to a probability distribution
+        policy /= np.sum(policy)
+
         legal_actions = np.argwhere(board[board == 0]).reshape(-1) # get the indexes where the board is not filled
         # note that policy should already be flattened
         if shuffle:
@@ -314,6 +327,11 @@ class Gomoku:
 
         # if there is no winner, and it is not a draw
         return -2
+    @staticmethod
+    @njit(cache=True)
+    def get_winning_moves_MCTS(board):
+        # I'll copy the code from my other project
+        pass
 
 if __name__ == "__main__":
     # example usage
