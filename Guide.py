@@ -11,6 +11,7 @@ from numba import njit
 # game board must be a numpy array
 
 class Game:
+    # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
     """
     Any @staticmethods are for the tree search algorithm as it is memory intensive to store the game class and use the methods
     Note that numba's @njit can only be used with @staticmethods, because numba cannot work with any internal class methods
@@ -44,16 +45,37 @@ class Game:
         # current player as an int, first player will be -1 second player is 1
         # to swap current the player -> current_player *= -1 (very handy)
         # move history as a list
+
+
+        # must also define policy shape
+        # for tictactoe the shape of (3, 3) is expected because there are 9 possible moves
+        # for connect 4 the shape is (7,) because there are only 7 possible moves
+        # for connect 5 it is (15, 15)
+        # alternatively you can also request for a flattened policy and reshape it in parse_policy (not recommended)
+        # in parse policy you will have to convert the policy into actions and the associated prob_prior
+        self.policy_shape = (3, 3) # MUST HAVE or else something I wont be able to define the neural network, this is for tictactoe
         pass
 
     def get_current_player(self):
         # returns the current player
         pass
 
+    def get_legal_actions(self):
+        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
+        # Note that this action will be passed into do_action() and do_action_MCTS
+        pass
+    @staticmethod
+    # @njit(cache=True)
+    def get_legal_actions_MCTS(board,):
+        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given board
+        # recommend to use numba njit to speed up MCTS
+        pass
+
     def do_action(self, action):
         # places the move onto the board
         pass
     @staticmethod
+    # @njit(cache=True)
     def do_action_MCTS(board, action, current_player):
         # this is for the monte carlo tree search's
         pass
@@ -66,6 +88,7 @@ class Game:
         pass
 
     @staticmethod
+    # @njit(cache=True)
     def get_state_MCTS(board):
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
@@ -76,6 +99,7 @@ class Game:
         # return -2 if no player has won / the game hasn't ended
         pass
     @staticmethod
+    # @njit(cache=True)
     def check_win_MCTS(self, board, last_action):
         #Used to check if MCTS has reached a terminal node
         pass
