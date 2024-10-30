@@ -44,13 +44,20 @@ class MCTS:
     # will update itself after every move assuming the methods are called in the right order
     def __init__(self,
                  game,
-                 c_puct: float=2.5,
+                 c_puct_init: float=2.5,
+                 c_puct_base: float=19_652,
                  use_dirichlet=True,
-                 dirichlet_alpha=0.3,):
+                 dirichlet_alpha=1.11,):
         self.game = game
-        self.c_puct = c_puct
+
+        self.c_puct_init = c_puct_init # determined experimentally
+        self.c_puct_base = c_puct_base # DO NOT CHANGE
+
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
+        # dirichlet_alpha can be choosen with (10 / average_moves_per_game), 10 / 9 = 1.11 for tic tac toe
+        # see https://ai.stackexchange.com/questions/25939/alpha-zero-does-not-converge-for-connect-6-a-game-with-huge-branching-factor
+        # for more info on what c_puct should be along with how dirichlet alpha should be calculated
 
         # perform inference call to initialize root
         child_policy, child_value = self.get_dummy_policy_value(self.game.board.copy())
@@ -63,8 +70,11 @@ class MCTS:
                                    child_values: np.array,
                                    child_visits: np.array,
                                    parent_visits: float,
-                                   c_puct: float):
-        PUCT_score = (child_values / child_visits) + c_puct * child_prob_priors * ((child_visits ** 0.5) / (parent_visits + 1))
+                                   c_puct_init: float,
+                                   c_puct_base: float):
+        # note that np.log is actually a math ln with base e (2.7)
+        U = child_prob_priors * ((child_visits ** 0.5) / (parent_visits + 1)) * (c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
+        PUCT_score = (child_values / child_visits) + U
         return np.argmax(PUCT_score)
 
     def _PUCT_select(self, root: Root) -> Node:
@@ -80,7 +90,8 @@ class MCTS:
                                                          node.child_values,
                                                          node.child_visits,
                                                          parent_visits,
-                                                         self.c_puct)
+                                                         self.c_puct_init,
+                                                         self.c_puct_base)
 
             # change the node pointer to the selected child at best_index
             parent_visits = node.child_visits[best_index]
