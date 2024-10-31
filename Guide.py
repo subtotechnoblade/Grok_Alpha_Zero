@@ -1,10 +1,10 @@
 import numpy as np
 from numba import njit
 # Disclaimer
-# I WILL NOT CONFORM to open Ai's gym,
+# I WILL NOT CONFORM to open AI's gym,
 # because there isn't a way to implement monte carlo tree search without game methods
 # I'll conform to open AI's gym when I implement Muzero in the future as MCTS is no longer dependent on game methods
-
+# Mu Zero is dependent on the representation and dynamics network to get the next state called the hidden state
 
 # this is going to be the format in which all game classes must conform to
 # players are represented with -1 and 1 <- this rule cannot change
@@ -42,23 +42,26 @@ class Game:
         return board
     """
     def __init__(self):
+        # MUST HAVE VARIABLES
         # define your board as a numpy array
         self.board = np.array([])
         # current player as an int, first player will be -1 second player is 1
         self.current_player = -1
-        # to swap current the player -> current_player *= -1 (very handy)
-        # action  history as a list
+        # to swap the current the player -> current_player *= -1 (very handy)
+        # action history as a list [action0, action1, ...]
         self.action_history = []
+        # feel free to define more class attributes (variables)
 
-
+        # THE COMMENTS AND EXAMPLES IN THIS CLASS IS FOR TIC TAC TOE
         # must also define policy shape
         # for tictactoe the shape of (9,) is expected because there are 9 possible moves
         # for connect 4 the shape is (7,) because there are only 7 possible moves
         # for connect 5 it is (225,) because 15 * 15 amount of actions where the index
         # you should request for a flattened policy (for tic tac toe) -> (9,) rather than (3, 3)
         # in parse policy you will have to convert the policy into actions and the associated prob_prior
-        self.policy_shape = ("your policy shape (length)",) # MUST HAVE or else something I wont be able to define the neural network, this is for tictactoe
-
+        self.policy_shape = ("your policy shape (length)",) # MUST HAVE or else I won't be able to define the neural network
+        # just know that the illegal moves are removed and the policy which is a probability distribution
+        # is re normalized
 
     def get_current_player(self):
         # returns the current player
@@ -118,7 +121,9 @@ class Game:
     def get_state(self):
         # gets the numpy array for the neural network
         # for now just return the board as a numpy array
-        # Brian will probably implement this later
+        # Brian will probably implement this later for specific neural networks
+        # RWKV can just take in the board without problem
+        # the original alphazero's network required the past boards
         # Uses in the root node of MCTS
         pass
 
@@ -135,15 +140,18 @@ class Game:
         pass
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(self, board, last_action):
+    def check_win_MCTS(board, last_action):
         #Used to check if MCTS has reached a terminal node
         pass
     @staticmethod
     @njit(cache=True)
-    def get_winning_actions_MCTS(self, board):
+    def get_winning_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
         # reocmment to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
+        # if your game in every case only has 1 winning move you don'y have to use fast_check param
+        # please do not remove the fast_check parameter
+        # check the gomoku example for more info
         pass
 
 
@@ -159,11 +167,17 @@ class Gomoku:
         return self.current_player
 
     def get_legal_actions(self):
-        return np.argwhere(self.board[self.board == 0]).reshape(-1)
+        # self.board == 0 creates a True and False board array, i.e., the empty places are True
+        # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
+        # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
+        # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
+        # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
+
+        return np.argwhere(self.board == 0).reshape(-1)
     @staticmethod
     @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
-        board = board.reshape(-1)
+        board = board.reshape(-1) # makes sure that the board is a vector
         policy = policy[board == 0] # keep the probabilities where the board is not filled
         # [board == 0] creates a mask and when the mask element is True policy at that index is returned
         # normalize the policy back to a probability distribution
@@ -204,6 +218,9 @@ class Gomoku:
 
     def check_win(self,) -> int:
         """
+        # Note that this method is slow as it uses python for loops
+        # recommend to use the check_win_MCTS with the board as njit
+        # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
 
@@ -265,7 +282,7 @@ class Gomoku:
         # if there is no winner, and it is not a draw
         return -2
     @staticmethod
-    @njit(cache=True)
+    @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_move: tuple, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
@@ -329,10 +346,31 @@ class Gomoku:
         return -2
     @staticmethod
     @njit(cache=True)
-    def get_winning_moves_MCTS(board):
-        # I'll copy the code from my other project
-        pass
-
+    def get_winning_moves_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_check=False):
+        """
+        :param board: The board
+        :param current_player: Current player we want to check for
+        :param WIDTH: board width
+        :param HEIGHT: board height
+        :param fast_check: only returns 1 winning move if True, should be False for MCTS,
+        because we want multiple winning moves to determine a better policy
+        :return:
+        """
+        legal_actions = np.argwhere(board == 0).reshape(-1)
+        check_win_board = board.copy()
+        winning_actions = []
+        for legal_action in legal_actions:
+            # Try every legal action anc check if the current player won
+            # Very inefficient.cThere is a better implementation
+            # for simplicity this will be the example
+            x, y = legal_action % WIDTH, legal_action // HEIGHT
+            check_win_board[y][x] = current_player
+            if Gomoku.check_win_MCTS(board, (x, y), current_player) == current_player:
+                winning_actions.append((x, y))
+                if fast_check:
+                    break
+            check_win_board[y][x] = 0 # reset the board
+        return winning_actions
 if __name__ == "__main__":
     # example usage
     game = Gomoku()
