@@ -134,7 +134,7 @@ class Game:
         # just return the board from the inputs
         return board
 
-    def check_win(self, board):
+    def check_win(self):
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
         pass
@@ -346,7 +346,7 @@ class Gomoku:
         return -2
     @staticmethod
     @njit(cache=True)
-    def get_winning_moves_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_check=False):
+    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_check=False):
         """
         :param board: The board
         :param current_player: Current player we want to check for
@@ -358,21 +358,43 @@ class Gomoku:
         """
         legal_actions = np.argwhere(board == 0).reshape(-1)
         check_win_board = board.copy()
-        winning_actions = []
+        terminal_actions = [] # includes winning and drawing actions
+        terminal_mask = [] # a list of 0 and 1
+        # where each index corresponds to a drawing action if 0, and a winning action if 1
         for legal_action in legal_actions:
             # Try every legal action anc check if the current player won
             # Very inefficient.cThere is a better implementation
             # for simplicity this will be the example
             x, y = legal_action % WIDTH, legal_action // HEIGHT
             check_win_board[y][x] = current_player
-            if Gomoku.check_win_MCTS(board, (x, y), current_player) == current_player:
-                winning_actions.append((x, y))
-                if fast_check:
-                    break
+            result = Gomoku.check_win_MCTS(board, (x, y), current_player)
+            if result != -2: # this limits the checks by a lot
+                terminal_actions.append((x, y)) # in any case as long as the result != -2, we have a terminal action
+                if result == current_player: # found a winning move
+                    terminal_mask.append(1)
+                    if fast_check:
+                        break
+                elif result == 0: # a drawing move
+                    terminal_mask.append(0)
+
             check_win_board[y][x] = 0 # reset the board
-        return winning_actions
+        return terminal_actions, terminal_mask
 if __name__ == "__main__":
     # example usage
     game = Gomoku()
     game.do_action((7, 7))
     print(game.get_state())
+
+    """
+    Brian's deep thinking, I have to write it somewhere
+    proof that mu zero isn't dependent on game methods
+    I thought that mu zero's MCTS needed to remove illegal moves in the tree well because how else is
+    the tree able to get terminal moves?
+    But that doesn't even need to happen, its even easier than alpha zero's tree because we allow "illegal" moves within the tree
+    but when getting the improved policy from the MCTS, the "illegal" actions are just removed and the distribution is 
+    normalized
+
+    use quotations "illegal" because there is no way for us to know if it is or not, as the tree no longer uses a board
+    but a hidden state which is similar to a compressed version of the board, which the representation and dynamic network
+    generate 
+    """

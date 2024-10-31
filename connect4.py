@@ -1,5 +1,5 @@
 import numpy as np
-
+from numba import njit
 # resources
 print("Please read the comments before you start this project")
 print("Some of the examples are printed out, so run this file to see them")
@@ -120,11 +120,49 @@ print("The operations can be any operations such as +, -, *, /, %, //")
 # list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
 
 class Connect4:
+    # refer to Guide.py to implement each method, please be careful of what is used and returned
+    # if you want pure speed recommend the decorator @njit for methods with for loops and numpy operations
+    # contact Brian if you want more info
     def __init__(self):
         # todo create board
+        pass
+
+    def get_current_player(self):
+        pass
+
+    def get_legal_actions(self):
+        pass
+
+    @staticmethod
+    # @njit(cache=True)
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
         pass
     def do_action(self, action):
         # action is going to be a number from 0 to 6 representing the place to drop the piece
         pass
+
+    @staticmethod
+    # @njit(cache=True)
+    def do_action_MCTS(board, action, current_player):
+        # this is for the monte carlo tree search's
+        pass
+
+    def get_state(self):
+        pass
+    @staticmethod
+    # @njit(cache=True)
+    def get_state_MCTS(board):
+        pass
     def check_win(self):
+        pass
+
+    @staticmethod
+    # @njit(cache=True)
+    def check_win_MCTS(board, last_action):
+        #Used to check if MCTS has reached a terminal node
+        pass
+
+    @staticmethod
+    # @njit(cache=True)
+    def get_winning_actions_MCTS(board, current_player, fast_check=False):
         pass
