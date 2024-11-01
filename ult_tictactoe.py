@@ -87,7 +87,11 @@ class UltimateTicTacToe:
         # putting it all together assuming the first sub board (sub_board_index 0)
         # zip([0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 1, 1, 2, 2, 2], [0, 1, 2, 0, 1, 2, 0, 1, 2])
         # -> [(0, 0, 0), (0, 0, 1), (0, 0, 2), (0, 1, 0), (0, 1, 1), (0, 1, 2), (0, 2, 0), (0, 2, 1), (0, 2, 2)]
-
+        """
+            ^note that this represents [(sub_board_index, y, x), ...] following the format of z, y, x
+            feel free to change the order to get [(x, y, sub_board_index), ...]
+            
+        """
         # repeat for all suboards and have them all in a list
         return moves
 
