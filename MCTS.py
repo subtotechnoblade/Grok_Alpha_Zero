@@ -23,7 +23,7 @@ class Node:
         self.parent: None or Node or Root = parent
 
         self.children: list[Node] = [] # a list of node objects which are the children aka resulting future actions
-        self.child_legal_actions = child_legal_actions # a list of actions, [action1, action2, ...], will be deleted when completely poped
+        self.child_legal_actions = child_legal_actions # a list of actions, [action1, action2, ...], will be deleted when completely popped
         self.child_visits = np.zeros(len(child_legal_actions), dtype=np.float32)
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float32)
         self.child_prob_priors = child_prob_priors
@@ -120,7 +120,7 @@ class MCTS:
         return np.random.normal((9,)), np.random.random() # policy and value
 
     def apply_dirichlet(self, legal_policy):
-        # I'll implement this layer
+        # I'll implement this later
         pass
 
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
