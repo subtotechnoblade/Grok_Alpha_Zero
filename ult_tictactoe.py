@@ -46,7 +46,6 @@ class UltimateTicTacToe:
 
     def get_legal_actions(self):
         moves = []
-        #return np.argwhere(self.board == 0).reshape(-1)
         for board in range (9):
             if (board[9][board/3][board%3] == 0):
                 for x in range (3):
@@ -58,6 +57,14 @@ class UltimateTicTacToe:
         return moves
         # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
+
+    def get_legal_moves_Brian(self):
+        moves = []
+        for sub_board_index, sub_board in enumerate(self.board):
+            action_indexes = np.argwhere(sub_board.reshape(-1) == 0).reshape(-1)
+            sub_board_legal_actions = zip(np.ones_like(action_indexes) * sub_board_index, action_indexes // 3, action_indexes % 3)
+            moves += list(sub_board_legal_actions)
+        return moves
 
     @staticmethod
     # @njit(cache=True)
@@ -138,12 +145,12 @@ class UltimateTicTacToe:
         board = np.array(self.board[9])
         numFilled = 0
         #rows
-        sumRow = np.sum (board, axis = 0)
+        sumRow = np.sum(board, axis=0)
         for val in sumRow:
             if (val == 3 or val == -3):
                 return val/3
         #columns
-        sumCol = np.sum (board, axis = 1)
+        sumCol = np.sum(board, axis = 1)
         for val in sumCol:
             if (val == 3 or val == -3):
                 return val/3
@@ -183,6 +190,7 @@ class UltimateTicTacToe:
 
 if __name__ == "__main__":
     game = UltimateTicTacToe()
+    print(game.get_legal_moves_Brian())
     # Test your functions and methods here
     # to call internal class methods use game.method()
     # to call a static method use UntimateTicTacToe.staticmethod()
