@@ -2,13 +2,14 @@ import numpy as np
 from numba import njit
 from Guide import Gomoku
 class Node:
-    __slots__ = "child_id", "board", "action", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal",  "parent"
+    __slots__ = "child_id", "board", "action", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
     def __init__(self,
                  child_id: int,
                  board: np.array,
                  action: tuple or int,
                  current_player: int,
                  child_legal_actions:list[tuple[int]] or list[int],
+                 RNN_state:list or list[np.array, ...] or np.array,
                  child_prob_priors: np.array,
                  is_terminal=None,
                  parent=None):
@@ -24,21 +25,37 @@ class Node:
 
         self.children: list[Node] = [] # a list of node objects which are the children aka resulting future actions
         self.child_legal_actions = child_legal_actions # a list of actions, [action1, action2, ...], will be deleted when completely popped
-        self.child_visits = np.zeros(len(child_legal_actions), dtype=np.float32)
+        self.child_visits = np.zeros(len(child_legal_actions), dtype=np.float32) # not sure if float32 or uint32 would be better for speed
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float32)
+
+
+        # Pertaining to the input and outputs of the neural network
+        self.RNN_state = RNN_state
         self.child_prob_priors = child_prob_priors
 
         self.is_terminal = is_terminal # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
 class Root(Node): # inheritance
     __slots__ = "visits"
-    def __init__(self, board: np.array, action, current_player, child_legal_actions: list[tuple[int]] or list[int],
+    def __init__(self,
+                 board: np.array,
+                 action,
+                 current_player,
+                 child_legal_actions: list[tuple[int]] or list[int],
+                 RNN_state: list or list[np.array] or np.array,
                  child_prob_priors: np.array):
-        super().__init__(0, board, action, current_player, child_legal_actions, child_prob_priors)
+        super().__init__(0,
+                         board,
+                         action,
+                         current_player,
+                         child_legal_actions,
+                         RNN_state,
+                         child_prob_priors,
+                         is_terminal=None,
+                         parent=None)
         # root's child_id will always be 0 because it is not needed
         self.visits = 0
         del self.child_id # saved 24 bytes OMG
-        del self.parent # saved 16 bytes OMG
         # don't need value because it isn't needed in PUCT calculations
 
 class MCTS:
@@ -112,10 +129,10 @@ class MCTS:
             node: Node = node.children[best_index]
 
 
-    def compute_policy_value(self, state):
+    def compute_policy_value(self, input_state):
         # I'll do this once I have everything else working
         pass
-    def get_dummy_policy_value(self, state):
+    def get_dummy_policy_value(self, input_state):
 
         return np.random.normal((9,)), np.random.random() # policy and value
 

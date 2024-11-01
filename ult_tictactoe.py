@@ -118,7 +118,7 @@ class UltimateTicTacToe:
         # this is for the monte carlo tree search's
         pass
 
-    def get_state(self):
+    def get_inputs_state(self):
         # gets the numpy array for the neural network
         # for now just return the board as a numpy array
         # Brian will probably implement this later for specific neural networks
@@ -129,7 +129,7 @@ class UltimateTicTacToe:
 
     @staticmethod
     # @njit(cache=True)
-    def get_state_MCTS(board):
+    def get_inputs_state_MCTS(board):
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
         return board
