@@ -172,6 +172,12 @@ class UltimateTicTacToe:
                     numFilled += 1
         if (numFilled == 9):
             return 0
+
+        # ^ todo can use numpy's advanced indexing for this
+        # if all(board != 0):
+        # return 0
+        # for loops are slow in python just letting you know
+        # - Brian
         return -2
     @staticmethod
     # @njit(cache=True)
