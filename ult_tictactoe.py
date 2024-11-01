@@ -166,18 +166,8 @@ class UltimateTicTacToe:
             return sumDia2/3
         
         #checks for tie
-        for i in range (3):
-            for j in range (3):
-                if (board[i][j] != 0):
-                    numFilled += 1
-        if (numFilled == 9):
+        if all (board != 0):
             return 0
-
-        # ^ todo can use numpy's advanced indexing for this
-        # if all(board != 0):
-        # return 0
-        # for loops are slow in python just letting you know
-        # - Brian
         return -2
     @staticmethod
     # @njit(cache=True)
