@@ -63,9 +63,31 @@ class UltimateTicTacToe:
     def get_legal_moves_Brian(self):
         moves = []
         for sub_board_index, sub_board in enumerate(self.board):
-            action_indexes = np.argwhere(sub_board.reshape(-1) == 0).reshape(-1)
-            sub_board_legal_actions = zip(np.ones_like(action_indexes) * sub_board_index, action_indexes // 3, action_indexes % 3)
-            moves += list(sub_board_legal_actions)
+            legal_action_indexes = np.argwhere(sub_board.reshape(-1) == 0).reshape(-1)
+            print(legal_action_indexes)
+            print(np.ones_like(legal_action_indexes) * sub_board_index, legal_action_indexes // 3, legal_action_indexes % 3)
+            sub_board_legal_action_coords = zip(np.ones_like(legal_action_indexes) * sub_board_index, legal_action_indexes // 3, legal_action_indexes % 3)
+            print(list(sub_board_legal_action_coords))
+            moves += list(sub_board_legal_action_coords)
+            raise ValueError("This is not an error just a debugging message, remove this once you understand")
+        # for each sub board get the sub_board_index and sub_board from [(0, board0), (1, board1), ...]
+        # the (0, board0) is generated from enumerate(self.board)
+        # get the indexes that are 0 aka empty reshaping the array to be of shape (-1,)
+        # legal_actions for sub_board -> [0, 1, 2, 3, 4, 5, 6, 7, 8] assuming fully empty sub board
+
+        # now each element gets floor dived by 3 gives the y index
+        # giving for the y axis [0 0 0 1 1 1 2 2 2]
+
+        # mod by 3 giving us the x (remainder is x index)
+        # giving for the x axis [0 1 2 0 1 2 0 1 2]
+
+        # np.ones_like(action_indexes) gives an array of length legal_action and multiplied by sub_board index
+        # gives an array of repeating sub_board_indexes
+        # putting it all together assuming the first sub board (sub_board_index 0)
+        # zip([0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 1, 1, 1, 2, 2, 2], [0, 1, 2, 0, 1, 2, 0, 1, 2])
+        # -> [(0, 0, 0), (0, 0, 1), (0, 0, 2), (0, 1, 0), (0, 1, 1), (0, 1, 2), (0, 2, 0), (0, 2, 1), (0, 2, 2)]
+
+        # repeat for all suboards and have them all in a list
         return moves
 
     @staticmethod
@@ -145,7 +167,7 @@ class UltimateTicTacToe:
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
         board = np.array(self.board[9])
-        numFilled = 0
+        numFilled = 0 # not needed anymore
         #rows
         sumRow = np.sum(board, axis=0)
         for val in sumRow:
