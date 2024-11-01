@@ -33,35 +33,36 @@ class UltimateTicTacToe:
         return board
     """
     def __init__(self):
-        # MUST HAVE VARIABLES
-        # define your board as a numpy array
-        self.board = np.array([])
-        # current player as an int, first player will be -1 second player is 1
+        self.board = np.zeros((9, 9), dtype=np.int8) #initialize board as a numpy array
         self.current_player = -1
-        # to swap the current the player -> current_player *= -1 (very handy)
         # action history as a list [action0, action1, ...]
         self.action_history = []
-        # feel free to define more class attributes (variables)
-
-        # THE COMMENTS AND EXAMPLES IN THIS CLASS IS FOR TIC TAC TOE
-        # must also define policy shape
-        # for tictactoe the shape of (9,) is expected because there are 9 possible moves
-        # for connect 4 the shape is (7,) because there are only 7 possible moves
-        # for connect 5 it is (225,) because 15 * 15 amount of actions where the index
-        # you should request for a flattened policy (for tic tac toe) -> (9,) rather than (3, 3)
-        # in parse policy you will have to convert the policy into actions and the associated prob_prior
-        self.policy_shape = ("your policy shape (length)",) # MUST HAVE or else I won't be able to define the neural network
-        # just know that the illegal moves are removed and the policy which is a probability distribution
-        # is re normalized
+        self.policy_shape = (81,) 
+        self.won_squares = np.zeros((3,3), dtype = np.int8) #if a square is won change it to 1
 
     def get_current_player(self):
-        # returns the current player
+        return self.current_player
+        
+    #Plan: Make a check_win method that takes in a 3x3 array and checks if win
+    #Can be used for small squares as well as large squares 
+    #If small square, make new array of size 3x3 manually
+    #If large square, run through this method to see which small squares have been won and make new array of size 3x3 
+    def get_win_small_square(self):
         pass
 
+    #Need to also check:
+    #Get last move: get the small square the last move led you to
+    #If small square is won, get all other legal actions given this
     def get_legal_actions(self):
+        #return np.argwhere(self.board == 0).reshape(-1)
+        for x in range(3):
+            for y in range(3):
+                if (x == 0 and y == 0):
+                    print("hi")
+        pass
         # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
-        pass
+
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
@@ -100,9 +101,17 @@ class UltimateTicTacToe:
         pass
 
 
+    #Should also check if small square for current move is filled
     def do_action(self, action):
-        # places the move onto the board
+        x, y = action
+        assert self.board[y][x] == 0 #ensures move is legal
+        
+        self.board[y][x] = self.current_player # put the move onto the board
+        self.current_player *= -1 # change players to the next player to play
+
+        self.action_history.append(action) #add action to action history
         pass
+    
     @staticmethod
     # @njit(cache=True)
     def do_action_MCTS(board, action, current_player):
