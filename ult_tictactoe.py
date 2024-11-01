@@ -72,7 +72,8 @@ class UltimateTicTacToe:
             raise ValueError("This is not an error just a debugging message, remove this once you understand")
         # for each sub board get the sub_board_index and sub_board from [(0, board0), (1, board1), ...]
         # the (0, board0) is generated from enumerate(self.board)
-        # get the indexes that are 0 aka empty reshaping the array to be of shape (-1,)
+        # reshape the board into a vector, where y = element // 3 and x = element % 3
+        # get the indexes that are 0 with sub_board == 0 aka empty reshaping the array to be of shape (-1,)
         # legal_actions for sub_board -> [0, 1, 2, 3, 4, 5, 6, 7, 8] assuming fully empty sub board
 
         # now each element gets floor dived by 3 gives the y index
