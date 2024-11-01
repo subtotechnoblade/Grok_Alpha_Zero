@@ -53,7 +53,9 @@ class UltimateTicTacToe:
                         if(self.board[board][x][y] == 0):
                             moves.append((board,x,y))
 
-
+        # ^ board[9] is going to give you an error, u probably meant self.board[9]
+        # you should probably rename board to be called sub_board_index
+        # don't confuse self.board and board
         return moves
         # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
