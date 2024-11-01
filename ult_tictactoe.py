@@ -33,34 +33,30 @@ class UltimateTicTacToe:
         return board
     """
     def __init__(self):
-        self.board = np.zeros((9, 9), dtype=np.int8) #initialize board as a numpy array
+        #initialize board as a numpy array, first 9 entries are individual boards, and the 10th is the overall board
+        self.board = np.zeros((10, 3, 3), dtype=np.int8)
         self.current_player = -1
         # action history as a list [action0, action1, ...]
         self.action_history = []
         self.policy_shape = (81,) 
-        self.won_squares = np.zeros((3,3), dtype = np.int8) #if a square is won change it to 1
 
     def get_current_player(self):
         return self.current_player
         
-    #Plan: Make a check_win method that takes in a 3x3 array and checks if win
-    #Can be used for small squares as well as large squares 
-    #If small square, make new array of size 3x3 manually
-    #If large square, run through this method to see which small squares have been won and make new array of size 3x3 
-    def get_win_small_square(self):
-        pass
 
-    #Need to also check:
-    #Get last move: get the small square the last move led you to
-    #If small square is won, get all other legal actions given this
     def get_legal_actions(self):
+        moves = []
         #return np.argwhere(self.board == 0).reshape(-1)
-        for x in range(3):
-            for y in range(3):
-                if (x == 0 and y == 0):
-                    print("hi")
-        pass
-        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
+        for board in range (9):
+            if (board[9][board/3][board%3] == 0):
+                for x in range (3):
+                    for y in range(3):
+                        if(self.board[board][x][y] == 0):
+                            moves.append((board,x,y))
+
+
+        return moves
+        # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
 
     @staticmethod
@@ -103,10 +99,10 @@ class UltimateTicTacToe:
 
     #Should also check if small square for current move is filled
     def do_action(self, action):
-        x, y = action
-        assert self.board[y][x] == 0 #ensures move is legal
+        x, y, z = action
+        assert self.board[x][y][z] == 0 and self.board[9][x/3][x%3] == 0 #ensures move is legal
         
-        self.board[y][x] = self.current_player # put the move onto the board
+        self.board[x][y][z] = self.current_player # put the move onto the board
         self.current_player *= -1 # change players to the next player to play
 
         self.action_history.append(action) #add action to action history
@@ -134,10 +130,40 @@ class UltimateTicTacToe:
         # just return the board from the inputs
         return board
 
+
+    #this is an END OF GAME check, not a board section check
     def check_win(self):
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
-        pass
+        board = np.array(self.board[9])
+        numFilled = 0
+        #rows
+        sumRow = np.sum (board, axis = 0)
+        for val in sumRow:
+            if (val == 3 or val == -3):
+                return val/3
+        #columns
+        sumCol = np.sum (board, axis = 1)
+        for val in sumCol:
+            if (val == 3 or val == -3):
+                return val/3
+        
+        #diagonals
+        sumDia1 = np.trace(board)
+        sumDia2 = np.trace(np.fliplr(board))
+        if (sumDia1 == 3 or sumDia1 == -3): 
+            return sumDia1/3
+        if (sumDia2 == 3 or sumDia2 == -3): 
+            return sumDia2/3
+        
+        #checks for tie
+        for i in range (3):
+            for j in range (3):
+                if (board[i][j] != 0):
+                    numFilled += 1
+        if (numFilled == 9):
+            return 0
+        return -2
     @staticmethod
     # @njit(cache=True)
     def check_win_MCTS(board, last_action):
