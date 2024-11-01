@@ -155,3 +155,8 @@ class UltimateTicTacToe:
         pass
 
 
+if __name__ == "__main__":
+    game = UltimateTicTacToe()
+    # Test your functions and methods here
+    # to call internal class methods use game.method()
+    # to call a static method use UntimateTicTacToe.staticmethod()

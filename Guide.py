@@ -42,6 +42,7 @@ class Game:
         return board
     """
     def __init__(self):
+        
         # MUST HAVE VARIABLES
         # define your board as a numpy array
         self.board = np.array([])
@@ -396,5 +397,5 @@ if __name__ == "__main__":
 
     use quotations "illegal" because there is no way for us to know if it is or not, as the tree no longer uses a board
     but a hidden state which is similar to a compressed version of the board, which the representation and dynamic network
-    generate 
+    generates
     """
