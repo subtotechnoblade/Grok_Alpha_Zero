@@ -117,7 +117,7 @@ class MCTS:
                     terminal_nodes = [terminal_child for terminal_child in node.children if terminal_child.is_terminal != 0]
                 else:
                     terminal_nodes = node.children
-                return terminal_nodes[np.random.randint(1, len(terminal_nodes) + 1)] # + 1 because upper is not inclusive
+                return terminal_nodes[np.random.randint(1, len(terminal_nodes))]
             
             
             if len(node.child_values) > len(node.children): # we have to select a node to return as it is a new unvisited node
@@ -245,8 +245,17 @@ class MCTS:
             # negated child_child_values is the child value
         return child, -child_value # contact Brian if you don't understand why it is -value
 
-    def _back_propagate(self, node):
-        pass
+    def _back_propagate(self, node: Node, value: float) -> None:
+        # note that the node class is the child returned by expand or selection method
+        while node.parent is not None:
+            # stats are stored in parent
+            # so in order to update stats we have to index the parent's
+            # child value and child visits
+            node.parent.child_values[node.child_id] += value
+            node.parent.child_visits[node.child_id] += 1
+            value *= -1 # negate for the opponents move
+            node = node.parent
+
 
     def run(self):
         # will probably need to update requirements.txt for tqdm as a new library
@@ -260,6 +269,7 @@ class MCTS:
         new_root.children = child.children
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
+
     def prune_tree(self, action):
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node

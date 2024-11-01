@@ -166,7 +166,12 @@ class UltimateTicTacToe:
             return sumDia2/3
         
         #checks for tie
-        if all (board != 0):
+        if all(board != 0):
+            # board != 0 creates an array with the same shape as board as boolean values
+            # each element of board gets replaced by element != 0 (boolean values)
+            # all just checks if all of the values are True
+            # giving something like [1, 0, 0] -> [True, False, False] -> False
+            # i.e. if all of the elements are not 0, then True
             return 0
         return -2
     @staticmethod
