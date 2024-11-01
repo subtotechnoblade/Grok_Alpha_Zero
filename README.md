@@ -20,6 +20,8 @@ RWKV-v4 paper: https://arxiv.org/abs/2305.13048
 
 RWKV-v5,6: https://arxiv.org/abs/2404.05892
 
+Should heavily consider:
+Alpha Zero continous action space: https://arxiv.org/abs/1805.09613
 
 Possible Reads: 
 
