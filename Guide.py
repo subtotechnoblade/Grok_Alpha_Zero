@@ -71,6 +71,7 @@ class Game:
     def get_legal_actions(self):
         # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
+        # MAKE SURE THERE are no duplicates (pretty self explanatory)
         pass
     @staticmethod
     # @njit(cache=True)
@@ -107,6 +108,12 @@ class Game:
             # shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
             # legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
         # return legal_moves, policy
+
+        # MAKE SURE THERE ARE NO DUPLICATES because it is going to increase the tree complexity thus slowing things down
+        # it is also going to give a wrong policy and weird errors might occur
+        # for checking use
+        # assert len(legal_actions) == len(set(legal_action))
+        # set cannot have any duplicates and thus removed so if the lengths are different the there is a problem
         pass
 
 

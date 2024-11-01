@@ -67,6 +67,7 @@ class MCTS:
                  c_puct_base: float=19_652,
                  use_dirichlet=True,
                  dirichlet_alpha=1.11,
+                 dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
                  fast_check_win=False # this is for training, when exploiting change to True
                  ):
         self.game = game
@@ -77,14 +78,20 @@ class MCTS:
 
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
+        self.dirichlet_epsilon = dirichlet_epsilon
         # dirichlet_alpha can be choosen with (10 / average_moves_per_game), 10 / 9 = 1.11 for tic tac toe
         # see https://ai.stackexchange.com/questions/25939/alpha-zero-does-not-converge-for-connect-6-a-game-with-huge-branching-factor
         # for more info on what c_puct should be along with how dirichlet alpha should be calculated
 
         # perform inference call to initialize root
-        child_policy, child_value = self.get_dummy_policy_value(self.game.board.copy())
+        child_policy, child_value, initial_RNN_state = self._get_dummy_outputs(self.game.board.copy(), [1, 3,3])
         legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
-        self.root = Root(game.board.copy(), self.game.action_history[-1], legal_actions, child_prob_prior)
+        self.root = Root(game.board.copy(),
+                         self.game.action_history[-1],
+                         self.game.get_current_player(),
+                         legal_actions,
+                         initial_RNN_state,
+                         child_prob_prior)
 
     @staticmethod
     # @njit(cache=True)
@@ -129,16 +136,18 @@ class MCTS:
             node: Node = node.children[best_index]
 
 
-    def compute_policy_value(self, input_state):
+    def _compute_outputs(self, input_state, RNN_state):
         # I'll do this once I have everything else working
+        # this returns the policy, value, RNN_state in a list
         pass
-    def get_dummy_policy_value(self, input_state):
+    def _get_dummy_outputs(self, input_state, RNN_state):
+        # since I'm not using RNN_state I can just return it for the next node
+        # this will also give the next RNN_state that is required for the next inference call
+        return np.random.normal((9,)), np.random.random(), RNN_state # policy and value
 
-        return np.random.normal((9,)), np.random.random() # policy and value
+    def _apply_dirichlet(self, legal_policy):
+        return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
-    def apply_dirichlet(self, legal_policy):
-        # I'll implement this later
-        pass
 
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
         # winning actions must have at least 1 winning action
@@ -154,8 +163,15 @@ class MCTS:
             # it's nice to see the some numbers that state that there is a win or loss
         terminal_parent_current_player = node.current_player * -1
 
-        terminal_parent = Node(len(node.children), terminal_parent_board, terminal_parent_action, terminal_parent_current_player, [], terminal_parent_prob_prior,
-                     None, parent=node)
+        terminal_parent = Node(len(node.children),
+                               terminal_parent_board,
+                               terminal_parent_action,
+                               terminal_parent_current_player,
+                               child_legal_actions=[],
+                               RNN_state=None,
+                               child_prob_priors=terminal_parent_prob_prior,
+                               is_terminal=None,
+                               parent=node)
         node.append(terminal_parent)
 
         terminal_parent.child_values = terminal_mask # 0 for draws and 1 for wins, thus perfect for child_values
@@ -178,6 +194,7 @@ class MCTS:
             del terminal_child.child_visits
             del terminal_child.child_prob_priors
             del terminal_child.child_legal_actions
+            del terminal_child.RNN_state
 
             terminal_parent.children.append(terminal_child)
 
@@ -189,19 +206,29 @@ class MCTS:
         # create the child to expand
         child_action = node.child_legal_actions.pop(-1) # this must be -1 because list pop is O(1),
         # only when popping from the right
-        child_board = self.game.do_action_MCTS(node.board, child_action)
+        child_board = self.game.do_action_MCTS(node.board.copy(), child_action)
+        # must copy, because each node child depends on the parent's board state and its action
 
         terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(child_board, node.current_player * -1, fast_check=self.fast_check_win)
         if terminal_actions:
             child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, node.current_player, terminal_actions, terminal_mask)
 
         else:
-            child_policy, child_value = self.get_dummy_policy_value(self.game.get_state_MCTS(child_board))
+            child_policy, child_value, next_RNN_state = self._get_dummy_outputs(self.game.get_state_MCTS(child_board), node.RNN_state)
+            del node.RNN_state
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, child_policy)
             # gets the legal actions and associated probabilities
-            child = Node(len(node.children), child_board, child_action, node.current_player * -1, child_legal_actions, child_prob_prior, None, parent=node)
+            child = Node(len(node.children),
+                         child_board,
+                         child_action,
+                         node.current_player * -1,
+                         child_legal_actions,
+                         next_RNN_state,
+                         child_prob_prior,
+                         None,
+                         parent=node)
             # we dont't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
             node.children.append(child)

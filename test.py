@@ -5,9 +5,12 @@ import time
 import numpy as np
 from numba import njit
 
-x = [num for num in range(10) if num % 2 == 0]
+x = np.array([1, 2, 3])
+y = x
+del x
+y[0] = 2
 if __name__ == "__main__":
-    print(x)
+    print(y)
 
 
 
