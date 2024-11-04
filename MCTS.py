@@ -39,8 +39,8 @@ class Root(Node): # inheritance
     __slots__ = "visits"
     def __init__(self,
                  board: np.array,
-                 action,
-                 current_player,
+                 action: list or tuple or np.array,
+                 current_player: int,
                  child_legal_actions: list[tuple[int]] or list[int],
                  RNN_state: list or list[np.array] or np.array,
                  child_prob_priors: np.array):
@@ -94,7 +94,7 @@ class MCTS:
                          child_prob_prior)
 
     @staticmethod
-    # @njit(cache=True)
+    # @njit(cache=True) # dont jit
     def _get_best_PUCT_score_index(child_prob_priors: np.array,
                                    child_values: np.array,
                                    child_visits: np.array,
@@ -251,10 +251,13 @@ class MCTS:
             # stats are stored in parent
             # so in order to update stats we have to index the parent's
             # child value and child visits
-            node.parent.child_values[node.child_id] += value
-            node.parent.child_visits[node.child_id] += 1
-            value *= -1 # negate for the opponents move
+            node_id = node.child_id
             node = node.parent
+            # ^ does two things, 1. moves up the thee
+            # 2. stores the pointer within in the variable rather than indexing twice
+            node.child_values[node_id] += value
+            node.child_visits[node_id] += 1
+            value *= -1 # negate for the opponent's move
 
 
     def run(self):
