@@ -291,12 +291,12 @@ class Gomoku:
         return -2
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def check_win_MCTS(board: np.array, last_move: tuple, current_player: int) -> int:
+    def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
 
-        current_x, current_y = last_move
+        current_x, current_y = last_action
 
         fives = 0
         for i in range(-5 + 1, 5):

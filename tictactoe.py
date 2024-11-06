@@ -67,13 +67,13 @@ def foo(inputs):
     return inputs ** 2
 
 # class
-class House:
-    def __init__(self, new_owner): # constructor
-        self.owner = "Jessica" # Jessica
-        self.owner = new_owner # Brian overwrites Jessica
-
-house = House("Brian") # this is calling constructor
-print(f"Ha Ha {house.owner} is the new owner")
+# class House:
+#     def __init__(self, new_owner): # constructor
+#         self.owner = "Jessica" # Jessica
+#         self.owner = new_owner # Brian overwrites Jessica
+#
+# house = House("Brian") # this is calling constructor
+# print(f"Ha Ha {house.owner} is the new owner")
 
 
 class TicTacToe:
