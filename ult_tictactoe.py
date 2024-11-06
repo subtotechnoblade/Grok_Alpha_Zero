@@ -176,6 +176,7 @@ class UltimateTicTacToe:
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
         board = np.array(self.board[9])
+        "            ^ there is no need for np.array(self.board[9]) because that just creates a copy"
         numFilled = 0 # not needed anymore
         #rows
         sumRow = np.sum(board, axis=0)
@@ -197,7 +198,7 @@ class UltimateTicTacToe:
             return sumDia2/3
         
         #checks for tie
-        if all(board != 0):
+        if (board != 0).all():
             # board != 0 creates an array with the same shape as board as boolean values
             # each element of board gets replaced by element != 0 (boolean values)
             # all just checks if all of the values are True
