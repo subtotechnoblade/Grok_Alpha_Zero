@@ -86,15 +86,11 @@ class TicTacToe:
         # todo make move_history and add the played move everytime do_action is called
 
     def get_current_player(self):
-        # returns the current player
-        pass
+        return self.current_player
 
     def get_legal_actions(self):
-        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
-        # Note that this action will be passed into do_action() and do_action_MCTS
-        # MAKE SURE THERE are no duplicates (pretty self explanatory)
+        #self.action_history
         pass
-
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
@@ -142,23 +138,19 @@ class TicTacToe:
         x, y = action
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
+        self.action_history.append(action)
 
         # Implement action_history
 
     @staticmethod
     # @njit(cache=True)
     def do_action_MCTS(board, action, current_player):
-        # this is for the monte carlo tree search's
-        pass
+        x, y = action
+        board[y][x] = current_player
+        return board
 
     def get_input_state(self):
-        # gets the numpy array for the neural network
-        # for now just return the board as a numpy array
-        # Brian will probably implement this later for specific neural networks
-        # RWKV can just take in the board without problem
-        # the original alphazero's network required the past boards
-        # Uses in the root node of MCTS
-        pass
+        return self.board
 
     @staticmethod
     # @njit(cache=True)
@@ -202,6 +194,7 @@ if __name__ == "__main__":
     game.do_action((0, 0))
     print(game.board)
     game.check_win()
+
 
 
 
