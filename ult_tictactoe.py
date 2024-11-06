@@ -43,7 +43,7 @@ class UltimateTicTacToe:
     def get_current_player(self):
         return self.current_player
         
-''''
+    '''
     def get_legal_actions(self):
         moves = []
         for sub_board_index in range (9):
@@ -59,7 +59,7 @@ class UltimateTicTacToe:
         return moves
         # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
-'''
+    '''
     def get_legal_moves(self):
         moves = []
         for sub_board_index, sub_board in enumerate(self.board):
@@ -132,7 +132,7 @@ class UltimateTicTacToe:
         # return legal_moves, policy
         pass
 
-
+    
     #Should also check if small square for current move is filled
     def do_action(self, action):
         z, y, x = action
