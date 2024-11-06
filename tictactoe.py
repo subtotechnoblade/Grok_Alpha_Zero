@@ -88,12 +88,14 @@ class TicTacToe:
     def get_current_player(self):
         return self.current_player
 
-    def get_legal_actions(self) -> list[tuple[int, int], ...] or np.array:
+    def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
         total_actions = set()
         for y in range(3):
             for x in range(3):
                 if self.board[y][x] == 0:
                     total_actions.add((x, y))
+        legal_actions = total_actions - set(self.action_history)
+        return list(legal_actions)
 
         set(self.action_history)
 
