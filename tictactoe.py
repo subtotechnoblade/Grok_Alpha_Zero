@@ -195,14 +195,15 @@ class TicTacToe:
         # check the gomoku example for more info
         pass
 
+if __name__ == "__main__":
+    # test your code here
+    game = TicTacToe()
+    game.do_action((1, 1))
+    game.do_action((0, 0))
+    print(game.board)
+    game.check_win()
 
-game = TicTacToe()
-game.do_action((1, 1))
-game.do_action((0, 0))
-print(game.board)
-game.check_win()
 
 
-
-# todo Jump Ian Patrick Tang
+    # todo Jump Ian Patrick Tang
 
