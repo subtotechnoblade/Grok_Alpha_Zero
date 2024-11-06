@@ -43,15 +43,15 @@ class UltimateTicTacToe:
     def get_current_player(self):
         return self.current_player
         
-
+''''
     def get_legal_actions(self):
         moves = []
-        for board in range (9):
-            if (board[9][board/3][board%3] == 0):
+        for sub_board_index in range (9):
+            if (self.board[9][sub_board_index/3][sub_board_index%3] == 0):
                 for x in range (3):
                     for y in range(3):
-                        if(self.board[board][x][y] == 0):
-                            moves.append((board,x,y))
+                        if(self.board[sub_board_index][x][y] == 0):
+                            moves.append((sub_board_index,x,y))
 
         # ^ board[9] is going to give you an error, u probably meant self.board[9]
         # you should probably rename board to be called sub_board_index
@@ -59,8 +59,8 @@ class UltimateTicTacToe:
         return moves
         # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
-
-    def get_legal_moves_Brian(self):
+'''
+    def get_legal_moves(self):
         moves = []
         for sub_board_index, sub_board in enumerate(self.board):
             legal_action_indexes = np.argwhere(sub_board.reshape(-1) == 0).reshape(-1)
@@ -135,10 +135,10 @@ class UltimateTicTacToe:
 
     #Should also check if small square for current move is filled
     def do_action(self, action):
-        x, y, z = action
-        assert self.board[x][y][z] == 0 and self.board[9][x/3][x%3] == 0 #ensures move is legal
+        z, y, x = action
+        assert self.board[z][x][y] == 0 and self.board[9][z/3][z%3] == 0 #ensures move is legal
         
-        self.board[x][y][z] = self.current_player # put the move onto the board
+        self.board[z][x][y] = self.current_player # put the move onto the board
         self.current_player *= -1 # change players to the next player to play
 
         self.action_history.append(action) #add action to action history
