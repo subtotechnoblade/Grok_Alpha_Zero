@@ -137,7 +137,11 @@ class UltimateTicTacToe:
     def do_action(self, action):
         z, y, x = action
         assert self.board[z][x][y] == 0 and self.board[9][z/3][z%3] == 0 #ensures move is legal
-        
+        '''
+        Small note that z/3 does not give an integer it gives a float because python, z//3 is what you want
+        floor division returns the result rounded down to the nearest integer, 5 // 2 = 2
+        -Brian
+        '''
         self.board[z][x][y] = self.current_player # put the move onto the board
         self.current_player *= -1 # change players to the next player to play
 

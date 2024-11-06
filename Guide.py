@@ -193,7 +193,7 @@ class Gomoku:
 
         legal_actions = np.argwhere(board[board == 0]).reshape(-1) # get the indexes where the board is not filled
         # note that policy should already be flattened
-        if shuffle:
+        if shuffle: # feel free to no implement this
             shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
             legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
         return legal_actions, policy

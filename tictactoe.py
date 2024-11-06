@@ -1,5 +1,5 @@
 import numpy as np
-#
+
 # make zeros array np.zeros(shape)
 # make ones array np.ones(shape)
 # make array from list np.array(list)
