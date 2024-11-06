@@ -83,24 +83,24 @@ class TicTacToe:
         self.action_history = []
         # doesn't return anything
 
+        self.total_actions = set() # precompute all possible actions at the start
+        for y in range(3):
+            for x in range(3):
+                if self.board[y][x] == 0:
+                    self.total_actions.add((x, y))
         # todo make move_history and add the played move everytime do_action is called
 
     def get_current_player(self):
         return self.current_player
 
     def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
-        total_actions = set()
-        for y in range(3):
-            for x in range(3):
-                if self.board[y][x] == 0:
-                    total_actions.add((x, y))
-        legal_actions = total_actions - set(self.action_history)
-        return list(legal_actions)
+        """
+        self.total_action is a set
+        :return: a list of actions [action0, action1]
+        """
+        return list(self.total_actions - set(self.action_history)) # Note: O(n)
 
-        set(self.action_history)
 
-        # note to return a list of actions [action0, ...]
-        pass
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
@@ -177,7 +177,7 @@ class TicTacToe:
 
         # then check the np.sum(row, dia, columns)
         # for checking if a draw check, Brian will write it for you
-        if all(self.board != 0):
+        if (self.board != 0).all():
             return 0
         raise NotImplementedError("Implement check win with other methods")
 
@@ -201,9 +201,10 @@ if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
     game.do_action((1, 1))
-    game.do_action((0, 0))
-    print(game.board)
-    game.check_win()
+    # game.do_action((0, 0))
+    print(game.get_legal_actions())
+    print(len(game.get_legal_actions()))
+    # game.check_win()
 
 
 
