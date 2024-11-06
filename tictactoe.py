@@ -80,6 +80,7 @@ class TicTacToe:
     def __init__(self):
         self.current_player = -1
         self.board = np.zeros((3, 3), dtype=np.int8)
+        self.action_history = []
         # doesn't return anything
 
         # todo make move_history and add the played move everytime do_action is called
@@ -89,22 +90,18 @@ class TicTacToe:
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
 
-    def _check_row(self, row):
-        # before optimization
-        return sum(row) == -3 or sum(row) == 3
+        # Implement action_history
 
-        # after optimization
-        sum_row = sum(row)
-        return sum_row == -3 or sum_row == 3
-        # return -sum_row == 3 == sum_row # dumbest thing I've done
-
-
-    def _check_diagonal(self, board):
-        np.diag(board, 0) # returns the diagonal check numpy docs for more info
-        # see: https://numpy.org/doc/stable/reference/generated/numpy.diagonal.html
-        # flipping a board see: https://numpy.org/doc/stable/reference/generated/numpy.fliplr.html
-        raise NotImplementedError("Implement check diagonal")
     def check_win(self):
+        # for getting a row use indexing board [0]
+        # for getting a column use advanced indexing [:, 0] # where the 0 is the column number
+        # for a diagonal (left to right) use np.trace()
+        # for the right to left diagonal use np.fliplr (flips the board left to right) and np.trace to get the diagonal
+
+        # then check the np.sum(row, dia, columns)
+        # for checking if a draw check, Brian will write it for you
+        if all(self.board != 0):
+            return 0
         raise NotImplementedError("Implement check win with other methods")
 
 
