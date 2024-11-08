@@ -187,9 +187,9 @@ class Gomoku:
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
         board = board.reshape(-1) # makes sure that the board is a vector
         policy = policy[board == 0] # keep the probabilities where the board is not filled
-        # [board == 0] creates a mask and when the mask element is True policy at that index is returned
-        # normalize the policy back to a probability distribution
+        # [board == 0] creates a mask and when the mask element is True, the probability at that index is returned
         policy /= np.sum(policy)
+        # normalize the policy back to a probability distribution
 
         legal_actions = np.argwhere(board[board == 0]).reshape(-1) # get the indexes where the board is not filled
         # note that policy should already be flattened
