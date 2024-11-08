@@ -371,7 +371,7 @@ class Gomoku:
         # where each index corresponds to a drawing action if 0, and a winning action if 1
         for legal_action in legal_actions:
             # Try every legal action anc check if the current player won
-            # Very inefficient.cThere is a better implementation
+            # Very inefficient. There is a better implementation
             # for simplicity this will be the example
             x, y = legal_action % WIDTH, legal_action // HEIGHT
             check_win_board[y][x] = current_player
