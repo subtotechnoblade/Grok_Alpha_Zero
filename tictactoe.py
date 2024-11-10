@@ -178,6 +178,11 @@ class TicTacToe:
         for row in self.board:
             if self._check_row(row) is True:
                 return row[0]
+
+        print("columns:")
+        for column_index in range(3):
+            column = self.board[:, column_index]
+            print(column)
         #self.board
         #self.action_history
         # for getting a row use indexing board [0]
@@ -210,10 +215,15 @@ class TicTacToe:
 if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
-    game.do_action((1, 1))
+    game.do_action((0, 0))
+    game.do_action((1, 0))
+    game.do_action((2, 0))
+    print(game.board)
     # game.do_action((0, 0))
-    print(game.get_legal_actions())
-    print(len(game.get_legal_actions()))
+
+    print(game.check_win())
+    # print(game.get_legal_actions())
+    # print(len(game.get_legal_actions()))
     # game.check_win()
 
 
