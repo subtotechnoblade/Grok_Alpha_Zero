@@ -169,7 +169,17 @@ class TicTacToe:
         # just return the board from the inputs
         return board
 
+    def _check_row(self, row):
+        if row[0] != 0 and row[0] == row[1] == row[2]:
+            return True
+        return False
+
     def check_win(self):
+        for row in self.board:
+            if self._check_row(row) is True:
+                return row[0]
+        #self.board
+        #self.action_history
         # for getting a row use indexing board [0]
         # for getting a column use advanced indexing [:, 0] # where the 0 is the column number
         # for a diagonal (left to right) use np.trace()
