@@ -169,32 +169,38 @@ class TicTacToe:
         # just return the board from the inputs
         return board
 
-    def _check_row(self, row):
+    def _check_row(self, row): #A function for checking if there's a win on each row.
         if row[0] != 0 and row[0] == row[1] == row[2]:
-            return True
-        return False
+            return True #If all 3 items on a row equal, someone has won. Yippee!
+        return False #If not then sadly not :(
 
-    def check_win(self):
+
+    def check_win(self): #Checking if someone has won in rows
         for row in self.board:
-            if self._check_row(row) is True:
-                return row[0]
+            if self._check_row(row) is True: #Pulling out func from LALA-land
+                return self.current_player #Someone has won! :D
 
-        print("columns:")
-        for column_index in range(3):
+        for column_index in range(3): #Checking if someone has won in columns
             column = self.board[:, column_index]
-            print(column)
-        #self.board
-        #self.action_history
-        # for getting a row use indexing board [0]
-        # for getting a column use advanced indexing [:, 0] # where the 0 is the column number
-        # for a diagonal (left to right) use np.trace()
-        # for the right to left diagonal use np.fliplr (flips the board left to right) and np.trace to get the diagonal
+            if self._check_row(column) is True: #Pulling out func from LALA-land pt2
+                return self.current_player #Someone has won, yippee :3
 
-        # then check the np.sum(row, dia, columns)
-        # for checking if a draw check, Brian will write it for you
-        if (self.board != 0).all():
+        diag1 = np.diag(self.board) #Checking if someone has won in diagonals
+        if self._check_row(diag1) is True: #Pulling out func from dark magic
+            return self.current_player #Someone has won :P
+
+        diag2 = np.diag(np.fliplr(self.board))
+        if self._check_row(diag2) is True: #Pulling func from Narnia
+            return self.current_player #Someone has won :)
+
+        flattened_board = self.board.reshape((9,)) #Reshape board into 9 items, this is to check for draw
+        for value in flattened_board:
+            if value == 0: #Still empty spaces on the board, stop checking!!
+                break
+        else:
             return 0
-        raise NotImplementedError("Implement check win with other methods")
+
+        return -2 #Game continues :3
 
     @staticmethod
     # @njit(cache=True)
