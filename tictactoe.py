@@ -178,6 +178,8 @@ class TicTacToe:
     def check_win(self): #Checking if someone has won in rows
         for row in self.board:
             if self._check_row(row) is True: #Pulling out func from LALA-land
+                "                    ^ Jessy, just letting you know that 'is True' is not necessary for python"
+                "It's equally valid to do 'if self._check_row(row):' - Brian"
                 return self.current_player #Someone has won! :D
 
         for column_index in range(3): #Checking if someone has won in columns
@@ -198,7 +200,7 @@ class TicTacToe:
             if value == 0: #Still empty spaces on the board, stop checking!!
                 break
         else:
-            return 0
+            return 0 # return a draw if break never happens - Brian
 
         return -2 #Game continues :3
 
