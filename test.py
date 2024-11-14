@@ -27,35 +27,30 @@ import multiprocessing as mp
 
 if __name__ == "__main__":
 
-    # def task(lock, i):
-    #
-    #     with lock, h5.File("test.h5", "r+") as f:
-    #         f["0"][i] = i + 1
-    #
-    #     print(f"Done{i}")
-    #
-    #
-    # with h5.File("test.h5", "w", libver="latest") as f:
-    #     f.create_dataset(f"{0}", maxshape=(None,), dtype=np.int32, data=np.zeros(6))
-    # lock = mp.Lock()
-    # jobs = []
-    # for job_id in range(6):
-    #     p = mp.Process(target=task, args=(lock, job_id,))
-    #     p.start()
-    #     jobs.append(p)
-    #
-    # for p in jobs:
-    #     p.join()
-    #
-    # with h5.File("test.h5", "r+") as f:
-    #     print(np.array(f["0"]))
+    def task(lock, i):
 
-    board = np.ones((3, 3))
-    for row in board:
-        if row[0] == 0:
-            break
-    else:
-        print("Hi")
+        with lock, h5.File("test.h5", "r+") as f:
+            f["0"].resize((8,))
+            f["0"][7] = i + 1
+
+        print(f"Done{i}")
+
+
+    with h5.File("test.h5", "w", libver="latest") as f:
+        f.create_dataset(f"{0}", maxshape=(None,), dtype=np.int32, data=np.zeros(6))
+    lock = mp.Lock()
+    jobs = []
+    for job_id in range(6):
+        p = mp.Process(target=task, args=(lock, job_id,))
+        p.start()
+        jobs.append(p)
+
+    for p in jobs:
+        p.join()
+
+    with h5.File("test.h5", "r+") as f:
+        print(np.array(f["0"]))
+
 
 
 

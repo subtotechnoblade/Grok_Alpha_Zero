@@ -148,7 +148,7 @@ class Game:
         pass
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action):
+    def check_win_MCTS(board, last_action, current_player):
         #Used to check if MCTS has reached a terminal node
         pass
     @staticmethod
