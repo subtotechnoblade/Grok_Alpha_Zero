@@ -55,10 +55,10 @@ from numba import njit
 #
 # b_func(2, 1, 1)
 
-outerboard = np.zeros((3, 3), dtype=np.int8)
-def func(board, x, y, player):
-    board[y][x] = player
-    return board
+# outerboard = np.zeros((3, 3), dtype=np.int8)
+# def func(board, x, y, player):
+#     board[y][x] = player
+#     return board
 
 # function vs method
 # function
@@ -109,7 +109,7 @@ class TicTacToe:
         :param board: numpy array of the board
         :param policy: a numpy array of shape = self.policy shape defined in __init__, straight from the neural network's policy head
         :param shuffle: You might want to shuffle the policy and legal_actions because the last index is where the search starts
-        if it is too hard you don't implement anything much will happen, its just that randomizing might improve convergence just by a but
+        if it is too hard you don't implement anything much will happen, its just that randomizing might improve convergence just by a bit
         :return: legal_actions as a list [action0, action1, ...], child_prob_prior as a numpy array
 
         In essence, index 0 in legal_actions and child_prob_prior should be the probability of the best move for that legal action
@@ -174,6 +174,12 @@ class TicTacToe:
             return True #If all 3 items on a row equal, someone has won. Yippee!
         return False #If not then sadly not :(
 
+    @staticmethod
+    def _check_row_MCT(row):  # A function for checking if there's a win on each row.
+        if row[0] != 0 and row[0] == row[1] == row[2]:
+            return True  # If all 3 items on a row equal, someone has won. Yippee!
+        return False  # If not then sadly not :(
+
 
     def check_win(self): #Checking if someone has won in rows
         for row in self.board:
@@ -206,16 +212,40 @@ class TicTacToe:
 
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action):
-        #Used to check if MCTS has reached a terminal node
-        pass
+    def check_win_MCTS(board, last_action, current_player):
+        for row in board:
+            if TicTacToe._check_row_MCT(row):
+                return current_player
+
+        for column_index in range(3):
+            column = board[:, column_index]
+            if TicTacToe._check_row_MCT(column):
+                return current_player
+
+        diag1 = np.diag(board)
+        if TicTacToe._check_row_MCT(diag1):
+            return current_player
+
+        diag2 = np.diag(np.fliplr(board))
+        if TicTacToe._check_row_MCT(diag2):
+            return current_player
+
+        flattened_board = board.reshape((9,))
+        for value in flattened_board:
+            if value == 0:
+                break
+        else:
+            return 0
+
+        return -2
+
     @staticmethod
     @njit(cache=True)
     def get_winning_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
-        # reocmment to use check_win_MCTS unless there is a more efficient way
+        # Recomment to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 winning move you don'y have to use fast_check param
+        # if your game in every case only has 1 winning move you don't have to use fast_check param
         # please do not remove the fast_check parameter
         # check the gomoku example for more info
         pass
@@ -237,5 +267,8 @@ if __name__ == "__main__":
 
 
 
-    # todo Jump Ian Patrick Tang
 
+
+
+
+    # todo Jump Ian Patrick Tang
