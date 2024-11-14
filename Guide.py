@@ -153,13 +153,22 @@ class Game:
         pass
     @staticmethod
     @njit(cache=True)
-    def get_winning_actions_MCTS(board, current_player, fast_check=False):
+    def get_terminal_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
-        # reocmment to use check_win_MCTS unless there is a more efficient way
+        # recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 winning move you don'y have to use fast_check param
+        # if your game in every case only has 1 action move you don't have to use or implement fast_check param
         # please do not remove the fast_check parameter
         # check the gomoku example for more info
+
+        # return the terminal and an associate action mask which each index corresponds to the
+        # same action in terminal actions
+        # terminal actions should be actions that result in wins or draws
+        # thus an terminal mask is required to differentiate a winning move from a drawing move
+        # so 0 for drawing move and 1 for winning
+        # example for chess
+        # terminal_moves [queen mate, queen stalemate], terminal_mask [1, 0]
+        # connect N games can never have 2 moves that when played immediately end in a draw
         pass
 
 
@@ -192,10 +201,15 @@ class Gomoku:
         # normalize the policy back to a probability distribution
 
         legal_actions = np.argwhere(board[board == 0]).reshape(-1) # get the indexes where the board is not filled
+
         # note that policy should already be flattened
         if shuffle: # feel free to no implement this
             shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
             legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
+        # ^ example
+        # [1, 2, 3], [0.1, 0.75, 0.15]
+        # [1, 2, 0]
+        # [2, 3, 1], [0.8, 0.15, 0.1]
         return legal_actions, policy
 
 

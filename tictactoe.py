@@ -241,7 +241,7 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def get_winning_actions_MCTS(board, current_player, fast_check=False):
+    def get_terminal_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
         # Recomment to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
