@@ -185,13 +185,15 @@ class Game_Tester:
             return
         if not self.check_legal_actions():
             print("Tests cannot continue unless the tester can get the legal_actions from get_legal_actions")
+            return
 
         if not self.check_legal_actions_policy_MCTS():
             print("Skipped checking legal_actions_policy_MCTS because it failed for reason above^")
             print("Tests will continue\n")
             test_skipped += 1
 
-        self.check_do_action()
+        if not self.check_do_action():
+            return
 
         print("DISCLAIMER: currently these test are only testing around 50% of the functionality that the game class requires")
         print("I haven't written the tests for checking for wins/draws or getting terminal moves\n")
