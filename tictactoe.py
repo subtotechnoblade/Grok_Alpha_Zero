@@ -83,6 +83,8 @@ class TicTacToe:
         self.action_history = []
         # doesn't return anything
 
+        self.policy_shape = (9,)
+
         self.total_actions = set() # precompute all possible actions at the start
         for y in range(3):
             for x in range(3):
@@ -243,7 +245,7 @@ class TicTacToe:
     @njit(cache=True)
     def get_terminal_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
-        # Recomment to use check_win_MCTS unless there is a more efficient way
+        # Recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
         # if your game in every case only has 1 winning move you don't have to use fast_check param
         # please do not remove the fast_check parameter

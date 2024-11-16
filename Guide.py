@@ -60,8 +60,8 @@ class Game:
         # for connect 5 it is (225,) because 15 * 15 amount of actions where the index
         # you should request for a flattened policy (for tic tac toe) -> (9,) rather than (3, 3)
         # in parse policy you will have to convert the policy into actions and the associated prob_prior
-        self.policy_shape = ("your policy shape (length)",) # MUST HAVE or else I won't be able to define the neural network
-        # just know that the illegal moves are removed and the policy which is a probability distribution
+        self.policy_shape = ("shape",) # MUST HAVE or else I won't be able to define the neural network
+        # just know that the illegal moves are removed in get_legal_actions_policy_MCTS() and the policy which is a probability distribution
         # is re normalized
 
     def get_current_player(self):
@@ -189,21 +189,20 @@ class Gomoku:
         # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
         # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
         # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
-
-        return np.argwhere(self.board == 0).reshape(-1)
+        return np.argwhere(self.board == 0)
     @staticmethod
-    @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
-        board = board.reshape(-1) # makes sure that the board is a vector
-        policy = policy[board == 0] # keep the probabilities where the board is not filled
+    # @njit(cache=True)
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> tuple[np.array, np.array]:
+        flattened_board = board.reshape(-1) # makes sure that the board is a vector
+        policy = policy[flattened_board == 0] # keep the probabilities where the board is not filled
         # [board == 0] creates a mask and when the mask element is True, the probability at that index is returned
         policy /= np.sum(policy)
         # normalize the policy back to a probability distribution
 
-        legal_actions = np.argwhere(board[board == 0]).reshape(-1) # get the indexes where the board is not filled
+        legal_actions = np.argwhere(board == 0) # get the indexes where the board is not filled
 
         # note that policy should already be flattened
-        if shuffle: # feel free to no implement this
+        if shuffle: # feel free to not implement this
             shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
             legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
         # ^ example
@@ -403,9 +402,14 @@ class Gomoku:
         return terminal_actions, terminal_mask
 if __name__ == "__main__":
     # example usage
-    game = Gomoku()
-    game.do_action((7, 7))
-    print(game.get_state())
+    # game = Gomoku()
+    # game.do_action((7, 7))
+    # print(game.get_state())
+
+    from game_tester import Game_Tester
+    tester = Game_Tester(Gomoku)
+    tester.test()
+
 
     """
     Brian's deep thinking, I have to write it somewhere
