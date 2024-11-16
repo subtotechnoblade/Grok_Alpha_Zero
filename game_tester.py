@@ -206,6 +206,8 @@ class Game_Tester:
 
 
 if __name__ =="__main__":
-    from tictactoe import TicTacToe
-    game_tester = Game_Tester(TicTacToe, )
+    # Example usage
+    from Guide import Gomoku
+    game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
+    # game_tester = Game_Tester(TicTacToe,)
     game_tester.test()

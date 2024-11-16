@@ -174,8 +174,8 @@ class Game:
 
 # example for gomoku
 class Gomoku:
-    def __init__(self):
-        self.board = np.zeros((15, 15), dtype=np.int8) # note the dtype. Because I'm only using -1, 0, 1 int8 is best
+    def __init__(self, width=15, height=15):
+        self.board = np.zeros((height, width), dtype=np.int8) # note the dtype. Because I'm only using -1, 0, 1 int8 is best
         # if the board takes too much memory, Brian is not going to be happy
         self.current_player = -1
         self.action_history = []
