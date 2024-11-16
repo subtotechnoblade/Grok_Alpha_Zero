@@ -158,7 +158,7 @@ class Game_Tester:
         legal_actions = self.game.get_legal_actions()
         try:
             for action in legal_actions:
-                board = self.game.do_action_MCTS(self.game.board.copy(), action)
+                board = self.game.do_action_MCTS(self.game.board.copy(), action, self.game.current_player)
         except AttributeError:
             print("Checking if do_action_MCTS exists: Fail")
             print("do_action_MCTS isn't implemented\n")
@@ -173,8 +173,8 @@ class Game_Tester:
                 print("The returned board from do_action_MCTS doesn't match the one after do_action")
                 print("Checking if do_action_MCTS returns the same thing as do_action: Fail\n")
                 return False
-        print("Checking if do_action_MCTS exists and return the same thing as do_action: Pass\n")
-        self.reset()
+        print("Checking if do_action_MCTS exists and returns the same board as do_action: Pass\n")
+        self.reset() # reset the board for any future checks that changes the board
         return True
 
 
@@ -194,6 +194,11 @@ class Game_Tester:
 
         if not self.check_do_action():
             return
+
+        if not self.check_do_action_MCTS():
+            print("Skipped checking do_action_MCTS because it failed for the reason above^")
+            print("Tests will continue\n")
+            test_skipped += 1
 
         print("DISCLAIMER: currently these test are only testing around 50% of the functionality that the game class requires")
         print("I haven't written the tests for checking for wins/draws or getting terminal moves\n")
