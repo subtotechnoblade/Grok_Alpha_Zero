@@ -178,8 +178,6 @@ class Game_Tester:
         return True
 
 
-
-
     def test(self):
         test_skipped = 0
         if not self.check_attributes():
