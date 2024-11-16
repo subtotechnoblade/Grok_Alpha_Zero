@@ -177,6 +177,43 @@ class Game_Tester:
         self.reset() # reset the board for any future checks that changes the board
         return True
 
+    def check_check_win(self):
+        legal_actions = self.game.get_legal_actions()
+        self.game.do_action(legal_actions[0])
+        try:
+            winner = self.game.check_win()
+        except AttributeError:
+            print("Checking check_win: Fail")
+            print("check_win not implemented")
+            return False
+        except:
+            print("Checking check_win: Fail")
+            print("check_win isn't callable as it gives an error")
+            return False
+
+        if winner != -2:
+            print("Checking check_win: Fail")
+            print("At the start of the game there cannot be a winner")
+            return False
+
+        legal_actions = self.game.get_legal_actions()
+        winner = -2
+        i = 0
+        while winner == -2:
+            if len(legal_actions) == 0 and winner == -2:
+                print("Checking check_win: Fail")
+                print("Board has been filled and check win still returned -2")
+            chosen_random_index = np.random.choice(np.arange(len(legal_actions), dtype=np.int32), size=(1,))[0]
+
+            self.game.do_action(legal_actions[chosen_random_index])
+            print(i)
+            i += 1
+            winner = self.game.check_win()
+            legal_actions = self.game.get_legal_actions()
+
+        self.reset()
+        print("Checking check_win: Pass\n")
+        return True
 
     def test(self):
         test_skipped = 0
@@ -200,6 +237,9 @@ class Game_Tester:
             print("Tests will continue\n")
             test_skipped += 1
 
+        if not self.check_check_win():
+            return
+
         print("DISCLAIMER: currently these test are only testing around 50% of the functionality that the game class requires")
         print("I haven't written the tests for checking for wins/draws or getting terminal moves\n")
 
@@ -215,6 +255,7 @@ class Game_Tester:
 if __name__ =="__main__":
     # Example usage
     from Guide import Gomoku
-    game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
-    # game_tester = Game_Tester(TicTacToe,)
+    # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
+    from tictactoe import TicTacToe
+    game_tester = Game_Tester(Gomoku,)
     game_tester.test()
