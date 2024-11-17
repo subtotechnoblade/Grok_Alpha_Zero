@@ -195,7 +195,9 @@ class Game_Tester:
             print("Checking check_win: Fail")
             print("At the start of the game there cannot be a winner")
             return False
-
+        self.reset()
+        print(self.game.board)
+        # raise ValueError
         legal_actions = self.game.get_legal_actions()
         winner = -2
         i = 0
@@ -204,10 +206,8 @@ class Game_Tester:
                 print("Checking check_win: Fail")
                 print("Board has been filled and check win still returned -2")
             chosen_random_index = np.random.choice(np.arange(len(legal_actions), dtype=np.int32), size=(1,))[0]
-
             self.game.do_action(legal_actions[chosen_random_index])
-            print(i)
-            i += 1
+
             winner = self.game.check_win()
             legal_actions = self.game.get_legal_actions()
 

@@ -189,19 +189,23 @@ class Gomoku:
         # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
         # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
         # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
-        return np.argwhere(self.board == 0)
+        # [:, ::-1] reverses the order of the elements because argwhere returns [[y0, x0], ...] thus becomes [[x1, y0], ...]
+        return np.argwhere(self.board == 0)[:, ::-1]
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> tuple[np.array, np.array]:
         flattened_board = board.reshape(-1) # makes sure that the board is a vector
         policy = policy[flattened_board == 0] # keep the probabilities where the board is not filled
+
         # [board == 0] creates a mask and when the mask element is True, the probability at that index is returned
         policy /= np.sum(policy)
         # normalize the policy back to a probability distribution
 
-        legal_actions = np.argwhere(board == 0) # get the indexes where the board is not filled
+        # reverse order of each element from [y, x] -> [x, y]
+        legal_actions = np.argwhere(board == 0)[:, ::-1] # get the indexes where the board is not filled
 
         # note that policy should already be flattened
+
         if shuffle: # feel free to not implement this
             shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
             legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
@@ -244,7 +248,6 @@ class Gomoku:
         # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
-
         current_x, current_y = self.action_history[-1] # get the latest move
         player = self.current_player
 
@@ -296,8 +299,8 @@ class Gomoku:
                         return player
                 else:
                     fives = 0
-        # if sum([abs(x) for x in input_board.flat]) == 15 * 15:
-        #     return 0
+        if np.sum(np.abs(self.board.flat)) == 15 * 15:
+            return 0
         # remember that draw is very unlikely, but possible
 
         # if there is no winner, and it is not a draw
@@ -359,8 +362,8 @@ class Gomoku:
                         return current_player
                 else:
                     fives = 0
-        # if sum([abs(x) for x in input_board.flat]) == 15 * 15:
-        #     return 0
+        if sum(abs(board.flat)) == 15 * 15:
+            return 0
         # remember that draw is very unlikely, but possible
 
         # if there is no winner, and it is not a draw
@@ -377,7 +380,8 @@ class Gomoku:
         because we want multiple winning moves to determine a better policy
         :return:
         """
-        legal_actions = np.argwhere(board == 0).reshape(-1)
+        legal_actions = np.argwhere(board == 0).reshape(-1)[:, ::-1]
+        # reverse the order of each element from [y, x] -> [x, y]
         check_win_board = board.copy()
         terminal_actions = [] # includes winning and drawing actions
         terminal_mask = [] # a list of 0 and 1
