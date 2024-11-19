@@ -64,18 +64,18 @@ class Game:
         # just know that the illegal moves are removed in get_legal_actions_policy_MCTS() and the policy which is a probability distribution
         # is re normalized
 
-    def get_current_player(self):
+    def get_current_player(self) -> int:
         # returns the current player
         pass
 
-    def get_legal_actions(self):
-        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
+    def get_legal_actions(self) -> np.array:
+        # returns the all possible legal actions in a numpy array [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
         pass
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         """
         THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board
@@ -97,7 +97,7 @@ class Game:
         recommend to use numba njit to speed up this method for MCTS
         """
 
-        # example with randomization for tictac toe:
+        # example with randomization for tictactoe:
         # assuming policy from the comments above
         # board = board.reshape((-1)) flatten the 3 by 3 board into a length 9 array
         # policy = policy.reshape(-1) flatten the policy
@@ -117,16 +117,16 @@ class Game:
         pass
 
 
-    def do_action(self, action):
+    def do_action(self, action) -> np.array:
         # places the move onto the board
         pass
     @staticmethod
     # @njit(cache=True)
-    def do_action_MCTS(board, action, current_player):
+    def do_action_MCTS(board, action, current_player) -> np.array:
         # this is for the monte carlo tree search's
         pass
 
-    def get_input_state(self):
+    def get_input_state(self) -> np.array:
         # gets the numpy array for the neural network
         # for now just return the board as a numpy array
         # Brian will probably implement this later for specific neural networks
@@ -137,23 +137,23 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board):
+    def get_input_state_MCTS(board) -> np.array:
         # Used for retrieving the state for any child nodes (not the root)
-        # just return the board from the inputs
+        # just return the board from the inputs because board is alo an np.array
         return board
 
-    def check_win(self):
+    def check_win(self) -> int:
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
         pass
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action, current_player):
+    def check_win_MCTS(board, last_action, current_player) -> int:
         #Used to check if MCTS has reached a terminal node
         pass
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, fast_find_win=False):
+    def get_terminal_actions_MCTS(board, current_player, fast_find_win=False) -> (np.array, np.array):
         # Brian will be looking very closely at this code when u implement this
         # recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
@@ -186,7 +186,7 @@ class Gomoku:
     def get_current_player(self):
         return self.current_player
 
-    def get_legal_actions(self):
+    def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
         # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
         # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
@@ -196,7 +196,7 @@ class Gomoku:
         return np.argwhere(self.board == 0)[:, ::-1]
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> tuple[np.array, np.array]:
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         flattened_board = board.reshape(-1) # makes sure that the board is a vector
         policy = policy[flattened_board == 0] # keep the probabilities where the board is not filled
 
@@ -220,7 +220,7 @@ class Gomoku:
 
 
 
-    def do_action(self, action):
+    def do_action(self, action) -> None:
         x, y = action
 
         assert self.board[y][x] == 0 # make sure that it is not an illegal move
@@ -319,7 +319,7 @@ class Gomoku:
         return -2
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False):
+    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False) -> (np.array, np.array):
         """
         :param board: The board
         :param current_player: Current player we want to check for
@@ -354,6 +354,8 @@ class Gomoku:
 
             check_win_board[y][x] = 0 # reset the board
         return terminal_actions, terminal_mask
+
+
 if __name__ == "__main__":
     # example usage
     # game = Gomoku()
