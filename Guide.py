@@ -153,7 +153,7 @@ class Game:
         pass
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, fast_check=False):
+    def get_terminal_actions_MCTS(board, current_player, fast_find_win=False):
         # Brian will be looking very closely at this code when u implement this
         # recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
@@ -169,6 +169,9 @@ class Game:
         # example for chess
         # terminal_moves [queen mate, queen stalemate], terminal_mask [1, 0]
         # connect N games can never have 2 moves that when played immediately end in a draw
+
+        # Note that you must return all terminal moves (wins and draws), this is used for training
+        # Thus fast_find_win can be used to only return 1 winning move, this is used for speed up inferencing
         pass
 
 
@@ -236,6 +239,7 @@ class Gomoku:
 
     def get_state(self) -> np.array:
         return self.board
+
     @staticmethod
     @njit(cache=True)
     def get_state_MCTS(board: np.array) -> np.array:
@@ -248,63 +252,8 @@ class Gomoku:
         # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
-        current_x, current_y = self.action_history[-1] # get the latest move
-        player = self.current_player
+        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
 
-        fives = 0
-        for i in range(-5 + 1, 5):
-            new_x = current_x + i
-            if 0 <= new_x <= 15 - 1:
-                if self.board[current_y][new_x] == player:
-                    fives += 1
-                    if fives == 5:
-                        return player
-                else:
-                    fives = 0
-
-        # vertical
-        fives = 0
-        for i in range(-5 + 1, 5):
-            new_y = current_y + i
-            if 0 <= new_y <= 15 - 1:
-                if self.board[new_y][current_x] == player:
-                    fives += 1
-                    if fives == 5:
-                        return player
-                else:
-                    fives = 0
-
-        #  left to right diagonal
-        fives = 0
-        for i in range(-5 + 1, 5):
-            new_x = current_x + i
-            new_y = current_y + i
-            if 0 <= new_x <= 15 - 1 and 0 <= new_y <= 15 - 1:
-                if self.board[new_y][new_x] == player:
-                    fives += 1
-                    if fives == 5:
-                        return player
-                else:
-                    fives = 0
-
-        # right to left diagonal
-        fives = 0
-        for i in range(-5 + 1, 5):
-            new_x = current_x - i
-            new_y = current_y + i
-            if 0 <= new_x <= 15 - 1 and 0 <= new_y <= 15 - 1:
-                if self.board[new_y][new_x] == player:
-                    fives += 1
-                    if fives == 5:
-                        return player
-                else:
-                    fives = 0
-        if np.sum(np.abs(self.board.flat)) == 15 * 15:
-            return 0
-        # remember that draw is very unlikely, but possible
-
-        # if there is no winner, and it is not a draw
-        return -2
     @staticmethod
     @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
@@ -362,7 +311,7 @@ class Gomoku:
                         return current_player
                 else:
                     fives = 0
-        if sum(abs(board.flat)) == 15 * 15:
+        if np.sum(np.abs(board.flatten())) == 15 * 15:
             return 0
         # remember that draw is very unlikely, but possible
 
@@ -370,14 +319,15 @@ class Gomoku:
         return -2
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_check=False):
+    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False):
         """
         :param board: The board
         :param current_player: Current player we want to check for
         :param WIDTH: board width
         :param HEIGHT: board height
-        :param fast_check: only returns 1 winning move if True, should be False for MCTS,
-        because we want multiple winning moves to determine a better policy
+        :param fast_find_win: only returns 1 winning move if True for speed
+        This should be False for training, because we want multiple winning moves to determine a better policy
+        with more than 1 terminal move
         :return:
         """
         legal_actions = np.argwhere(board == 0).reshape(-1)[:, ::-1]
@@ -397,7 +347,7 @@ class Gomoku:
                 terminal_actions.append((x, y)) # in any case as long as the result != -2, we have a terminal action
                 if result == current_player: # found a winning move
                     terminal_mask.append(1)
-                    if fast_check:
+                    if fast_find_win:
                         break
                 elif result == 0: # a drawing move
                     terminal_mask.append(0)
