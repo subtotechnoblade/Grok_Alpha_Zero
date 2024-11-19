@@ -1,4 +1,5 @@
 import numpy as np
+from warnings import warn
 import time
 from Guide import Gomoku
 
@@ -177,11 +178,21 @@ class Game_Tester:
         self.reset() # reset the board for any future checks that changes the board
         return True
 
+    def _check_action_history_homogenous(self):
+        try:
+            np.array(self.game.action_history)
+            print("Checking if action history can be converted into a homogenous array: Pass\n")
+            return True
+        except:
+            print(f"{self.game.action_history} could not be converted into a numpy array")
+            print("Checking if action history can be converted into a homogenous array: Fail\n")
+            return False
+
     def check_check_win(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[0])
         try:
-            winner = self.game.check_win()
+            winner = self.game.check_win() # also counts as a warmup
         except AttributeError:
             print("Checking check_win: Fail")
             print("check_win not implemented")
@@ -196,24 +207,34 @@ class Game_Tester:
             print("At the start of the game there cannot be a winner")
             return False
         self.reset()
-        print(self.game.board)
-        # raise ValueError
         legal_actions = self.game.get_legal_actions()
+        checks = 0
+        total_check_win_time = 0
         winner = -2
-        i = 0
         while winner == -2:
             if len(legal_actions) == 0 and winner == -2:
                 print("Checking check_win: Fail")
                 print("Board has been filled and check win still returned -2")
             chosen_random_index = np.random.choice(np.arange(len(legal_actions), dtype=np.int32), size=(1,))[0]
             self.game.do_action(legal_actions[chosen_random_index])
-
+            t = time.time()
             winner = self.game.check_win()
+            total_check_win_time += time.time() - t
+            checks += 1
             legal_actions = self.game.get_legal_actions()
 
-        self.reset()
+
+        print(f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner was: {winner}")
+        if (total_check_win_time / checks) >= 1.0:
+            print("Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible")
         print("Checking check_win: Pass\n")
+
+
+        self._check_action_history_homogenous()
+
+        self.reset()
         return True
+
 
     def test(self):
         test_skipped = 0
@@ -257,5 +278,5 @@ if __name__ =="__main__":
     from Guide import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from tictactoe import TicTacToe
-    game_tester = Game_Tester(Gomoku,)
+    game_tester = Game_Tester(TicTacToe,)
     game_tester.test()
