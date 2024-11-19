@@ -9,28 +9,48 @@ from tqdm import  tqdm
 
 
 if __name__ == "__main__":
-    def check_for_duplicated_unhashable(input_list):
-        seen = 0
+    from numba import njit
 
-        # O(n^2) time complexity which is very slow
-        # Should be fine for small lists of size under 1000
-        for item in input_list:
-            for check_item in input_list:
-                if item == check_item:
-                    seen += 1
-                    if seen == 2:
-                        return False
-            seen = 0
-        return True
-    arr1 = np.array([[1, 2], [2, 1]])
-    arr2 = np.array([1, 2])
-    print(arr1 == arr2)
-    print(np.where(np.all(arr1 == arr2, axis=1)))
-    class Foo:
-        def bar(self):
-            pass
-    f= Foo()
-    print(f.grr())
+    def task():
+
+        cards = np.array([[0, 0], [0, 1]])
+
+        chosen_card = np.random.randint(0, 2, size=1)[0]
+        chosen_side = np.random.randint(0, 2, size=1)[0]
+
+        if cards[chosen_card][chosen_side] == 0:
+            if cards[chosen_card][1 - chosen_side] == 0:
+                return True
+        return False
+
+    hits = 0
+    for _ in range(100000):
+        result = task()
+        # if result is not None:
+        hits += result
+    print(hits / 100000)
+    # def check_for_duplicated_unhashable(input_list):
+    #     seen = 0
+    #
+    #     # O(n^2) time complexity which is very slow
+    #     # Should be fine for small lists of size under 1000
+    #     for item in input_list:
+    #         for check_item in input_list:
+    #             if item == check_item:
+    #                 seen += 1
+    #                 if seen == 2:
+    #                     return False
+    #         seen = 0
+    #     return True
+    # arr1 = np.array([[1, 2], [2, 1]])
+    # arr2 = np.array([1, 2])
+    # print(arr1 == arr2)
+    # print(np.where(np.all(arr1 == arr2, axis=1)))
+    # class Foo:
+    #     def bar(self):
+    #         pass
+    # f= Foo()
+    # print(f.grr())
 
     # def task(lock, i):
     #

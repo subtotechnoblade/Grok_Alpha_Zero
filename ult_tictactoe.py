@@ -60,7 +60,7 @@ class UltimateTicTacToe:
         # returns an array of tuples (board number, x, y)
         # Note that this action will be passed into do_action() and do_action_MCTS
     '''
-    def get_legal_moves(self):
+    def get_legal_actions(self):
         moves = []
         for sub_board_index, sub_board in enumerate(self.board):
             legal_action_indexes = np.argwhere(sub_board.reshape(-1) == 0).reshape(-1)

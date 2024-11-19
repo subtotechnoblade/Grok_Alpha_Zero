@@ -255,7 +255,7 @@ class Gomoku:
         return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
 
     @staticmethod
-    @njit(cache=True, fastmath=True)
+    # @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
@@ -318,7 +318,7 @@ class Gomoku:
         # if there is no winner, and it is not a draw
         return -2
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False) -> (np.array, np.array):
         """
         :param board: The board
@@ -330,18 +330,20 @@ class Gomoku:
         with more than 1 terminal move
         :return:
         """
-        legal_actions = np.argwhere(board == 0).reshape(-1)[:, ::-1]
+        legal_actions = np.argwhere(board == 0)[:, ::-1]
         # reverse the order of each element from [y, x] -> [x, y]
         check_win_board = board.copy()
         terminal_actions = [] # includes winning and drawing actions
         terminal_mask = [] # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
+
         for legal_action in legal_actions:
             # Try every legal action anc check if the current player won
             # Very inefficient. There is a better implementation
             # for simplicity this will be the example
-            x, y = legal_action % WIDTH, legal_action // HEIGHT
+            x, y = legal_action[0] % WIDTH, legal_action[1] // HEIGHT
             check_win_board[y][x] = current_player
+
             result = Gomoku.check_win_MCTS(board, (x, y), current_player)
             if result != -2: # this limits the checks by a lot
                 terminal_actions.append((x, y)) # in any case as long as the result != -2, we have a terminal action
