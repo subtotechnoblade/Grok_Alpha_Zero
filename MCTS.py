@@ -96,16 +96,56 @@ class MCTS:
         # for more info on what c_puct should be along with how dirichlet alpha should be calculated
 
         # perform inference call to initialize root
-        child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), [1, 3,3])
-        legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
-        if self.use_dirichlet:
-            child_prob_prior = self._apply_dirichlet(child_prob_prior)
-        self.root = Root(game.board.copy(),
-                         self.game.action_history,
-                         self.game.get_current_player() * -1, #player for no moves placed
-                         legal_actions.tolist(),
-                         initial_RNN_state,
-                         child_prob_prior)
+
+        terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(self.game.board, self.game.get_current_player(), fast_find_win=self.fast_find_win)
+        # print(terminal_actions, self.game.get_current_player())
+        # raise ValueError
+        if terminal_actions:
+
+            if 1 in terminal_mask:
+                value = 1
+                print(terminal_mask)
+                child_policy = terminal_mask / len(terminal_mask)
+            else:
+                value = 0
+                child_policy = np.ones(len(terminal_mask)) / len(terminal_mask)
+            self.root = Root(self.game.board.copy(),
+                             self.game.action_history.copy(),
+                             self.game.get_current_player() * -1,
+                             terminal_actions,
+                             [],
+                             child_policy)
+
+            del self.root.board
+            del self.root.child_legal_actions
+            for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
+                terminal_player = self.game.get_current_player()
+                terminal_node = Node(len(self.root.children),
+                self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
+                                    self.game.action_history + [terminal_action],
+                                    self.game.get_current_player(),
+                                    [],
+                                    [],
+                                    [],
+                                    terminal_player if mask_value == 1 else 0,
+                                     parent=self.root)
+                del terminal_node.child_legal_actions, terminal_node.RNN_state, terminal_node.child_prob_priors
+                self.root.children.append(terminal_node)
+
+                self._back_propagate(self.root, value)
+
+
+        else:
+            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), [1, 3,3])
+            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
+            if self.use_dirichlet:
+                child_prob_prior = self._apply_dirichlet(child_prob_prior)
+            self.root = Root(self.game.board.copy(),
+                             self.game.action_history.copy(),
+                             self.game.get_current_player() * -1, #player for no moves placed
+                             list(legal_actions),
+                             initial_RNN_state,
+                             child_prob_prior)
 
     @staticmethod
     # @njit(cache=True) # dont jit because its somehow slower
@@ -131,11 +171,12 @@ class MCTS:
                     terminal_nodes = [terminal_child for terminal_child in node.children if terminal_child.is_terminal != 0]
                 else:
                     terminal_nodes = node.children
-                print("Found terminal move")
-                return terminal_nodes[np.random.randint(1, len(terminal_nodes))]
+                # THIS RETURNS A CHILD
+                return terminal_nodes[np.random.permutation(len(terminal_nodes))[0]]
 
             if len(node.child_values) > len(node.children):  # we have to select a node
                 # and return as it is a new unvisited node
+                # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
                 return node  # note that this returns the parent, _expand will create the child node
 
 
@@ -159,7 +200,8 @@ class MCTS:
     def _get_dummy_outputs(self, input_state, RNN_state):
         # since I'm not using RNN_state I can just return it for the next node
         # this will also give the next RNN_state that is required for the next inference call
-        return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.random(), RNN_state # policy and value
+        return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
+        # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
     def _apply_dirichlet(self, legal_policy):
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
@@ -181,7 +223,7 @@ class MCTS:
                                terminal_parent_board,
                                node.action_history + [terminal_parent_action],
                                terminal_parent_current_player,
-                               child_legal_actions=None, # doesn't have to be a list as _PUCT_select doesn't require child_legal_actions
+                               child_legal_actions=terminal_actions,
                                RNN_state=None,
                                child_prob_priors=terminal_parent_prob_prior,
                                is_terminal=None,
@@ -201,7 +243,7 @@ class MCTS:
                                   board=None,
                                   action_history=terminal_parent.action_history + [terminal_action],
                                   current_player=node.current_player, # based on node.current_player because node's child's child is the same player as node
-                                  child_legal_actions=None,
+                                  child_legal_actions=[1],
                                   RNN_state=None,
                                   child_prob_priors=None,
                                   is_terminal=node.current_player if mask_value == 1 else 0,
@@ -219,7 +261,7 @@ class MCTS:
 
             terminal_parent.children.append(terminal_child)
 
-        return terminal_parent, -terminal_parent_value
+        return terminal_parent, terminal_parent_value
         # negative because the child's POV won, thus the parent's POV lost in this searched path
         # don't backprop child as there could be multiple ways to win, but all backprop only cares
         # if someone wins
@@ -235,7 +277,7 @@ class MCTS:
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
 
-        terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(child_board, node.current_player * -1, fast_find_win=self.fast_find_win)
+        terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(child_board, node.current_player, fast_find_win=self.fast_find_win)
         if terminal_actions:
             child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
@@ -252,12 +294,12 @@ class MCTS:
                          child_board,
                          node.action_history + [child_action],
                          node.current_player * -1,
-                         child_legal_actions.tolist(),
+                         list(child_legal_actions),
                          next_RNN_state,
                          child_prob_prior,
                          None,
                          parent=node)
-            # we dont't create every possible child nodes because as the tree gets bigger,
+            # we don't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
             node.children.append(child)
 
@@ -308,19 +350,25 @@ class MCTS:
         # will probably need to update requirements.txt for tqdm as a new library
         # returns the top action and action distribution for the storage buffer
         for _ in tqdm(range(iterations)): # this is for testing
-            node : Node = self._PUCT_select()
-            node, value = self._expand(node)
+            node = self._PUCT_select()
+
+            if node.is_terminal is not None:
+                value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
+            else:
+                node, value = self._expand(node)
+
+
             self._back_propagate(node, value)
-        # print(self.root.child_values, self.root.child_visits)
 
         self.probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
 
-        for child_id, (child, prob, winrate, value, visits) in enumerate(zip(self.root.children,
+        for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
                                                                              self.root.child_visits / self.root.visits,# new probability value
                                                                              self.root.child_values / self.root.child_visits, # winrate
                                                                              self.root.child_values,
-                                                                             self.root.child_visits)):
-            self.probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, self.root.visits, child.is_terminal]
+                                                                             self.root.child_visits,
+                                                                             self.root.child_prob_priors)):
+            self.probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
         self.probs = sorted(self.probs, key= lambda x: x[4], reverse=True)
         print(self.probs)
 
@@ -351,5 +399,17 @@ class MCTS:
 if __name__ == "__main__":
     from Guide import Gomoku
     game = Gomoku()
-    mcts = MCTS(game, use_dirichlet=True)
-    mcts.run(True)
+    game.do_action((7, 7))
+    game.do_action((6, 7))
+    game.do_action((7, 6))
+    game.do_action((6, 6))
+    game.do_action((7, 5))
+    # game.do_action((6, 5))
+
+    # game.do_action((7, 4))
+    # game.do_action((6, 4))
+    print(game.board)
+    mcts = MCTS(game,
+                c_puct_init=3.5,
+                use_dirichlet=True)
+    mcts.run(5600)
