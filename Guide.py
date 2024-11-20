@@ -377,6 +377,9 @@ class Gomoku:
         return new_policy.reshape(-1)
 
 
+
+
+
 if __name__ == "__main__":
     # example usage
     # game = Gomoku()

@@ -252,6 +252,14 @@ class TicTacToe:
         # check the gomoku example for more info
         pass
 
+    def compute_policy_improvement(self, statistics):
+        # given statistic=[[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
+        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
+        # return [0.1, 0.2, ...]
+        # this should map the action and probability to a probability distribution
+
+        pass
+
 if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
