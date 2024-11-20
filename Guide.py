@@ -64,18 +64,18 @@ class Game:
         # just know that the illegal moves are removed in get_legal_actions_policy_MCTS() and the policy which is a probability distribution
         # is re normalized
 
-    def get_current_player(self) -> int:
+    def get_current_player(self):
         # returns the current player
         pass
 
-    def get_legal_actions(self) -> np.array:
-        # returns the all possible legal actions in a numpy array [action1, action2, ..., actionN] given self.board
+    def get_legal_actions(self):
+        # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
         pass
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
         """
         THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board
@@ -97,7 +97,7 @@ class Game:
         recommend to use numba njit to speed up this method for MCTS
         """
 
-        # example with randomization for tictactoe:
+        # example with randomization for tictac toe:
         # assuming policy from the comments above
         # board = board.reshape((-1)) flatten the 3 by 3 board into a length 9 array
         # policy = policy.reshape(-1) flatten the policy
@@ -117,16 +117,16 @@ class Game:
         pass
 
 
-    def do_action(self, action) -> np.array:
+    def do_action(self, action):
         # places the move onto the board
         pass
     @staticmethod
     # @njit(cache=True)
-    def do_action_MCTS(board, action, current_player) -> np.array:
+    def do_action_MCTS(board, action, current_player):
         # this is for the monte carlo tree search's
         pass
 
-    def get_input_state(self) -> np.array:
+    def get_input_state(self):
         # gets the numpy array for the neural network
         # for now just return the board as a numpy array
         # Brian will probably implement this later for specific neural networks
@@ -137,23 +137,23 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board) -> np.array:
+    def get_input_state_MCTS(board):
         # Used for retrieving the state for any child nodes (not the root)
-        # just return the board from the inputs because board is alo an np.array
+        # just return the board from the inputs
         return board
 
-    def check_win(self) -> int:
+    def check_win(self):
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
         pass
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action, current_player) -> int:
+    def check_win_MCTS(board, last_action, current_player):
         #Used to check if MCTS has reached a terminal node
         pass
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, fast_find_win=False) -> (np.array, np.array):
+    def get_terminal_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
         # recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
@@ -169,16 +169,6 @@ class Game:
         # example for chess
         # terminal_moves [queen mate, queen stalemate], terminal_mask [1, 0]
         # connect N games can never have 2 moves that when played immediately end in a draw
-
-        # Note that you must return all terminal moves (wins and draws), this is used for training
-        # Thus fast_find_win can be used to only return 1 winning move, this is used for speed up inferencing
-        pass
-
-    def compute_policy_improvement(self, statistics):
-        # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
-        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
-        # return [0.1, 0.2, ...]
-        # this should map the action and probability to a probability distribution
         pass
 
 
@@ -193,7 +183,7 @@ class Gomoku:
     def get_current_player(self):
         return self.current_player
 
-    def get_legal_actions(self) -> np.array:
+    def get_legal_actions(self):
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
         # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
         # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
@@ -203,7 +193,7 @@ class Gomoku:
         return np.argwhere(self.board == 0)[:, ::-1]
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> tuple[np.array, np.array]:
         flattened_board = board.reshape(-1) # makes sure that the board is a vector
         policy = policy[flattened_board == 0] # keep the probabilities where the board is not filled
 
@@ -227,7 +217,7 @@ class Gomoku:
 
 
 
-    def do_action(self, action) -> None:
+    def do_action(self, action):
         x, y = action
 
         assert self.board[y][x] == 0 # make sure that it is not an illegal move
@@ -246,7 +236,6 @@ class Gomoku:
 
     def get_state(self) -> np.array:
         return self.board
-
     @staticmethod
     @njit(cache=True)
     def get_state_MCTS(board: np.array) -> np.array:
@@ -259,10 +248,65 @@ class Gomoku:
         # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
+        current_x, current_y = self.action_history[-1] # get the latest move
+        player = self.current_player
 
+        fives = 0
+        for i in range(-5 + 1, 5):
+            new_x = current_x + i
+            if 0 <= new_x <= 15 - 1:
+                if self.board[current_y][new_x] == player:
+                    fives += 1
+                    if fives == 5:
+                        return player
+                else:
+                    fives = 0
+
+        # vertical
+        fives = 0
+        for i in range(-5 + 1, 5):
+            new_y = current_y + i
+            if 0 <= new_y <= 15 - 1:
+                if self.board[new_y][current_x] == player:
+                    fives += 1
+                    if fives == 5:
+                        return player
+                else:
+                    fives = 0
+
+        #  left to right diagonal
+        fives = 0
+        for i in range(-5 + 1, 5):
+            new_x = current_x + i
+            new_y = current_y + i
+            if 0 <= new_x <= 15 - 1 and 0 <= new_y <= 15 - 1:
+                if self.board[new_y][new_x] == player:
+                    fives += 1
+                    if fives == 5:
+                        return player
+                else:
+                    fives = 0
+
+        # right to left diagonal
+        fives = 0
+        for i in range(-5 + 1, 5):
+            new_x = current_x - i
+            new_y = current_y + i
+            if 0 <= new_x <= 15 - 1 and 0 <= new_y <= 15 - 1:
+                if self.board[new_y][new_x] == player:
+                    fives += 1
+                    if fives == 5:
+                        return player
+                else:
+                    fives = 0
+        if np.sum(np.abs(self.board.flat)) == 15 * 15:
+            return 0
+        # remember that draw is very unlikely, but possible
+
+        # if there is no winner, and it is not a draw
+        return -2
     @staticmethod
-    # @njit(cache=True, fastmath=True)
+    @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
@@ -318,65 +362,48 @@ class Gomoku:
                         return current_player
                 else:
                     fives = 0
-        if np.sum(np.abs(board.flatten())) == 15 * 15:
+        if sum(abs(board.flat)) == 15 * 15:
             return 0
         # remember that draw is very unlikely, but possible
 
         # if there is no winner, and it is not a draw
         return -2
     @staticmethod
-    # @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False) -> (np.array, np.array):
+    @njit(cache=True)
+    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_check=False):
         """
         :param board: The board
         :param current_player: Current player we want to check for
         :param WIDTH: board width
         :param HEIGHT: board height
-        :param fast_find_win: only returns 1 winning move if True for speed
-        This should be False for training, because we want multiple winning moves to determine a better policy
-        with more than 1 terminal move
+        :param fast_check: only returns 1 winning move if True, should be False for MCTS,
+        because we want multiple winning moves to determine a better policy
         :return:
         """
-        legal_actions = np.argwhere(board == 0)[:, ::-1]
+        legal_actions = np.argwhere(board == 0).reshape(-1)[:, ::-1]
         # reverse the order of each element from [y, x] -> [x, y]
-        check_win_board = board
+        check_win_board = board.copy()
         terminal_actions = [] # includes winning and drawing actions
         terminal_mask = [] # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
-
         for legal_action in legal_actions:
             # Try every legal action anc check if the current player won
             # Very inefficient. There is a better implementation
             # for simplicity this will be the example
-            x, y = legal_action
+            x, y = legal_action % WIDTH, legal_action // HEIGHT
             check_win_board[y][x] = current_player
-
-
-            result = Gomoku.check_win_MCTS(board, legal_action, current_player)
-            # print(legal_action)
-            # if x == 7 and y == 3:
-            #     print(board, x, y, current_player)
-            #     print(result)
-            #     raise ValueError
+            result = Gomoku.check_win_MCTS(board, (x, y), current_player)
             if result != -2: # this limits the checks by a lot
-                terminal_actions.append(legal_action) # in any case as long as the result != -2, we have a terminal action
+                terminal_actions.append((x, y)) # in any case as long as the result != -2, we have a terminal action
                 if result == current_player: # found a winning move
                     terminal_mask.append(1)
-                    if fast_find_win:
+                    if fast_check:
                         break
                 elif result == 0: # a drawing move
                     terminal_mask.append(0)
 
             check_win_board[y][x] = 0 # reset the board
-        return terminal_actions, np.array(terminal_mask)
-
-    def compute_policy_improvement(self, statistics):
-        new_policy = np.zeros_like(self.board)
-        for (x, y), prob in statistics:
-            new_policy[y][x] = prob
-        return new_policy.reshape(-1)
-
-
+        return terminal_actions, terminal_mask
 
 
 
