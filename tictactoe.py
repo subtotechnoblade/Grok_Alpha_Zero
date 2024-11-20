@@ -243,7 +243,7 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, fast_check=False):
+    def get_winning_actions_MCTS(board, current_player, fast_check=False):
         # Brian will be looking very closely at this code when u implement this
         # Recommend to use check_win_MCTS unless there is a more efficient way
         # making sure that this doesn't slow this MCTS to a halt
@@ -258,8 +258,11 @@ class TicTacToe:
         # return [0.1, 0.2, ...]
         # this should map the action and probability to a probability distribution
         new_policy = np.zeros(self.policy_shape)
+        for (x, y), prob in statistics:
+            new_policy[x + 3 * y] = prob
 
-        pass
+        return new_policy
+
 
 if __name__ == "__main__":
     # test your code here

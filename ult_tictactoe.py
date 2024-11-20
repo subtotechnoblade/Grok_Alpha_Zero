@@ -185,7 +185,8 @@ class UltimateTicTacToe:
                 return val/3
         #columns
         sumCol = np.sum(board, axis = 1)
-        for val in sumCol:
+        for val in (
+                sumCol):
             if (val == 3 or val == -3):
                 return val/3
         
