@@ -174,6 +174,13 @@ class Game:
         # Thus fast_find_win can be used to only return 1 winning move, this is used for speed up inferencing
         pass
 
+    def compute_policy_improvement(self, statistics):
+        # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
+        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
+        # return [0.1, 0.2, ...]
+        # this should map the action and probability to a probability distribution
+        pass
+
 
 # example for gomoku
 class Gomoku:
@@ -332,7 +339,7 @@ class Gomoku:
         """
         legal_actions = np.argwhere(board == 0)[:, ::-1]
         # reverse the order of each element from [y, x] -> [x, y]
-        check_win_board = board.copy()
+        check_win_board = board
         terminal_actions = [] # includes winning and drawing actions
         terminal_mask = [] # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
@@ -341,12 +348,18 @@ class Gomoku:
             # Try every legal action anc check if the current player won
             # Very inefficient. There is a better implementation
             # for simplicity this will be the example
-            x, y = legal_action[0] % WIDTH, legal_action[1] // HEIGHT
+            x, y = legal_action
             check_win_board[y][x] = current_player
 
-            result = Gomoku.check_win_MCTS(board, (x, y), current_player)
+
+            result = Gomoku.check_win_MCTS(board, legal_action, current_player)
+            # print(legal_action)
+            # if x == 7 and y == 3:
+            #     print(board, x, y, current_player)
+            #     print(result)
+            #     raise ValueError
             if result != -2: # this limits the checks by a lot
-                terminal_actions.append((x, y)) # in any case as long as the result != -2, we have a terminal action
+                terminal_actions.append(legal_action) # in any case as long as the result != -2, we have a terminal action
                 if result == current_player: # found a winning move
                     terminal_mask.append(1)
                     if fast_find_win:
@@ -355,7 +368,13 @@ class Gomoku:
                     terminal_mask.append(0)
 
             check_win_board[y][x] = 0 # reset the board
-        return terminal_actions, terminal_mask
+        return terminal_actions, np.array(terminal_mask)
+
+    def compute_policy_improvement(self, statistics):
+        new_policy = np.zeros_like(self.board)
+        for (x, y), prob in statistics:
+            new_policy[y][x] = prob
+        return new_policy.reshape(-1)
 
 
 if __name__ == "__main__":
