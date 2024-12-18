@@ -10,25 +10,79 @@ from tqdm import  tqdm
 
 if __name__ == "__main__":
     from numba import njit
+    ttuple = lambda x: tuple(tuple(thing) for thing in x)
+    # x = set()
+    # x.add(ttuple([[1, 2]],))
+    # print(x)
+    # raise ValueError
+    # board = np.array([[1, 2, 3, 3],
+    #          [4, 5, 6, 5],
+    #          [7, 8, 9, 1],
+    #                   [1, 2, 3, 5]])
+    #
+    # print(board)
+    # up_board = np.flipud(board)
+    #
+    # lr_board = np.fliplr(board)
+    # print("\n")
+    #
+    #
+    # augmented_boards = {ttuple(board), ttuple(up_board), ttuple(lr_board)}
+    # for k in range(1, 5):
+    #
+    #     rot_board = np.rot90(board, k)
+    #     if ttuple(rot_board) in augmented_boards:
+    #         print(f"{k} rot is a repeat")
+    #         print(rot_board)
+    #         print(augmented_boards)
+    #     augmented_boards.add(ttuple(rot_board))
+    #
+    #     flipped_up_board = np.flipud(rot_board)
+    #     if ttuple(flipped_up_board) in augmented_boards:
+    #         print(f"{k} ud is a repeat")
+    #         print(flipped_up_board)
+    #         print(augmented_boards)
+    #     augmented_boards.add(ttuple(flipped_up_board))
+    #
+    #     flipped_lr_board = np.fliplr(rot_board)
+    #     if ttuple(flipped_lr_board) in augmented_boards:
+    #         print(f"{k} lr is a repeat")
+    #         print(flipped_lr_board)
+    #         print(augmented_boards)
+    #     augmented_boards.add(ttuple(flipped_lr_board))
+        # print(flipped_lr_board)
+        # print(flipped_up_board)
+        # print("\n")
+        # raise ValueError
 
-    def task():
 
-        cards = np.array([[0, 0], [0, 1]])
 
-        chosen_card = np.random.randint(0, 2, size=1)[0]
-        chosen_side = np.random.randint(0, 2, size=1)[0]
 
-        if cards[chosen_card][chosen_side] == 0:
-            if cards[chosen_card][1 - chosen_side] == 0:
-                return True
-        return False
 
-    hits = 0
-    for _ in range(100000):
-        result = task()
-        # if result is not None:
-        hits += result
-    print(hits / 100000)
+
+    [100] -> 1 of 1
+    200 -> 0
+    [200, 100] 1 of 2
+    150 -> 1
+    [200, 150, 100] -> 2 of 3
+    O(n^2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # def check_for_duplicated_unhashable(input_list):
     #     seen = 0
     #
