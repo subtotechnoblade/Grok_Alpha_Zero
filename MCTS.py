@@ -210,7 +210,7 @@ class MCTS:
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_terminal_actions(legal_actions_fn,
                              do_action_fn,
                              check_win_fn,
@@ -240,7 +240,6 @@ class MCTS:
             # for simplicity this will be the example
 
             check_win_board = do_action_fn(board.copy(), legal_action, current_player)
-            print(check_win_board)
 
             result = check_win_fn(check_win_board, legal_action, current_player)
 
@@ -253,7 +252,6 @@ class MCTS:
                         break
                 elif result == 0:  # a drawing move
                     terminal_mask.append(0)
-        raise ValueError
         return terminal_actions, np.array(terminal_mask)
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
         # winning actions must have at least 1 winning action
@@ -320,7 +318,6 @@ class MCTS:
     def _expand(self, node: Node) -> (Node, float):
         # note that node is the parent of the child, and node will always be different and unique
         # create the child to expand
-        s = time.time()
         child_action = node.child_legal_actions.pop(-1) # this must be -1 because list pop is O(1),
         # only when popping from the right
 
@@ -334,8 +331,6 @@ class MCTS:
                                                                     child_board,
                                                                     node.current_player,
                                                                     fast_find_win=self.fast_find_win)
-        # print("1", time.time() - s)
-
 
         if terminal_actions:
             child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
@@ -473,9 +468,10 @@ if __name__ == "__main__":
     game.do_action((6, 5))
 
     game.do_action((7, 4))
-    # game.do_action((6, 4))
+    game.do_action((6, 4))
     print(game.board)
     mcts = MCTS(game,
-                c_puct_init=3.5,
-                use_dirichlet=True)
-    mcts.run(50000)
+                c_puct_init=2.5,
+                use_dirichlet=True,
+                fast_find_win=False)
+    mcts.run(100000)

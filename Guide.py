@@ -167,8 +167,10 @@ class Game:
 
     def compute_policy_improvement(self, statistics):
         # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
-        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
+        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...] as in [[action0, probability for action0], ...]
+        # you should return a board with each probability assigned to each move
         # return [0.1, 0.2, ...]
+        # note that the coordinate [0, 0] corresponds to index 0 in the flattened board
         # this should map the action and probability to a probability distribution
         pass
     @staticmethod
