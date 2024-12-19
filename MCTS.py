@@ -1,8 +1,10 @@
 import numpy as np
 from warnings import warn
 from numba import njit
+import numba as nb
 from tqdm import tqdm
 from Guide import Gomoku
+import time
 class Node:
     __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
     def __init__(self,
@@ -71,8 +73,9 @@ class MCTS:
                  use_dirichlet=True,
                  dirichlet_alpha=1.11,
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
-                 fast_find_win=False # this is for training, when exploiting change to True
-                 ):
+                 tau=1.0,
+                 fast_find_win=False, # this is for training, when exploiting change to True
+                 use_njit=True):
         """
         :param game: Your game class
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
@@ -80,7 +83,9 @@ class MCTS:
         :param use_dirichlet: To use dirichlet exploration noise or not
         :param dirichlet_alpha: The exploration rate in the alpa zero paper, should be (average moves per game / 10)
         :param dirichlet_epsilon: The weighting that dirichlet noise has over the policy
+        :param tau: Temperature which controls how a move is chosen, input tau to be a very small number to chose the move with highest probability
         :param fast_check_win: To uses fast check win parameter in check_win_MCTS
+        :param use_njit: jit the method get_terminal_actions
         """
         self.game = game
         self.fast_find_win = fast_find_win
@@ -95,16 +100,26 @@ class MCTS:
         # see https://ai.stackexchange.com/questions/25939/alpha-zero-does-not-converge-for-connect-6-a-game-with-huge-branching-factor
         # for more info on what c_puct should be along with how dirichlet alpha should be calculated
 
+        self.tau = tau # temperature parameter in alpha zero
+
+        self.use_njit = use_njit
+        # Note that these are functions getting assigned and jitted
+        if self.use_njit:
+            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True, nogil=True)
+        else:
+            self.get_terminal_actions = self.get_terminal_actions_fn
         # perform inference call to initialize root
 
-        terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(self.game.board, self.game.get_current_player(), fast_find_win=self.fast_find_win)
-        # print(terminal_actions, self.game.get_current_player())
-        # raise ValueError
-        if terminal_actions:
+        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.get_legal_actions_MCTS,
+                                                                    self.game.do_action_MCTS,
+                                                                    self.game.check_win_MCTS,
+                                                                    self.game.board,
+                                                                    self.game.get_current_player(),
+                                                                    fast_find_win=self.fast_find_win)
 
+        if terminal_actions:
             if 1 in terminal_mask:
                 value = 1
-                print(terminal_mask)
                 child_policy = terminal_mask / len(terminal_mask)
             else:
                 value = 0
@@ -147,8 +162,9 @@ class MCTS:
                              initial_RNN_state,
                              child_prob_prior)
 
+
     @staticmethod
-    # @njit(cache=True) # dont jit because its somehow slower
+    @njit(cache=True, fastmath=True)
     def _get_best_PUCT_score_index(child_prob_priors: np.array,
                                    child_values: np.array,
                                    child_visits: np.array,
@@ -205,6 +221,63 @@ class MCTS:
     def _apply_dirichlet(self, legal_policy):
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
+    @staticmethod
+    # @njit(cache=True)
+    def get_terminal_actions_fn(legal_actions_fn,
+                             do_action_fn,
+                             check_win_fn,
+                             board,
+                             current_player,
+                             fast_find_win=False) -> (np.array, np.array):
+        """
+        :param board: The board
+        :param current_player: Current player we want to check for
+        :param WIDTH: board width
+        :param HEIGHT: board height
+        :param fast_find_win: only returns 1 winning move if True for speed
+        This should be False for training, because we want multiple winning moves to determine a better policy
+        with more than 1 terminal move
+        :return:
+        """
+        legal_actions = legal_actions_fn(board)
+        # reverse the order of each element from [y, x] -> [x, y]
+
+        terminal_actions = []  # includes winning and drawing actions
+        terminal_mask = []  # a list of 0 and 1
+        # where each index corresponds to a drawing action if 0, and a winning action if 1
+
+        for legal_action in legal_actions:
+            # Try every legal action anc check if the current player won
+            # Very inefficient. There is a better implementation
+            # for simplicity this will be the example
+
+            check_win_board = do_action_fn(board.copy(), legal_action, current_player)
+
+            result = check_win_fn(check_win_board, legal_action, current_player)
+
+            if result != -2:  # this limits the checks by a lot
+                terminal_actions.append(
+                    legal_action)  # in any case as long as the result != -2, we have a terminal action
+                if result == current_player:  # found a winning move
+                    terminal_mask.append(1)
+                    if fast_find_win:
+                        break
+                elif result == 0:  # a drawing move
+                    terminal_mask.append(0)
+        return terminal_actions, np.array(terminal_mask)
+    # @staticmethod
+    # def get_terminal_actions(legal_actions_fn,
+    #                          do_action_fn,
+    #                          check_win_fn,
+    #                          board,
+    #                          current_player,
+    #                          fast_find_win=False):
+    #     return nb.njit(MCTS.get_terminal_actions_fn, cache=True)(legal_actions_fn,
+    #                          do_action_fn,
+    #                          check_win_fn,
+    #                          board,
+    #                          current_player,
+    #                          fast_find_win)
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
         # winning actions must have at least 1 winning action
         len_terminal_moves = len(terminal_actions)
@@ -277,7 +350,13 @@ class MCTS:
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
 
-        terminal_actions, terminal_mask = self.game.get_terminal_actions_MCTS(child_board, node.current_player, fast_find_win=self.fast_find_win)
+        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.get_legal_actions_MCTS,
+            self.game.do_action_MCTS,
+                                                                    self.game.check_win_MCTS,
+                                                                    child_board,
+                                                                    node.current_player,
+                                                                    fast_find_win=self.fast_find_win)
+
         if terminal_actions:
             child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
@@ -313,7 +392,9 @@ class MCTS:
                 del node.board
                 del node.current_player
                 del node.RNN_state # we no longer need RNN state
+
             # negated child_child_values is the child value
+
         return child, -child_value # contact Brian if you don't understand why it is -value
 
     def _back_propagate(self, node: Node, value: float) -> None:
@@ -332,24 +413,37 @@ class MCTS:
         self.root.visits += 1
 
 
-    def run(self, iterations: int or bool=True, time_limit=None):
+    def run(self, iteration_limit: int or bool=None, time_limit: int or float=None):
         """
-        :param iterations: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
+        :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
         :param time_limit: The time limit MCTS is allowed to run, note that MCTS can go over the time limit by small amounts
         :return: chosen_action, actions: list, probs: np.array
         where each action in actions corresponds to the prob in probs, actions[0]'s prob is probs[0] and so on
+        returns the top action and action distribution for the storage buffer
         """
-        if iterations is not True and iterations < len(self.game.get_legal_actions()):
+
+        if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
             warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())}"
                  f"because all depth 1 actions must be visited to produce a valid policy"
                  f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
 
-        if (iterations is True or iterations < len(self.game.get_legal_actions())) and time_limit is None:
-            iterations = 3 * len(self.game.get_legal_actions())
+        if (iteration_limit is not None and (iteration_limit is True or iteration_limit < len(self.game.get_legal_actions()))) and time_limit is None:
+            iteration_limit = 3 * len(self.game.get_legal_actions())
 
-        # will probably need to update requirements.txt for tqdm as a new library
-        # returns the top action and action distribution for the storage buffer
-        for _ in tqdm(range(iterations)): # this is for testing
+        if iteration_limit is None and time_limit is True:
+            time_limit = 30.0 # 30 seconds by default
+
+        if iteration_limit and time_limit is None:
+            bar = tqdm(total=iteration_limit)
+        else:
+            bar = tqdm(total=time_limit)
+
+        current_iteration = 0
+        start_time = time.time()
+
+        while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
+            # for _ in tqdm(range(iteration_limit)): # this is for testing
+            loop_start_time = time.time()
             node = self._PUCT_select()
 
             if node.is_terminal is not None:
@@ -360,17 +454,33 @@ class MCTS:
 
             self._back_propagate(node, value)
 
-        self.probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
+            if iteration_limit:
+                bar.update(1)
+            else:
+                bar.update(time.time() - loop_start_time)
+            current_iteration += 1
+        bar.close()
 
+
+        self.move_probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                             self.root.child_visits / self.root.visits,# new probability value
-                                                                             self.root.child_values / self.root.child_visits, # winrate
-                                                                             self.root.child_values,
-                                                                             self.root.child_visits,
-                                                                             self.root.child_prob_priors)):
-            self.probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
-        self.probs = sorted(self.probs, key= lambda x: x[4], reverse=True)
-        print(self.probs)
+                                                                                         self.root.child_visits / self.root.visits,# new probability value
+                                                                                         self.root.child_values / self.root.child_visits, # winrate
+                                                                                         self.root.child_values,
+                                                                                         self.root.child_visits,
+                                                                                         self.root.child_prob_priors)):
+            self.move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
+
+        prob_weights = (self.root.child_visits / self.root.visits) ** (1.0 / self.tau)
+        prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
+        chosen_index = np.random.choice(np.arange(len(self.move_probs)), size=1, replace=False, p=prob_weights)[0]
+        move = self.move_probs[chosen_index][0]
+        # stochastically sample a move with the weights affected by tau
+
+        self.move_probs = sorted(self.move_probs, key=lambda x: x[4], reverse=True)
+
+
+        return move, list(map(lambda x: x[:2], self.move_probs))
 
 
     def _set_root(self, child: Node):
@@ -382,8 +492,9 @@ class MCTS:
                         child_legal_actions=child.child_legal_actions,
                         RNN_state=None,
                         child_prob_priors=child.child_prob_priors)
-        del new_root.RNN_state # don't need this as child must be evaluated
+        # del new_root.RNN_state # don't need this as child must be evaluated
         new_root.children = child.children
+        new_root.child_values = child.child_values
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
 
@@ -391,7 +502,7 @@ class MCTS:
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node
         for child in self.root.children:
-            if child.action_history[-1] == action:
+            if np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
                 break
 
@@ -399,17 +510,44 @@ class MCTS:
 if __name__ == "__main__":
     from Guide import Gomoku
     game = Gomoku()
-    game.do_action((7, 7))
-    game.do_action((6, 7))
-    game.do_action((7, 6))
-    game.do_action((6, 6))
-    game.do_action((7, 5))
+    # game.do_action((7, 7))
+    # game.do_action((6, 7))
+    # game.do_action((7, 6))
+    # game.do_action((6, 6))
+    # game.do_action((7, 5))
+    #
     # game.do_action((6, 5))
 
     # game.do_action((7, 4))
     # game.do_action((6, 4))
+    # mcts = MCTS(game,
+    #             c_puct_init=2.5,
+    #             use_dirichlet=True,
+    #             fast_find_win=False)
+
     print(game.board)
-    mcts = MCTS(game,
-                c_puct_init=3.5,
-                use_dirichlet=True)
-    mcts.run(5600)
+    winner = -2
+    while winner == -2:
+        if game.get_current_player() == -1:
+            move = game.input_action()
+            print("You played", move)
+
+            game.do_action(move)
+            print(game.board)
+            winner = game.check_win()
+            # mcts.prune_tree(move)
+        else:
+            mcts = MCTS(game,
+                        c_puct_init=2.5,
+                        use_dirichlet=True,
+                        fast_find_win=False)
+            move, probs = mcts.run(iteration_limit=10000, time_limit=None)
+            game.do_action(move)
+            print("AI played", move)
+            print(game.board)
+            winner = game.check_win()
+            print(winner)
+
+            # mcts.prune_tree(move)
+    print("player", winner, "won")
+

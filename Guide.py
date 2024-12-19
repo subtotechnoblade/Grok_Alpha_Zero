@@ -70,10 +70,20 @@ class Game:
         # returns the current player
         pass
 
+    def input_action(self):
+        # returns an action using input()
+        # for tictactoe it is "return int(input()), int(input())"
+        pass
+
     def get_legal_actions(self) -> np.array:
         # returns the all possible legal actions in a numpy array [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
+        pass
+    @staticmethod
+    # @njit(cache=True)
+    def get_legal_actions_MCTS(board):
+        # this returns the legal moves, just do the same thing as get_legal_actions
         pass
 
     @staticmethod
@@ -148,43 +158,41 @@ class Game:
     def check_win(self) -> int:
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
+
+        # feel free to implement the logic in check_win_MCTS
+        # and call it like Game.check_win_MCTS(self.board, self.action_history[-1], self.current_player)
+        # of course "Game" should be changed to the class name, "Game" is just an example
         pass
 
     @staticmethod
     # @njit(cache=True)
     def check_win_MCTS(board, last_action, current_player) -> int:
         # Used to check if MCTS has reached a terminal node
-        pass
-
-    @staticmethod
-    @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, fast_find_win=False) -> (np.array, np.array):
-        # Brian will be looking very closely at this code when u implement this
-        # recommend to use check_win_MCTS unless there is a more efficient way
-        # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 action move you don't have to use or implement fast_check param
-        # please do not remove the fast_check parameter
-        # check the gomoku example for more info
-
-        # return the terminal and an associate action mask which each index corresponds to the
-        # same action in terminal actions
-        # terminal actions should be actions that result in wins or draws
-        # thus an terminal mask is required to differentiate a winning move from a drawing move
-        # so 0 for drawing move and 1 for winning
-        # example for chess
-        # terminal_moves [queen mate, queen stalemate], terminal_mask [1, 0]
-        # connect N games can never have 2 moves that when played immediately end in a draw
-
-        # Note that you must return all terminal moves (wins and draws), this is used for training
-        # Thus fast_find_win can be used to only return 1 winning move, this is used for speed up inferencing
+        # return the player (-1 or 1) if that player won, 0 if draw, and -2 if game hasn't ended
         pass
 
     def compute_policy_improvement(self, statistics):
         # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
-        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
+        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...] as in [[action0, probability for action0], ...]
+        # you should return a board with each probability assigned to each move
         # return [0.1, 0.2, ...]
+        # note that the coordinate [0, 0] corresponds to index 0 in the flattened board
         # this should map the action and probability to a probability distribution
         pass
+    @staticmethod
+    #@njit(cache=True)
+    def augment_sample(board, policy):
+        # optional method to improve convergence
+        # rotate the board and flip it using numpy and return those as a list along with the original
+        # remember to rotate the flip the policy in the same way as board
+        # return [board, rotated_board, ...], [policy, rotated_policy, ...]
+
+
+        # if you are going to do this just know that all you have to do (in order to not have duplicate boards from rotating and then flipping)
+        # define r()
+        # is [board,]
+
+        return [board], [policy] # just return [board], [policy] if you don't want to implement this
 
 
 # example for gomoku
@@ -200,6 +208,9 @@ class Gomoku:
     def get_current_player(self):
         return self.current_player
 
+    def input_action(self):
+        return np.array(list(map(int, input().split(" "))))
+
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
         # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
@@ -208,6 +219,11 @@ class Gomoku:
         # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
         # [:, ::-1] reverses the order of the elements because argwhere returns [[y0, x0], ...] thus becomes [[x1, y0], ...]
         return np.argwhere(self.board == 0)[:, ::-1]
+    @staticmethod
+    @njit(cache=True)
+    def get_legal_actions_MCTS(board):
+        # same as the method above
+        return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
     # @njit(cache=True)
@@ -266,10 +282,13 @@ class Gomoku:
         # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
+
+        # use -self.current_player because in do_action we change to the next player but here we are checking
+        # if the player that just played won so thus the inversion
+        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
 
     @staticmethod
-    # @njit(cache=True, fastmath=True)
+    @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
@@ -325,65 +344,28 @@ class Gomoku:
                         return current_player
                 else:
                     fives = 0
-        if np.sum(np.abs(board.flatten())) == 15 * 15:
-            return 0
+        # if np.sum(np.abs(board.flatten())) == 15 * 15:
+        #     return 0
+        # ^ ostrich algorithm moment
         # remember that draw is very unlikely, but possible
 
         # if there is no winner, and it is not a draw
         return -2
-
-    @staticmethod
-    # @njit(cache=True)
-    def get_terminal_actions_MCTS(board, current_player, WIDTH=15, HEIGHT=15, fast_find_win=False) -> (
-    np.array, np.array):
-        """
-        :param board: The board
-        :param current_player: Current player we want to check for
-        :param WIDTH: board width
-        :param HEIGHT: board height
-        :param fast_find_win: only returns 1 winning move if True for speed
-        This should be False for training, because we want multiple winning moves to determine a better policy
-        with more than 1 terminal move
-        :return:
-        """
-        legal_actions = np.argwhere(board == 0)[:, ::-1]
-        # reverse the order of each element from [y, x] -> [x, y]
-        check_win_board = board
-        terminal_actions = []  # includes winning and drawing actions
-        terminal_mask = []  # a list of 0 and 1
-        # where each index corresponds to a drawing action if 0, and a winning action if 1
-
-        for legal_action in legal_actions:
-            # Try every legal action anc check if the current player won
-            # Very inefficient. There is a better implementation
-            # for simplicity this will be the example
-            x, y = legal_action
-            check_win_board[y][x] = current_player
-
-            result = Gomoku.check_win_MCTS(board, legal_action, current_player)
-            # print(legal_action)
-            # if x == 7 and y == 3:
-            #     print(board, x, y, current_player)
-            #     print(result)
-            #     raise ValueError
-            if result != -2:  # this limits the checks by a lot
-                terminal_actions.append(
-                    legal_action)  # in any case as long as the result != -2, we have a terminal action
-                if result == current_player:  # found a winning move
-                    terminal_mask.append(1)
-                    if fast_find_win:
-                        break
-                elif result == 0:  # a drawing move
-                    terminal_mask.append(0)
-
-            check_win_board[y][x] = 0  # reset the board
-        return terminal_actions, np.array(terminal_mask)
 
     def compute_policy_improvement(self, statistics):
         new_policy = np.zeros_like(self.board)
         for (x, y), prob in statistics:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
+
+    def augment_sample(self, board, policy):
+        augmented_boards = [board, np.flipud(board), ]
+        augmented_policies = [policy] # note that policy must be in shape 225, but need to be (15, 15) to be augmented
+
+
+
+
+
 
 
 if __name__ == "__main__":
