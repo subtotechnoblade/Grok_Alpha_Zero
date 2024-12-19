@@ -70,6 +70,11 @@ class Game:
         # returns the current player
         pass
 
+    def input_action(self):
+        # returns an action using input()
+        # for tictactoe it is "return int(input()), int(input())"
+        pass
+
     def get_legal_actions(self) -> np.array:
         # returns the all possible legal actions in a numpy array [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
@@ -163,6 +168,7 @@ class Game:
     # @njit(cache=True)
     def check_win_MCTS(board, last_action, current_player) -> int:
         # Used to check if MCTS has reached a terminal node
+        # return the player (-1 or 1) if that player won, 0 if draw, and -2 if game hasn't ended
         pass
 
     def compute_policy_improvement(self, statistics):
@@ -201,6 +207,9 @@ class Gomoku:
 
     def get_current_player(self):
         return self.current_player
+
+    def input_action(self):
+        return np.array(list(map(int, input().split(" "))))
 
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
@@ -273,7 +282,10 @@ class Gomoku:
         # compiles and vectorizes the for loops
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
+
+        # use -self.current_player because in do_action we change to the next player but here we are checking
+        # if the player that just played won so thus the inversion
+        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
