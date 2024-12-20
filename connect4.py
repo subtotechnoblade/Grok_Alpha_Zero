@@ -120,6 +120,7 @@ print("The operations can be any operations such as +, -, *, /, %, //")
 # list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
 
 class Connect4:
+    # second change!!!
     # I am charlotte
     # hi brian!!!
     # refer to Guide.py to implement each method, please be careful of what is used and returned
