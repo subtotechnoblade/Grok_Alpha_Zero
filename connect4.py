@@ -120,9 +120,6 @@ print("The operations can be any operations such as +, -, *, /, %, //")
 # list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
 
 class Connect4:
-    # second change!!!
-    # I am charlotte
-    # hi brian!!!
     # refer to Guide.py to implement each method, please be careful of what is used and returned
     # if you want pure speed recommend the decorator @njit for methods with for loops and numpy operations
     # contact Brian if you want more info
@@ -158,10 +155,11 @@ class Connect4:
         return board
     """
 
+
     def __init__(self):
         # MUST HAVE VARIABLES
         # define your board as a numpy array
-        self.board = np.array([])
+        self.board = np.zeros((6, 7)) #should i use np.array?
         # current player as an int, first player will be -1 second player is 1
         self.current_player = -1
         # to swap the current the player -> current_player *= -1 (very handy)
@@ -176,14 +174,14 @@ class Connect4:
         # for connect 5 it is (225,) because 15 * 15 amount of actions where the index
         # you should request for a flattened policy (for tic tac toe) -> (9,) rather than (3, 3)
         # in parse policy you will have to convert the policy into actions and the associated prob_prior
-        self.policy_shape = (
-        "your policy shape (length)",)  # MUST HAVE or else I won't be able to define the neural network
+        self.policy_shape = (7,)
+        # MUST HAVE or else I won't be able to define the neural network
         # just know that the illegal moves are removed and the policy which is a probability distribution
         # is re normalized
 
     def get_current_player(self):
         # returns the current player
-        pass
+        return self.current_player
 
     def get_legal_actions(self):
         # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
@@ -236,7 +234,11 @@ class Connect4:
 
     def do_action(self, action):
         # places the move onto the board
-        pass
+        for i in range(len(self.board) - 1, -1, -1):
+            if self.board[i][action] == 0:
+                self.board[i][action] = self.current_player
+                self.current_player *= -1
+                self.action_history.append(action)
 
     @staticmethod
     # @njit(cache=True)
