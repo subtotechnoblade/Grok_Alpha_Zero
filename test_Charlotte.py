@@ -12,3 +12,5 @@ print("Ian patrick tan is gay")
 
 
 print("No Ian's allowed here")
+
+print("BRUUUU")
