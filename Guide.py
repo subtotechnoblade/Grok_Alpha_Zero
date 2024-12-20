@@ -226,7 +226,7 @@ class Gomoku:
         return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         flattened_board = board.reshape(-1)  # makes sure that the board is a vector
         policy = policy[flattened_board == 0]  # keep the probabilities where the board is not filled

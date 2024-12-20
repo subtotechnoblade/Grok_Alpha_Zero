@@ -5,9 +5,6 @@ import numba as nb
 from tqdm import tqdm
 from Guide import Gomoku
 import time
-
-CRED = '\033[91m'
-CEND = '\033[0m'
 class Node:
     __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
     def __init__(self,
@@ -542,6 +539,7 @@ class MCTS:
         for child in self.root.children:
             if np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
+                gc.collect()
                 return
 
         # this assumes that the tree was initialized with the other person's perspective
@@ -583,7 +581,7 @@ if __name__ == "__main__":
             mcts.prune_tree(move)
             winner = game.check_win()
         else:
-            move, probs = mcts.run(iteration_limit=100000, time_limit=None)
+            move, probs = mcts.run(iteration_limit=75000, time_limit=None)
             game.do_action(move)
             print("AI played", move)
             print(probs)
