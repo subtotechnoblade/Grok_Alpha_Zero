@@ -74,9 +74,9 @@ class MCTS:
                  use_dirichlet=True,
                  dirichlet_alpha=1.11,
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
-                 tau=1.0,
+                 tau=1e-3,
                  fast_find_win=False, # this is for training, when exploiting change to True
-                 use_njit=True):
+                 use_njit=False):
         """
         :param game: Your game class
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
@@ -436,8 +436,6 @@ class MCTS:
 
         current_iteration = 0
         start_time = time.time()
-        if self.root.children:
-            print(self.root.children[0].current_player)
 
         while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
             # for _ in tqdm(range(iteration_limit)): # this is for testing
@@ -524,22 +522,12 @@ class MCTS:
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
 
-        # terminals = ""
-        # for node in self.root.children:
-        #     if node.is_terminal is not None:
-        #         terminals += f"{node.is_terminal}"
-        # print(CRED + terminals + CEND)
-
-        # if self.root.children:
-        #     print(self.root.children[0].current_player)
-
     def prune_tree(self, action):
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node
         for child in self.root.children:
             if np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
-                gc.collect()
                 return
 
         # this assumes that the tree was initialized with the other person's perspective
@@ -565,14 +553,16 @@ if __name__ == "__main__":
     # game.do_action((6, 4))
     mcts = MCTS(game,
                 c_puct_init=2.5,
+                dirichlet_alpha=0.25,
                 tau=0.01,
                 use_dirichlet=True,
-                fast_find_win=True)
+                fast_find_win=True,
+                use_njit=True)
 
     print(game.board)
     winner = -2
     while winner == -2:
-        if game.get_current_player() == -1:
+        if game.get_current_player() == 1:
             move = game.input_action()
             # print("You played", move)
 
@@ -581,7 +571,7 @@ if __name__ == "__main__":
             mcts.prune_tree(move)
             winner = game.check_win()
         else:
-            move, probs = mcts.run(iteration_limit=75000, time_limit=None)
+            move, probs = mcts.run(iteration_limit=True, time_limit=None)
             game.do_action(move)
             print("AI played", move)
             print(probs)
