@@ -187,12 +187,16 @@ class Game:
         # remember to rotate the flip the policy in the same way as board
         # return [board, rotated_board, ...], [policy, rotated_policy, ...]
 
+        # Note the optimal rotations and flips for tictactoe, and gomoku is
+        # [original arr, flipup(arr), fliplr(arr)]
+        # and [np.rot_90(arr, k = 1) + flipup(rot_arr), fliplr(rot_arr)]
+        # and [np.rot_90(arr, k = 2)
+        # and [np.rot_90(arr, k = 3)
 
-        # if you are going to do this just know that all you have to do (in order to not have duplicate boards from rotating and then flipping)
-        # define r()
-        # is [board,]
+        # Note that this won't be the case for connect4, and ult_tictactoe
 
         return [board], [policy] # just return [board], [policy] if you don't want to implement this
+        # don't be lazy, this will help convergence very much
 
 
 # example for gomoku
@@ -347,7 +351,7 @@ class Gomoku:
         # if np.sum(np.abs(board.flatten())) == 15 * 15:
         #     return 0
         # ^ ostrich algorithm moment
-        # remember that draw is very unlikely, but possible
+        # remember that draw is very unlikely, but possible, just improbably
 
         # if there is no winner, and it is not a draw
         return -2
@@ -358,9 +362,25 @@ class Gomoku:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
 
+    def augment_array(self, arr):
+        augmented_arrs = [arr, np.flipud(arr), np.fliplr(arr)]
+        for k in range(1, 4):
+            rot_arr = np.rot90(arr, k)
+            augmented_arrs.append(rot_arr)
+            if k == 1:
+                augmented_arrs.append(np.flipud(rot_arr))
+                augmented_arrs.append(np.fliplr(rot_arr))
+        return augmented_arrs
     def augment_sample(self, board, policy):
-        augmented_boards = [board, np.flipud(board), ]
-        augmented_policies = [policy] # note that policy must be in shape 225, but need to be (15, 15) to be augmented
+        augmented_boards = self.augment_array(board)
+
+        augmented_policies = []
+        for augmented_policy in self.augment_array(policy.reshape((15, 15))): # we need
+            # to reshape this because we can only rotate a matrix, not a vector
+            augmented_policies.append(augmented_policy.reshape((-1,)))
+
+        return augmented_boards, augmented_policies
+
 
 
 
@@ -374,7 +394,7 @@ if __name__ == "__main__":
     # game.do_action((7, 7))
     # print(game.get_state())
 
-    from game_tester import Game_Tester
+    from Game_Tester import Game_Tester
 
     tester = Game_Tester(Gomoku)
     tester.test()

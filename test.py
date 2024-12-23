@@ -19,53 +19,62 @@ if __name__ == "__main__":
     #          [4, 5, 6, 5],
     #          [7, 8, 9, 1],
     #                   [1, 2, 3, 5]])
-    #
-    # print(board)
-    # up_board = np.flipud(board)
-    #
-    # lr_board = np.fliplr(board)
-    # print("\n")
-    #
-    #
-    # augmented_boards = {ttuple(board), ttuple(up_board), ttuple(lr_board)}
-    # for k in range(1, 5):
-    #
-    #     rot_board = np.rot90(board, k)
-    #     if ttuple(rot_board) in augmented_boards:
-    #         print(f"{k} rot is a repeat")
-    #         print(rot_board)
-    #         print(augmented_boards)
-    #     augmented_boards.add(ttuple(rot_board))
-    #
-    #     flipped_up_board = np.flipud(rot_board)
-    #     if ttuple(flipped_up_board) in augmented_boards:
-    #         print(f"{k} ud is a repeat")
-    #         print(flipped_up_board)
-    #         print(augmented_boards)
-    #     augmented_boards.add(ttuple(flipped_up_board))
-    #
-    #     flipped_lr_board = np.fliplr(rot_board)
-    #     if ttuple(flipped_lr_board) in augmented_boards:
-    #         print(f"{k} lr is a repeat")
-    #         print(flipped_lr_board)
-    #         print(augmented_boards)
-    #     augmented_boards.add(ttuple(flipped_lr_board))
-        # print(flipped_lr_board)
-        # print(flipped_up_board)
+    board = np.arange(9).reshape((3, 3))
+
+    print(board)
+    up_board = np.flipud(board)
+    print(up_board)
+    lr_board = np.fliplr(board)
+    print(lr_board)
+    print("\n")
+
+
+    augmented_boards = {ttuple(board), ttuple(up_board), ttuple(lr_board)}
+    for k in range(1, 4):
+        rot_board = ttuple(np.rot90(board, k))
+        augmented_boards.add(ttuple(rot_board))
+        if k == 1:
+            augmented_boards.add(ttuple(np.flipud(rot_board)))
+            augmented_boards.add(ttuple(np.fliplr(rot_board)))
+
+
+    for k in range(1, 4):
+        print("K is:", k)
+        rot_board = np.rot90(board, k)
+        print(rot_board)
+        if ttuple(rot_board) in augmented_boards:
+            print(f"{k} rot is a repeat")
+            # print(rot_board)
+            # print(augmented_boards)
+        augmented_boards.add(ttuple(rot_board))
+
+        flipped_up_board = np.flipud(rot_board)
+        if ttuple(flipped_up_board) in augmented_boards:
+            print(f"{k} ud is a repeat")
+            # print(flipped_up_board)
+            # print(augmented_boards)
+        augmented_boards.add(ttuple(flipped_up_board))
+
+        flipped_lr_board = np.fliplr(rot_board)
+        if ttuple(flipped_lr_board) in augmented_boards:
+            print(f"{k} lr is a repeat")
+            # print(flipped_lr_board)
+            # print(augmented_boards)
+        augmented_boards.add(ttuple(flipped_lr_board))
+        print(flipped_lr_board)
+        print(flipped_up_board)
         # print("\n")
-        # raise ValueError
+    # raise ValueError
+
+    # note base don the experiements
+    # we only need the original board + flipup + fliplr
+    # and rot_board (k = 1) + flipup + fliplr
+    # rot_board (k = 2)
+    # rot_board (k = 3)
 
 
 
 
-
-
-    [100] -> 1 of 1
-    200 -> 0
-    [200, 100] 1 of 2
-    150 -> 1
-    [200, 150, 100] -> 2 of 3
-    O(n^2)
 
 
 
