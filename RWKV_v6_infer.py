@@ -214,14 +214,12 @@ class Channel_Mix(tf.keras.layers.Layer):
         self.hidden_size = hidden_size if hidden_size is not None else int(self.embed_size * 3.5)
 
         self.key = tf.keras.layers.Dense(self.hidden_size)
-        self.mix_k = self.add_weight(shape=(self.embed_size,), name=f"mix_k_channel_{self.layer_id}"
-                                     )
+        self.mix_k = self.add_weight(shape=(self.embed_size,), name=f"mix_k_channel_{self.layer_id}")
 
         self.value = tf.keras.layers.Dense(self.embed_size)
 
         self.receptance = tf.keras.layers.Dense(self.embed_size)
-        self.mix_r = self.add_weight(shape=(self.embed_size,), name=f"mix_r_channel_{self.layer_id}"
-                                     )
+        self.mix_r = self.add_weight(shape=(self.embed_size,), name=f"mix_r_channel_{self.layer_id}")
 
         self.squared_ReLU = Squared_ReLU()
         # self.mish = Mish()
@@ -271,7 +269,7 @@ class RWKV_Block(tf.keras.layers.Layer):
 if __name__ == "__main__":
     import numpy as np
     from RWKV_v6 import make_test_model
-    embed_size, num_heads, num_layers = 64, 1, 1
+    embed_size, num_heads, num_layers = 64, 4, 5
 
 
     model = make_test_model(embed_size, num_heads, num_layers)
@@ -283,29 +281,53 @@ if __name__ == "__main__":
 
 
     def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
-        inputs = tf.keras.layers.Input(batch_shape=(None, embed_size), name="inputs")
-        input_state = tf.keras.layers.Input(batch_shape=(num_layers, 2, embed_size), name="input_state")
-        input_state_matrix = tf.keras.layers.Input(batch_shape= (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")
+        inputs = [tf.keras.layers.Input(batch_shape=(None, embed_size), name="inputs"),
+        tf.keras.layers.Input(batch_shape=(num_layers, 2, embed_size), name="input_state"),
+        tf.keras.layers.Input(batch_shape= (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")]
 
-        x, state, state_matrix = inputs, input_state, input_state_matrix
+        x, state, state_matrix = inputs
 
         for layer_id in range(num_layers):
             x, state, state_matrix = RWKV_Block(layer_id, num_heads, embed_size)(x, state, state_matrix)
         output_state, output_state_matrix = state, state_matrix
 
-        return tf.keras.Model(inputs=[inputs, input_state, input_state_matrix], outputs=[x, output_state, output_state_matrix])
+        return tf.keras.Model(inputs=inputs, outputs=[x, output_state, output_state_matrix])
 
     model_infer = make_test_model_infer(embed_size, num_heads, num_layers)
-    model_infer.summary()
+    # model_infer.summary()
 
-    # def create_states():
-    #     return np.zeros((num_layers, 2, embed_size)), np.zeros(
-    #         (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads))
-    # input_state, input_state_matrix = create_states()
-    # dummy_data = np.random.randint(low=0, high=100, size=(1, embed_size))
-    # model_infer(dummy_data, input_state, input_state_matrix)
+    def create_states():
+        return np.zeros((num_layers, 2, embed_size)), np.zeros(
+            (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads))
+    input_state, input_state_matrix = create_states()
 
 
     model_infer.load_weights("test_model.weights.h5")
+
+    dummy_data = np.random.uniform(low=0, high=100, size=(1, 360, embed_size))
+
+    output1 = model(dummy_data)
+    # print(output1)
+
+    output2 = []
+    for data_point in dummy_data[0]:
+        data_point = np.expand_dims(data_point, 0)
+
+        x, input_state, input_state_matrix = model_infer([data_point,input_state, input_state_matrix])
+        input_state = input_state.numpy()
+        input_state_matrix = input_state_matrix.numpy()
+        output2.append(x)
+
+    output1 = np.array(output1).reshape(-1, 64)
+    output2 = np.array(output2).reshape(-1, 64)
+    print(output1.shape, output2.shape)
+
+    index = 1
+    print(np.allclose(output1, output2))
+    for index in range(len(output1)):
+        # print(output1[index], output2[index])
+        print(np.sum(np.abs(output1[index] - output2[index])))
+
+
 
 

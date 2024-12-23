@@ -308,7 +308,6 @@ class RWKV_Block(tf.keras.layers.Layer):
 
     def call(self, inputs, trainable=True, *args, **kwargs):
         x = self.layer_norm1(inputs)
-        x = inputs
         x = self.time_mix(x)
         x += inputs
         residual = x
