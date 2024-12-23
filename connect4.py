@@ -237,12 +237,12 @@ class Connect4:
 
     def do_action(self, action):
         # places the move onto the board
-        for i in range(len(self.board) - 1, -1, -1):
-            if self.board[i][action] == 0:
-                self.board[i][action] = self.current_player
-                self.current_player *= -1
-                self.action_history.append(action)
-                break
+        action_col = self.board[:,action]
+        empty_row = np.argwhere(action_col == 0)
+        max_index = empty_row[-1][0]
+        self.board[max_index][action] = self.current_player
+        self.current_player *= -1
+        self.action_history.append(action)
 
     @staticmethod
     # @njit(cache=True)
