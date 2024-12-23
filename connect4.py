@@ -242,6 +242,7 @@ class Connect4:
                 self.board[i][action] = self.current_player
                 self.current_player *= -1
                 self.action_history.append(action)
+                break
 
     @staticmethod
     # @njit(cache=True)
@@ -275,28 +276,28 @@ class Connect4:
             for j in range(cols - 3):
                 if self.board[i][j] !=0:
                     if self.board[i][j] == self.board[i][j+1] == self.board[i][j+2] == self.board[i][j+3]:
-                        return self.board[i][j]
+                        return int(self.board[i][j])
 
         # check vertical
         for j in range(cols):
             for i in range(rows - 1 , 1, -1):
                 if self.board[i][j] != 0:
                     if self.board[i][j] == self.board[i-1][j] == self.board[i-2][j] == self.board[i-3][j]:
-                        return self.board[i][j]
+                        return int(self.board[i][j])
 
         # check diagonal [up]
         for i in range(rows - 1, 1, -1):
             for j in range(cols - 3):
                 if self.board[i][j] != 0:
                     if self.board[i][j] == self.board[i-1][j+1] == self.board[i-2][j+2] == self.board[i-3][j+3]:
-                        return self.board[i][j]
+                        return int(self.board[i][j])
 
         # check diagonal [down]
         for i in range(rows - 1, 1, -1):
             for j in range(cols - 1, 2, -1):
                 if self.board[i][j] != 0:
                     if self.board[i][j] == self.board[i-1][j-1] == self.board[i-2][j-2] == self.board[i-3][j-3]:
-                        return self.board[i][j]
+                        return int(self.board[i][j])
 
         # Check for draw (no empty cells)
         if all(self.board[row][col] != 0 for row in range(rows) for col in range(cols)):
