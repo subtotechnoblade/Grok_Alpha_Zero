@@ -177,31 +177,37 @@ class TicTacToe:
         return False #If not then sadly not :(
 
     @staticmethod
+    @njit(cache=True)
     def _check_row_MCT(row):  # A function for checking if there's a win on each row.
-        if row[0] != 0 and row[0] == row[1] == row[2]:
-            return True  # If all 3 items on a row equal, someone has won. Yippee!
-        return False  # If not then sadly not :(
+        # If all 3 items on a row equal, someone has won. Yippee!
+        # If not then sadly not :(
+        # Brian has simplified it, speed is probably the same
+        return row[0] != 0 and row[0] == row[1] == row[2]
 
 
-    def check_win(self): #Checking if someone has won in rows
+
+    def check_win(self):
+        # Note that self.current player is actually the next player
+        # -self.current_player because we've just played a move which changes to the next player
+        # thus if you found a win you have to return the previous player since that player just played -Brian
         for row in self.board:
             if self._check_row(row) is True: #Pulling out func from LALA-land
                 "                    ^ Jessy, just letting you know that 'is True' is not necessary for python"
                 "It's equally valid to do 'if self._check_row(row):' - Brian"
-                return self.current_player #Someone has won! :D
+                return -self.current_player #Someone has won! :D
 
         for column_index in range(3): #Checking if someone has won in columns
             column = self.board[:, column_index]
             if self._check_row(column) is True: #Pulling out func from LALA-land pt2
-                return self.current_player #Someone has won, yippee :3
+                return -self.current_player #Someone has won, yippee :3
 
         diag1 = np.diag(self.board) #Checking if someone has won in diagonals
         if self._check_row(diag1) is True: #Pulling out func from dark magic
-            return self.current_player #Someone has won :P
+            return -self.current_player #Someone has won :P
 
         diag2 = np.diag(np.fliplr(self.board))
         if self._check_row(diag2) is True: #Pulling func from Narnia
-            return self.current_player #Someone has won :)
+            return -self.current_player #Someone has won :)
 
         flattened_board = self.board.reshape((9,)) #Reshape board into 9 items, this is to check for draw
         for value in flattened_board:
@@ -213,23 +219,23 @@ class TicTacToe:
         return -2 #Game continues :3
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def check_win_MCTS(board, last_action, current_player):
         for row in board:
-            if TicTacToe._check_row_MCT(row):
+            if row[0] != 0 and row[0] == row[1] == row[2]:
                 return current_player
 
         for column_index in range(3):
             column = board[:, column_index]
-            if TicTacToe._check_row_MCT(column):
+            if column[0] != 0 and column[0] == column[1] == column[2]:
                 return current_player
 
         diag1 = np.diag(board)
-        if TicTacToe._check_row_MCT(diag1):
+        if diag1[0] != 0 and diag1[0] == diag1[1] == diag1[2]:
             return current_player
 
         diag2 = np.diag(np.fliplr(board))
-        if TicTacToe._check_row_MCT(diag2):
+        if diag2[0] != 0 and diag2[0] == diag2[1] == diag2[2]:
             return current_player
 
         flattened_board = board.reshape((9,))

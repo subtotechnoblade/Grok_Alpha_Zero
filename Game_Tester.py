@@ -151,6 +151,14 @@ class Game_Tester:
             print("Checking if do_action exists: Fail")
             print("do_action isn't implemented\n")
             return False
+
+        if isinstance(self.game.action_history[0], list):
+            print("Checking if do_action exists: Fail")
+            print("Your action can't be a list")
+            print("Recommend it to be a numpy array")
+            return False
+        elif isinstance(self.game.action_history[0], tuple):
+            print("Recommend that your action be a numpy array, currently it is a tuple")
         self.reset()
 
         print("Checking if do_action exists: Pass\n")
@@ -205,31 +213,82 @@ class Game_Tester:
 
         if winner != -2:
             print("Checking check_win: Fail")
-            print("At the start of the game there cannot be a winner")
+            print(f"At the start of the game there cannot be a winner returned: {winner}")
             return False
+
+        try:
+            self.game.check_win_MCTS(self.game.board, self.game.action_history[-1], -self.game.get_current_player()) # also counts as a warmup
+            MCTS_check_win_implemented = True
+        except AttributeError:
+            print("Checking check_win_MCTS: Fail")
+            print("check_win_MCTS not implemented, skipped")
+            MCTS_check_win_implemented = False
+
+        except:
+            print("Checking check_win_MCTS: Fail")
+            print("check_win_MCTS isn't callable as it gives an error, skipped")
+            MCTS_check_win_implemented = False
+
+
         self.reset()
         legal_actions = self.game.get_legal_actions()
         checks = 0
         total_check_win_time = 0
+        total_check_win_MCTS_time = 0
         winner = -2
+        current_player = -1
         while winner == -2:
             if len(legal_actions) == 0 and winner == -2:
                 print("Checking check_win: Fail")
                 print("Board has been filled and check win still returned -2")
+                return  False
             chosen_random_index = np.random.choice(np.arange(len(legal_actions), dtype=np.int32), size=(1,))[0]
-            self.game.do_action(legal_actions[chosen_random_index])
-            t = time.time()
+            action = legal_actions[chosen_random_index]
+            self.game.do_action(action)
+
+            s = time.time()
             winner = self.game.check_win()
-            total_check_win_time += time.time() - t
+            total_check_win_time += time.time() - s
+
+            s = time.time()
+            MCTS_winner = self.game.check_win_MCTS(self.game.board, self.game.action_history[-1], -self.game.current_player)
+            total_check_win_MCTS_time += time.time() - s
+
+            if MCTS_check_win_implemented and winner != MCTS_winner:
+                print("Checking check_win and check_win_MCTS: Fail")
+                print(f"check_win: ({winner}) and check_win_MCTS: ({MCTS_winner}) doesn't match up")
+                return False
+
+            if winner  == -2:
+                current_player *= -1
             checks += 1
             legal_actions = self.game.get_legal_actions()
 
+        if current_player != winner:
+            print("If check_win found a winning board then you have to return the previous player")
+            print("In do_action the player is changed to the next player to play, but the previous player already won")
+            print("Just flip the current player to the previous player by multiplying by -1")
+            print("Remember to do the same for check_win_MCTS or else an error will say that they don't match up!")
+            return False
 
-        print(f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner was: {winner}")
+        print(f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
         if (total_check_win_time / checks) >= 1.0:
-            print("Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible")
-        print("Check if the final board is c osdrrect (win or draw), since there is no way for this program to know that!")
-        print(f"The winner should be: {winner}")
+            print("Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+
+        print(f"Average time per check_win_MCTS call: {total_check_win_MCTS_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
+        if (total_check_win_MCTS_time / checks) >= 1.0:
+            print("check_win_MCTS implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+        else:
+            print()
+
+        if (total_check_win_MCTS_time / checks) / (total_check_win_time / checks) > 5:
+            print("check_win is much faster than check_win_MCTS, since they are doing the same thing, check their implementation\n")
+
+        if (total_check_win_time / checks) / (total_check_win_MCTS_time / checks) > 5:
+            print("check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
+
+        print("Check if the final board is correct (win or draw), since there is no way for this program to know that!")
+        print(f"Final action is {action}, and the winner should be: {winner}")
         print(self.game.board)
         print("Checking check_win: Pass\n")
 
@@ -237,6 +296,42 @@ class Game_Tester:
         self._check_action_history_homogenous()
 
         self.reset()
+        return True
+
+    def check_compute_policy_improvement(self):
+        dummy_stat = [(self.game.get_legal_actions()[0], 1.0), ]
+        try:
+            improved_policy = self.game.compute_policy_improvement(dummy_stat)
+            if np.sum(improved_policy) != 1.0:
+                print("Checking compute_policy_improvement: Fail")
+                print("It isn't implemented correctly")
+                return False
+        except:
+            print("Checking compute_policy_improvement: Fail")
+            print("It is not implemented")
+
+        print("Checking compute_policy_improvement: Pass\n")
+        return True
+
+
+    def check_augment_sample(self):
+        dummy_policy = np.random.uniform(low=0, high=1.0, size=self.game.policy_shape)
+        try:
+            augmented_boards, augmented_policies = self.game.augment_sample(self.game.board, dummy_policy)
+        except:
+            print("Checking augment sample: Fail")
+            print("augment_sample isn't implemented")
+            return False
+
+        if len(augmented_boards) == 0 or len(augmented_policies) == 0:
+            print("Checking augment sample: Fail")
+            print("augment_sample cannot return an empty list")
+            return False
+        elif len(augmented_boards) == 1 and len(augmented_policies) == 1:
+            print("augment_sample isn't fully implemented")
+            print("Recommend implementing this for faster training")
+
+        print("Checking augment sample: Pass\n")
         return True
 
 
@@ -265,6 +360,12 @@ class Game_Tester:
         if not self.check_check_win():
             return
 
+        if not self.check_compute_policy_improvement():
+            return
+
+        if not self.check_augment_sample():
+            return
+
         print("DISCLAIMER: currently these test are only testing around 50% of the functionality that the game class requires")
         print("I haven't written the tests for checking for wins/draws or getting terminal moves\n")
 
@@ -282,5 +383,5 @@ if __name__ =="__main__":
     from Guide import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from Tictactoe import TicTacToe
-    game_tester = Game_Tester(TicTacToe,)
+    game_tester = Game_Tester(Gomoku,)
     game_tester.test()

@@ -362,7 +362,9 @@ class Gomoku:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
 
-    def augment_array(self, arr):
+    @staticmethod
+    @njit(cache=True)
+    def augment_array(arr):
         augmented_arrs = [arr, np.flipud(arr), np.fliplr(arr)]
         for k in range(1, 4):
             rot_arr = np.rot90(arr, k)
@@ -371,6 +373,7 @@ class Gomoku:
                 augmented_arrs.append(np.flipud(rot_arr))
                 augmented_arrs.append(np.fliplr(rot_arr))
         return augmented_arrs
+
     def augment_sample(self, board, policy):
         augmented_boards = self.augment_array(board)
 
