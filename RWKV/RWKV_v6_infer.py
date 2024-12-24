@@ -266,10 +266,24 @@ class RWKV_Block(tf.keras.layers.Layer):
         x += residual
         return x, state, state_matrix
 
+
+def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
+    inputs = [tf.keras.layers.Input(batch_shape=(None, embed_size), name="inputs"),
+    tf.keras.layers.Input(batch_shape=(num_layers, 2, embed_size), name="input_state"),
+    tf.keras.layers.Input(batch_shape= (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")]
+
+    x, state, state_matrix = inputs
+
+    for layer_id in range(num_layers):
+        x, state, state_matrix = RWKV_Block(layer_id, num_heads, embed_size)(x, state, state_matrix)
+    output_state, output_state_matrix = state, state_matrix
+
+    return tf.keras.Model(inputs=inputs, outputs={"outputs":x, "output_state":output_state , "output_state_matrix":output_state_matrix})
+
 if __name__ == "__main__":
     import numpy as np
     from RWKV_v6 import make_test_model
-    embed_size, num_heads, num_layers = 64, 4, 5
+    embed_size, num_heads, num_layers = 64, 2, 1
 
 
     model = make_test_model(embed_size, num_heads, num_layers)
@@ -279,19 +293,6 @@ if __name__ == "__main__":
 
     model.save_weights("test_model.weights.h5")
 
-
-    def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
-        inputs = [tf.keras.layers.Input(batch_shape=(None, embed_size), name="inputs"),
-        tf.keras.layers.Input(batch_shape=(num_layers, 2, embed_size), name="input_state"),
-        tf.keras.layers.Input(batch_shape= (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")]
-
-        x, state, state_matrix = inputs
-
-        for layer_id in range(num_layers):
-            x, state, state_matrix = RWKV_Block(layer_id, num_heads, embed_size)(x, state, state_matrix)
-        output_state, output_state_matrix = state, state_matrix
-
-        return tf.keras.Model(inputs=inputs, outputs=[x, output_state, output_state_matrix])
 
     model_infer = make_test_model_infer(embed_size, num_heads, num_layers)
     # model_infer.summary()
@@ -304,7 +305,7 @@ if __name__ == "__main__":
 
     model_infer.load_weights("test_model.weights.h5")
 
-    dummy_data = np.random.uniform(low=0, high=100, size=(1, 360, embed_size))
+    dummy_data = np.random.uniform(low=0, high=100, size=(1, 2, embed_size))
 
     output1 = model(dummy_data)
     # print(output1)
@@ -312,16 +313,17 @@ if __name__ == "__main__":
     output2 = []
     for data_point in dummy_data[0]:
         data_point = np.expand_dims(data_point, 0)
-
-        x, input_state, input_state_matrix = model_infer([data_point,input_state, input_state_matrix])
+        # print(model_infer([data_point,input_state, input_state_matrix]))
+        x, input_state, input_state_matrix = [thing for thing in model_infer([data_point,input_state, input_state_matrix]).values()]
+        # note that RWKV_infer gives a dictionary which is necessary for onnxruntime
         input_state = input_state.numpy()
         input_state_matrix = input_state_matrix.numpy()
         output2.append(x)
 
     output1 = np.array(output1).reshape(-1, 64)
     output2 = np.array(output2).reshape(-1, 64)
-    print(output1.shape, output2.shape)
-
+    # print(output1.shape, output2.shape)
+    #
     index = 1
     print(np.allclose(output1, output2))
     for index in range(len(output1)):
