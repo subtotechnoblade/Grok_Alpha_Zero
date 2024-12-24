@@ -123,7 +123,7 @@ class Game_Tester:
         shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board, dummy_policy, shuffle=True)
 
         if (legal_policy != shuffled_legal_policy).any(): # check if arrays are of different order
-            print("Shuffle is implemented checking for problems there")
+
 
             anti_shuffled_indexes = np.zeros_like(legal_policy, dtype=np.int32)
             for i, action in enumerate(MCTS_legal_actions):
@@ -136,6 +136,7 @@ class Game_Tester:
                 print("The best way is to generate random indexes and append the policy and actions into 2 lists based on the randomly generated indexes\n")
                 return False
 
+            print("Checking shuffle in get_legal_actions_policy_MCTS: Pass\n")
         else:
             print("Shuffle isn't implementing skipping shuffle checks")
         print("Checking get_legal_actions_policy_MCTS: Pass\n")
@@ -227,6 +228,9 @@ class Game_Tester:
         print(f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner was: {winner}")
         if (total_check_win_time / checks) >= 1.0:
             print("Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible")
+        print("Check if the final board is c osdrrect (win or draw), since there is no way for this program to know that!")
+        print(f"The winner should be: {winner}")
+        print(self.game.board)
         print("Checking check_win: Pass\n")
 
 
