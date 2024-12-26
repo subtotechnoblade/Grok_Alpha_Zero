@@ -342,10 +342,6 @@ class MCTS:
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
-        if np.sum(child_board.flat) not in [-1, 0]:
-            # gardrail just in case any problems occur, text brian asap if this ever occurs
-            print(child_board)
-            raise ValueError("ERROR IN BOARD")
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.get_legal_actions_MCTS,
                                                                     self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
