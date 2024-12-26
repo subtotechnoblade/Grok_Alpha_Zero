@@ -120,7 +120,6 @@ print("The operations can be any operations such as +, -, *, /, %, //")
 # list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
 
 class Connect4:
-
     # refer to Guide.py to implement each method, please be careful of what is used and returned
     # if you want pure speed recommend the decorator @njit for methods with for loops and numpy operations
     # contact Brian if you want more info
@@ -156,10 +155,11 @@ class Connect4:
         return board
     """
 
+
     def __init__(self):
         # MUST HAVE VARIABLES
         # define your board as a numpy array
-        self.board = np.array([])
+        self.board = np.zeros((6, 7)) #should i use np.array?
         # current player as an int, first player will be -1 second player is 1
         self.current_player = -1
         # to swap the current the player -> current_player *= -1 (very handy)
@@ -174,21 +174,24 @@ class Connect4:
         # for connect 5 it is (225,) because 15 * 15 amount of actions where the index
         # you should request for a flattened policy (for tic tac toe) -> (9,) rather than (3, 3)
         # in parse policy you will have to convert the policy into actions and the associated prob_prior
-        self.policy_shape = (
-        "your policy shape (length)",)  # MUST HAVE or else I won't be able to define the neural network
+        self.policy_shape = (7,)
+        # MUST HAVE or else I won't be able to define the neural network
         # just know that the illegal moves are removed and the policy which is a probability distribution
         # is re normalized
 
     def get_current_player(self):
         # returns the current player
-        pass
+        return self.current_player
 
     def get_legal_actions(self):
         # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
         pass
-
+    @staticmethod
+    def get_legal_actions_MCTS(board):
+        # returns the legal actions based given the board parameter
+        pass
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
@@ -234,7 +237,12 @@ class Connect4:
 
     def do_action(self, action):
         # places the move onto the board
-        pass
+        action_col = self.board[:,action]
+        empty_row = np.argwhere(action_col == 0)
+        max_index = empty_row[-1][0]
+        self.board[max_index][action] = self.current_player
+        self.current_player *= -1
+        self.action_history.append(action)
 
     @staticmethod
     # @njit(cache=True)
@@ -261,7 +269,43 @@ class Connect4:
     def check_win(self):
         # returns the player who won (-1 or 1), returns 0 if a draw is applicable
         # return -2 if no player has won / the game hasn't ended
-        pass
+        rows, cols = len(self.board), len(self.board[0])
+
+        # check horizontal
+        for i in range(rows - 1, -1, -1):
+            for j in range(cols - 3):
+                if self.board[i][j] !=0:
+                    if self.board[i][j] == self.board[i][j+1] == self.board[i][j+2] == self.board[i][j+3]:
+                        return int(self.board[i][j])
+
+        # check vertical
+        for j in range(cols):
+            for i in range(rows - 1 , 1, -1):
+                if self.board[i][j] != 0:
+                    if self.board[i][j] == self.board[i-1][j] == self.board[i-2][j] == self.board[i-3][j]:
+                        return int(self.board[i][j])
+
+        # check diagonal [up]
+        for i in range(rows - 1, 1, -1):
+            for j in range(cols - 3):
+                if self.board[i][j] != 0:
+                    if self.board[i][j] == self.board[i-1][j+1] == self.board[i-2][j+2] == self.board[i-3][j+3]:
+                        return int(self.board[i][j])
+
+        # check diagonal [down]
+        for i in range(rows - 1, 1, -1):
+            for j in range(cols - 1, 2, -1):
+                if self.board[i][j] != 0:
+                    if self.board[i][j] == self.board[i-1][j-1] == self.board[i-2][j-2] == self.board[i-3][j-3]:
+                        return int(self.board[i][j])
+
+        # Check for draw (no empty cells)
+        if all(self.board[row][col] != 0 for row in range(rows) for col in range(cols)):
+            return 0
+
+        return -2
+
+
 
     @staticmethod
     # @njit(cache=True)
@@ -269,13 +313,3 @@ class Connect4:
         # Used to check if MCTS has reached a terminal node
         pass
 
-    @staticmethod
-    @njit(cache=True)
-    def get_winning_actions_MCTS(board, current_player, fast_check=False):
-        # Brian will be looking very closely at this code when u implement this
-        # reocmment to use check_win_MCTS unless there is a more efficient way
-        # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 winning move you don'y have to use fast_check param
-        # please do not remove the fast_check parameter
-        # check the gomoku example for more info
-        pass

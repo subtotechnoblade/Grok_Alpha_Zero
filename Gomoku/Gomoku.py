@@ -1,8 +1,16 @@
 import numpy as np
 from numba import njit
+
+# This is for building the model
+build_config = {"embed_size": 32, # this is the vector for RWKV
+          "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
+          "token_shift_hidden_dim": 32, # this is in the RWKV paper
+          "hidden_size": None, # this uses the default 3.5 * embed size
+          "num_layers": 2,
+          }
 class Gomoku:
-    def __init__(self):
-        self.board = np.zeros((15, 15),
+    def __init__(self, width=15, height=15):
+        self.board = np.zeros((height, width),
                               dtype=np.int8)  # note the dtype. Because I'm only using -1, 0, 1 int8 is best
         # if the board takes too much memory, Brian is not going to be happy
         self.current_player = -1
@@ -11,6 +19,9 @@ class Gomoku:
 
     def get_current_player(self):
         return self.current_player
+
+    def input_action(self):
+        return np.array(list(map(int, input().split(" "))))
 
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
@@ -27,7 +38,7 @@ class Gomoku:
         return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         flattened_board = board.reshape(-1)  # makes sure that the board is a vector
         policy = policy[flattened_board == 0]  # keep the probabilities where the board is not filled
@@ -77,16 +88,21 @@ class Gomoku:
         return board
 
     def check_win(self, ) -> int:
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), self.current_player)
+        """
+        # Note that this method is slow as it uses python for loops
+        # recommend to use the check_win_MCTS with the board as njit
+        # compiles and vectorizes the for loops
+        :return: The winning player (-1, 1) a draw 1, or no winner -1
+        """
+
+        # use -self.current_player because in do_action we change to the next player but here we are checking
+        # if the player that just played won so thus the inversion
+        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
     def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
         """
-        # Note that this method is slow as it uses python for loops
-        # recommend to use the check_win_MCTS with the board as njit
-        # compiles and vectorizes the for loops
-
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
 
@@ -143,7 +159,7 @@ class Gomoku:
         # if np.sum(np.abs(board.flatten())) == 15 * 15:
         #     return 0
         # ^ ostrich algorithm moment
-        # remember that draw is very unlikely, but possible
+        # remember that draw is very unlikely, but possible, just improbably
 
         # if there is no winner, and it is not a draw
         return -2
@@ -154,6 +170,24 @@ class Gomoku:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
 
+    @staticmethod
+    @njit(cache=True)
+    def augment_array(arr):
+        augmented_arrs = [arr, np.flipud(arr), np.fliplr(arr)]
+        for k in range(1, 4):
+            rot_arr = np.rot90(arr, k)
+            augmented_arrs.append(rot_arr)
+            if k == 1:
+                augmented_arrs.append(np.flipud(rot_arr))
+                augmented_arrs.append(np.fliplr(rot_arr))
+        return augmented_arrs
+
     def augment_sample(self, board, policy):
-        augmented_boards = [board, np.flipud(board), ]
-        augmented_policies = [policy] # note that policy must be in shape 225, but need to be (15, 15) to be augmented
+        augmented_boards = self.augment_array(board)
+
+        augmented_policies = []
+        for augmented_policy in self.augment_array(policy.reshape((15, 15))): # we need
+            # to reshape this because we can only rotate a matrix, not a vector
+            augmented_policies.append(augmented_policy.reshape((-1,)))
+
+        return augmented_boards, augmented_policies
