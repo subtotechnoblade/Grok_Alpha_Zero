@@ -27,23 +27,29 @@ if __name__ == "__main__":
     #
     model = make_test_model_infer(embed_size, num_heads, num_layers)
     model.load_weights("test_model.weights.h5")
-    # input_signature = [tf.TensorSpec((1, embed_size), tf.float32, name="inputs"),
-    #                    tf.TensorSpec((num_layers, 2, embed_size), tf.float32, name="input_state"),
-    #                    tf.TensorSpec((num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
-    #                    ]
-    # convert_RWKV_to_onnx(model, input_signature, "test_model.onnx")
-
+    input_signature = [tf.TensorSpec((None, embed_size), tf.float32, name="inputs"),
+                       tf.TensorSpec((None, num_layers, 2, embed_size), tf.float32, name="input_state"),
+                       tf.TensorSpec((None, num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
+                       ]
+    convert_RWKV_to_onnx(model, input_signature, "test_model.onnx")
+    #
     import onnxruntime as rt
-
-    sess = rt.InferenceSession("test_model.onnx", providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider'])
-
+    providers = [('TensorrtExecutionProvider', {
+        "trt_engine_cache_enable":True,
+        "trt_dump_ep_context_model": True,
+        "trt_ep_context_file_path": "cache/"
+    }),'CUDAExecutionProvider']
+    # providers = ['CPUExecutionProvider']
+    s = time.time()
+    sess = rt.InferenceSession("test_model.onnx", providers=providers)
+    print(time.time() - s)
     def create_states():
-        return np.zeros((num_layers, 2, embed_size), dtype=np.float32), np.zeros(
-            (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), np.float32)
+        return np.zeros((1, num_layers, 2, embed_size), dtype=np.float32), np.zeros(
+            (1, num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), np.float32)
     input_state, input_state_matrix = create_states()
     input_state_onnx, input_state_matrix_onnx = create_states()
 
-    dummy_data = np.random.uniform(low=0, high=100, size=(100, embed_size)).astype(np.float32)
+    dummy_data = np.random.uniform(low=0, high=100, size=(100, 1, embed_size)).astype(np.float32)
 
     t_total = 0
     output1 = []
@@ -53,8 +59,10 @@ if __name__ == "__main__":
         # print(model_infer([data_point,input_state, input_state_matrix]))
         x, input_state, input_state_matrix = [thing for thing in model([data_point,input_state, input_state_matrix]).values()]
         # note that RWKV_infer gives a dictionary which is necessary for onnxruntime
+
         input_state = input_state.numpy()
         input_state_matrix = input_state_matrix.numpy()
+
         output1.append(x)
 
         s = time.time()
@@ -63,7 +71,7 @@ if __name__ == "__main__":
                                                                                "input_state_matrix": input_state_matrix_onnx})
         dt = time.time() - s
         t_total += dt
-        print("Onnx took:", dt)
+        # print("Onnx took:", dt)
 
         input_state_onnx = results[1]
         input_state_matrix_onnx = results[2]
