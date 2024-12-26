@@ -1,6 +1,4 @@
 import tensorflow as tf
-# import tensorflow_model_optimization as tfmot
-import tensorflow_probability as tfp
 import numpy as np
 
 # tf.config.run_functions_eagerly(True)

@@ -1,6 +1,5 @@
 import tensorflow as tf
-# import tensorflow_model_optimization as tfmot
-import tensorflow_probability as tfp
+# import tensorflow_probability as tfp
 import numpy as np
 
 # tf.config.run_functions_eagerly(True)
@@ -59,8 +58,9 @@ class Multi_Headed_Dense(tf.keras.layers.Layer):
 
     # @tf.function()
     def call(self, inputs):
-        x = tf.squeeze(tf.stack([self.denses[i](inputs[i: i + 1]) for i in range(self.num_heads)]), axis=1)
-        return x
+        # Note that the inputs shape is (batch, heads, head_dim)
+        # thus we slice on the first axis
+        return tf.transpose(tf.squeeze(tf.stack([self.denses[i](inputs[i: i + 1] ) for i in range(self.num_heads)]), axis=1), [1, 0, 2])
 
 class Time_Mix(tf.keras.layers.Layer):
     def __init__(self, layer_id, num_heads, embed_size, token_shift_hidden_dim=32, **kwargs):
@@ -131,6 +131,22 @@ class Time_Mix(tf.keras.layers.Layer):
         self.out = tf.keras.layers.Dense(self.embed_size, name=f"Out_{self.layer_id}")
         # self.built = True
 
+    def update_tensor(self, input_tensor, indexes, update, depth=1):
+        #  returns a new tensor which can be used to overwrite the input_tensor
+        if depth == 1:
+            axis_0 = indexes[0]
+            output_tensor = tf.concat((input_tensor[:axis_0], update, input_tensor[axis_0:]), axis=0)
+            return output_tensor
+        elif depth == 2:
+            axis_0, axis_1 = indexes
+            # print(input_tensor[axis_0][:axis_1].shape, update.shape, input_tensor[axis_0][axis_1 + 1:].shape)
+            axis_0_update = tf.concat((input_tensor[axis_0][:axis_1], update, input_tensor[axis_0][axis_1 + 1:]),
+                                      axis=0)
+            axis_0_update = tf.expand_dims(axis_0_update, axis=0)
+
+            output_tensor = tf.concat((input_tensor[:axis_0], axis_0_update, input_tensor[axis_0 + 1:]), axis=0)
+            return output_tensor
+
     def token_shift_v6(self, x, last_x, mu, l, A_matrix, B_matrix):
         """
         :param x: current inputs
@@ -147,6 +163,7 @@ class Time_Mix(tf.keras.layers.Layer):
         # output = x * mu + last_x * (1 - mu)
         # first compute (b - a) call this diff
         """
+        batch_size = tf.shape(x)[0]
         diff = x - last_x
         lora = x + (diff * mu)
         lora = B_matrix(tf.nn.tanh(A_matrix(lora)))
@@ -155,7 +172,7 @@ class Time_Mix(tf.keras.layers.Layer):
         output = lora * diff
         output += x
         # # # split the output into individual heads
-        return tf.reshape(output, [self.num_heads, self.head_dim])
+        return tf.reshape(output, [self.num_heads, batch_size, self.head_dim])
 
 
 
@@ -165,7 +182,6 @@ class Time_Mix(tf.keras.layers.Layer):
         x = inputs
         last_x = state[self.layer_id][0]
         k = self.key(self.token_shift_v6(x, last_x, self.key_mu, self.key_lambda, self.key_A, self.key_B))  # keys
-
 
         r = self.receptance(
             self.token_shift_v6(x, last_x, self.receptance_mu, self.receptance_lambda, self.receptance_A,
@@ -185,7 +201,7 @@ class Time_Mix(tf.keras.layers.Layer):
 
         # k and v: batch, h, context, embed, 1
 
-        kv = tf.expand_dims(k, axis=-1) @ tf.expand_dims(v, axis=1)
+        kv = tf.expand_dims(k, axis=-1) @ tf.expand_dims(v, axis=2)
 
         w = tf.expand_dims(tf.exp(-tf.exp(w)), axis=-1)
         u = tf.expand_dims(u, axis=-1)
@@ -198,9 +214,13 @@ class Time_Mix(tf.keras.layers.Layer):
 
         rwkv = tf.squeeze(wkv @ tf.expand_dims(r, axis=-1), axis=-1)
 
-        rwkv = tf.reshape(rwkv, [1, self.embed_size])
+        rwkv = tf.reshape(rwkv, [-1, self.embed_size])
         rwkv = self.gn(rwkv)
-        state = tf.tensor_scatter_nd_update(state, tf.constant([[self.layer_id, 0]]), inputs)
+
+        state = tf.tensor_scatter_nd_update(state, [[self.layer_id, 0]], tf.expand_dims(inputs, 0))
+
+        # state = self.update_tensor(state, [self.layer_id, 0], inputs, depth=1)
+        # raise ValueError
 
         time_mixed = self.out(rwkv * tf.nn.silu(g))
         return time_mixed, state, state_matrix
@@ -241,7 +261,7 @@ class Channel_Mix(tf.keras.layers.Layer):
 
         rkv = kv * r
 
-        state = tf.tensor_scatter_nd_update(state, tf.constant([[self.layer_id, 1]]), inputs)
+        state = tf.tensor_scatter_nd_update(state, [[self.layer_id, 1]], tf.expand_dims(inputs, 0))
         return rkv, state
 
 
@@ -269,9 +289,11 @@ class RWKV_Block(tf.keras.layers.Layer):
 
 def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
     inputs = [tf.keras.layers.Input(batch_shape=(None, embed_size), name="inputs"),
-    tf.keras.layers.Input(batch_shape=(num_layers, 2, embed_size), name="input_state"),
-    tf.keras.layers.Input(batch_shape= (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")]
+    tf.keras.layers.Input(batch_shape=(num_layers, 2, None, embed_size), name="input_state"),
+    tf.keras.layers.Input(batch_shape= (num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), name="inputs_state_matrix")]
 
+    # Note the batch dim must be after the layers and 2 for time and channel mix. Because each layer has 2 different states
+    # where each state is a batch of embeddings
     x, state, state_matrix = inputs
 
     for layer_id in range(num_layers):
@@ -283,7 +305,7 @@ def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
 if __name__ == "__main__":
     import numpy as np
     from RWKV_v6 import make_test_model
-    embed_size, num_heads, num_layers = 64, 2, 1
+    embed_size, batch_size, num_heads, num_layers = 64, 2, 1, 1
 
 
     model = make_test_model(embed_size, num_heads, num_layers)
@@ -298,21 +320,22 @@ if __name__ == "__main__":
     # model_infer.summary()
 
     def create_states():
-        return np.zeros((num_layers, 2, embed_size)), np.zeros(
-            (num_layers, num_heads, embed_size // num_heads, embed_size // num_heads))
+        return np.zeros((num_layers, 2, batch_size, embed_size)), np.zeros(
+            (num_layers, batch_size, num_heads, embed_size // num_heads, embed_size // num_heads))
     input_state, input_state_matrix = create_states()
 
+    # model_infer((np.random.uniform(low=0, high=1, size=(batch_size, embed_size)), input_state, input_state_matrix))
 
     model_infer.load_weights("test_model.weights.h5")
 
-    dummy_data = np.random.uniform(low=0, high=100, size=(1, 2, embed_size))
+    dummy_data = np.random.uniform(low=0, high=100, size=(batch_size, 3, embed_size))
 
     output1 = model(dummy_data)
-    # print(output1)
+    print(output1.shape)
 
+    input_state, input_state_matrix = create_states()
     output2 = []
-    for data_point in dummy_data[0]:
-        data_point = np.expand_dims(data_point, 0)
+    for data_point in np.transpose(dummy_data, [1, 0, 2]):
         # print(model_infer([data_point,input_state, input_state_matrix]))
         x, input_state, input_state_matrix = [thing for thing in model_infer([data_point,input_state, input_state_matrix]).values()]
         # note that RWKV_infer gives a dictionary which is necessary for onnxruntime
@@ -320,12 +343,14 @@ if __name__ == "__main__":
         input_state_matrix = input_state_matrix.numpy()
         output2.append(x)
 
-    output1 = np.array(output1).reshape(-1, 64)
-    output2 = np.array(output2).reshape(-1, 64)
-    # print(output1.shape, output2.shape)
+    output1 = np.array(output1)
+    print(output1.shape)
+    print(np.array(output2).shape)
+    output2 = np.transpose(np.array(output2), [1, 0, 2])
     #
     index = 1
-    print(np.allclose(output1, output2))
+    print(np.allclose(output1[0], output2[0]))
+    # raise ValueError
     for index in range(len(output1)):
         # print(output1[index], output2[index])
         print(np.sum(np.abs(output1[index] - output2[index])))

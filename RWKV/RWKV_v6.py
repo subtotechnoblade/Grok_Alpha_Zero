@@ -1,6 +1,4 @@
 import tensorflow as tf
-# import tensorflow_model_optimization as tfmot
-import tensorflow_probability as tfp
 import numpy as np
 
 # tf.config.run_functions_eagerly(True)
@@ -217,7 +215,6 @@ class Time_Mix(tf.keras.layers.Layer):
         last_x = self.token_shift(inputs)
 
         k = self.key(self.token_shift_v6(x, last_x, self.key_mu, self.key_lambda, self.key_A, self.key_B))  # keys
-
 
         r = self.receptance(
             self.token_shift_v6(x, last_x, self.receptance_mu, self.receptance_lambda, self.receptance_A,
