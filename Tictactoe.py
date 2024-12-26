@@ -292,3 +292,12 @@ if __name__ == "__main__":
 
 
     # todo Jump Ian Patrick Tang
+
+
+
+
+    # rot90(), fliplr(), flipup()
+    # we only need the original board + flipup + fliplr
+    # and rot_board (k = 1) + flipup + fliplr
+    # rot_board (k = 2)
+    # rot_board (k = 3)

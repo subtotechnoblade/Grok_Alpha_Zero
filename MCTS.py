@@ -435,7 +435,6 @@ class MCTS:
 
 
         while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
-            # for _ in tqdm(range(iteration_limit)): # this is for testing
             loop_start_time = time.time()
             node = self._PUCT_select()
 
