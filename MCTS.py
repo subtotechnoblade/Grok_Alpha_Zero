@@ -539,7 +539,6 @@ class MCTS:
         for child in self.root.children:
             if np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
-                gc.collect()
                 return
 
         # this assumes that the tree was initialized with the other person's perspective
