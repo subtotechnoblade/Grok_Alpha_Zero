@@ -432,8 +432,7 @@ class MCTS:
 
         current_iteration = 0
         start_time = time.time()
-        if self.root.children:
-            print(self.root.children[0].current_player)
+
 
         while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
             # for _ in tqdm(range(iteration_limit)): # this is for testing
