@@ -58,9 +58,16 @@ class Multi_Headed_Dense(tf.keras.layers.Layer):
 
     # @tf.function()
     def call(self, inputs):
+        # return inputs
         # Note that the inputs shape is (batch, heads, head_dim)
         # thus we slice on the first axis
-        return tf.transpose(tf.squeeze(tf.stack([self.denses[i](inputs[i: i + 1] ) for i in range(self.num_heads)]), axis=1), [1, 0, 2])
+        # print(inputs.shape)
+        # raise ValueError
+        inputs = tf.transpose(inputs, [1, 0 ,2])
+        x = tf.transpose(tf.squeeze(tf.stack([self.denses[i](inputs[i: i + 1] ) for i in range(self.num_heads)]), axis=1), [1, 0, 2])
+        # print(x.shape)
+        # raise ValueError
+        return x
 
 class Time_Mix(tf.keras.layers.Layer):
     def __init__(self, layer_id, num_heads, embed_size, token_shift_hidden_dim=32, **kwargs):
@@ -172,7 +179,7 @@ class Time_Mix(tf.keras.layers.Layer):
         output = lora * diff
         output += x
         # # # split the output into individual heads
-        return tf.reshape(output, [self.num_heads, batch_size, self.head_dim])
+        return tf.reshape(output, [batch_size, self.num_heads, self.head_dim])
 
 
 
@@ -186,7 +193,6 @@ class Time_Mix(tf.keras.layers.Layer):
         r = self.receptance(
             self.token_shift_v6(x, last_x, self.receptance_mu, self.receptance_lambda, self.receptance_A,
                                 self.receptance_B))  # receptance
-
 
         w = self.decay(
             self.token_shift_v6(x, last_x, self.decay_mu, self.decay_lambda, self.decay_A, self.decay_B))  # decay
@@ -305,7 +311,7 @@ def make_test_model_infer(embed_size, num_heads=1, num_layers=1):
 if __name__ == "__main__":
     import numpy as np
     from RWKV_v6 import make_test_model
-    embed_size, batch_size, num_heads, num_layers = 64, 2, 1, 1
+    embed_size, batch_size, num_heads, num_layers = 64, 2, 8, 5
 
 
     model = make_test_model(embed_size, num_heads, num_layers)
@@ -322,16 +328,15 @@ if __name__ == "__main__":
     def create_states():
         return np.zeros((num_layers, 2, batch_size, embed_size)), np.zeros(
             (num_layers, batch_size, num_heads, embed_size // num_heads, embed_size // num_heads))
-    input_state, input_state_matrix = create_states()
+    # input_state, input_state_matrix = create_states()
 
     # model_infer((np.random.uniform(low=0, high=1, size=(batch_size, embed_size)), input_state, input_state_matrix))
 
     model_infer.load_weights("test_model.weights.h5")
 
-    dummy_data = np.random.uniform(low=0, high=100, size=(batch_size, 3, embed_size))
+    dummy_data = np.random.uniform(low=0, high=1, size=(batch_size, 3, embed_size))
 
     output1 = model(dummy_data)
-    print(output1.shape)
 
     input_state, input_state_matrix = create_states()
     output2 = []
@@ -345,11 +350,11 @@ if __name__ == "__main__":
 
     output1 = np.array(output1)
     print(output1.shape)
-    print(np.array(output2).shape)
     output2 = np.transpose(np.array(output2), [1, 0, 2])
-    #
+    print(output2.shape)
+
     index = 1
-    print(np.allclose(output1[0], output2[0]))
+    print(np.allclose(output1, output2, atol=1e-4))
     # raise ValueError
     for index in range(len(output1)):
         # print(output1[index], output2[index])

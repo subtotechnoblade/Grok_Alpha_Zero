@@ -58,6 +58,7 @@ class Multi_Headed_Dense(tf.keras.layers.Layer):
 
     # @tf.function()
     def call(self, inputs):
+        # return inputs
         # context_size = tf.shape(inputs)[1]
         # return tf.reshape(self.dense(inputs), (-1, context_size, self.num_heads, self.head_dim))
         inputs = tf.transpose(inputs, [2, 0, 1, 3])
@@ -213,7 +214,6 @@ class Time_Mix(tf.keras.layers.Layer):
         batch_size, context_length, embed_size = tf.shape(inputs)[0], tf.shape(inputs)[1], tf.shape(inputs)[2]
         x = inputs
         last_x = self.token_shift(inputs)
-
         k = self.key(self.token_shift_v6(x, last_x, self.key_mu, self.key_lambda, self.key_A, self.key_B))  # keys
 
         r = self.receptance(
