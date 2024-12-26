@@ -1,7 +1,6 @@
 import numpy as np
-from warnings import warn
 import time
-from Guide import Gomoku
+
 
 class Game_Tester:
     def __init__(self, game_class, *args, **kwargs):
@@ -382,6 +381,6 @@ if __name__ =="__main__":
     # Example usage
     from Guide import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
-    from Tictactoe import TicTacToe
+    from TicTacToe.Tictactoe import TicTacToe
     game_tester = Game_Tester(TicTacToe,)
     game_tester.test()
