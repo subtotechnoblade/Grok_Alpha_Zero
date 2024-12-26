@@ -247,17 +247,6 @@ class TicTacToe:
 
         return -2
 
-    @staticmethod
-    @njit(cache=True)
-    def get_winning_actions_MCTS(board, current_player, fast_check=False):
-        # Brian will be looking very closely at this code when u implement this
-        # Recommend to use check_win_MCTS unless there is a more efficient way
-        # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 winning move you don't have to use fast_check param
-        # please do not remove the fast_check parameter
-        # check the gomoku example for more info
-        pass
-
     def compute_policy_improvement(self, statistics):
         # given statistic=[[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
         # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
@@ -268,6 +257,25 @@ class TicTacToe:
             new_policy[x + 3 * y] = prob
 
         return new_policy
+
+    @staticmethod
+    #@njit(cache=True)
+    def augment_sample(board, policy):
+        # optional method to improve convergence
+        # rotate the board and flip it using numpy and return those as a list along with the original
+        # remember to rotate the flip the policy in the same way as board
+        # return [board, rotated_board, ...], [policy, rotated_policy, ...]
+
+        # Note the optimal rotations and flips for tictactoe, and gomoku is
+        # [original arr, flipup(arr), fliplr(arr)]
+        # and [np.rot_90(arr, k = 1) + flipup(rot_arr), fliplr(rot_arr)]
+        # and [np.rot_90(arr, k = 2)
+        # and [np.rot_90(arr, k = 3)
+
+        # Note that this won't be the case for connect4, and ult_tictactoe
+
+        return [board], [policy] # just return [board], [policy] if you don't want to implement this
+        # don't be lazy, this will help convergence very much
 
 
 if __name__ == "__main__":

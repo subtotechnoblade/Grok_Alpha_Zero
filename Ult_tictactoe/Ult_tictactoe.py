@@ -211,16 +211,33 @@ class UltimateTicTacToe:
     def check_win_MCTS(board, last_action):
         #Used to check if MCTS has reached a terminal node
         pass
-    @staticmethod
-    @njit(cache=True)
-    def get_winning_actions_MCTS(board, current_player, fast_check=False):
-        # Brian will be looking very closely at this code when u implement this
-        # reocmment to use check_win_MCTS unless there is a more efficient way
-        # making sure that this doesn't slow this MCTS to a halt
-        # if your game in every case only has 1 winning move you don'y have to use fast_check param
-        # please do not remove the fast_check parameter
-        # check the gomoku example for more info
+
+    def compute_policy_improvement(self, statistics):
+        # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
+        # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...] as in [[action0, probability for action0], ...]
+        # you should return a board with each probability assigned to each move
+        # return [0.1, 0.2, ...]
+        # note that the coordinate [0, 0] corresponds to index 0 in the flattened board
+        # this should map the action and probability to a probability distribution
         pass
+    @staticmethod
+    #@njit(cache=True)
+    def augment_sample(board, policy):
+        # optional method to improve convergence
+        # rotate the board and flip it using numpy and return those as a list along with the original
+        # remember to rotate the flip the policy in the same way as board
+        # return [board, rotated_board, ...], [policy, rotated_policy, ...]
+
+        # Note the optimal rotations and flips for tictactoe, and gomoku is
+        # [original arr, flipup(arr), fliplr(arr)]
+        # and [np.rot_90(arr, k = 1) + flipup(rot_arr), fliplr(rot_arr)]
+        # and [np.rot_90(arr, k = 2)
+        # and [np.rot_90(arr, k = 3)
+
+        # Note that this won't be the case for connect4, and ult_tictactoe
+
+        return [board], [policy] # just return [board], [policy] if you don't want to implement this
+        # don't be lazy, this will help convergence very much
 
 
 if __name__ == "__main__":
