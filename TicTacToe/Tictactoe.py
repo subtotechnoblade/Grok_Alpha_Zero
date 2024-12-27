@@ -96,15 +96,15 @@ class TicTacToe:
         return self.current_player
 
     def input_action(self):
-        x, y = input()
+        coords = input().split(" ")
+        coords[0], coords[1] = int(coords[0]), int(coords[1])
 
-        # use .split(" ") to convert the string "1 1" to a list ["1", "1"], note that we split with a space " " not ""
-        # then call int() on each element of the list
+        if coords[0] < 0 or coords[0] > 2 or coords[1] < 0 or coords[1] > 2:
+            raise ValueError ("Illegal move given")
+        if self.board[coords[1]][coords[0]] != 0:
+            raise ValueError ("Illegal move given")
+        return np.array(coords)
 
-        # returns an action using input()
-        # return the x y coordinate as a numpy array when the user inputs two numbers with a space such as : 1 1
-        # make sure that the action is legal. If is is not "raise ValueError("Illegal move given")"
-        pass
 
     def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
         """
