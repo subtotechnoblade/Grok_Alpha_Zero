@@ -22,14 +22,15 @@ def convert_RWKV_to_onnx(tf_model, input_signature, file_path):
                                     'fuse_consecutive_unsqueezes', 'eliminate_deadend', 'eliminate_identity',
                                     'eliminate_shape_op', 'fuse_consecutive_slices', 'eliminate_unused_initializer',
                                     'eliminate_duplicate_initializer'])
-    print("optimized")
+
+    output_name_mapping = {}
     # for output in onnx_model.graph.output:
     #     if len(output.type.tensor_type.shape.dim) == 2:
-    #         output.name = "output"
+    #         output_name_mapping[output.name] = "outputs"
     #     elif len(output.type.tensor_type.shape.dim) == 3:
-    #         output.name = "output_state"
+    #         output_name_mapping[output.name] = "output_state"
     #     elif len(output.type.tensor_type.shape.dim) == 4:
-    #         output.name = "output_state_matrix"
+    #         output_name_mapping[output.name] = "output_state_matrix"
     #     else:
     #         raise ValueError("This output doesn't exist")
     #     print(output)

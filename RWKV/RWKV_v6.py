@@ -8,7 +8,30 @@ np.set_printoptions(threshold=np.inf)
 
 global_dtype = tf.float32
 
+class Batch_Dense(tf.keras.layers.Layer):
+    def __init__(self, units, use_bias=True, **kwargs):
+        super().__init__(**kwargs)
+        self.dense = tf.keras.layers.Dense(units, use_bias=use_bias)
 
+    def call(self, inputs):
+        return tf.map_fn(self.dense, inputs)
+
+
+class Batch_Conv1D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), use_bias=True, **kwargs):
+        super().__init__(**kwargs)
+        self.conv1D= tf.keras.layers.Conv1D(filters, kernel_size, strides, use_bias=use_bias)
+
+    def call(self, inputs):
+        return tf.map_fn(self.conv1D, inputs)
+
+class Batch_Conv2D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), use_bias=True, **kwargs):
+        super().__init__(**kwargs)
+        self.conv2D= tf.keras.layers.Conv2D(filters, kernel_size, strides, use_bias=use_bias)
+
+    def call(self, inputs):
+        return tf.map_fn(self.conv2D, inputs)
 
 class Unembedding(tf.keras.layers.Layer):
     def __init__(self, vocab_size, dtype=tf.float32, **kwargs):
@@ -120,21 +143,20 @@ class Time_Mix(tf.keras.layers.Layer):
         self.decay_B = tf.keras.layers.Dense(embed_size)
 
 
-        self.bonus = Multi_Headed_Dense(num_heads, embed_size, name=f"Bonus_{self.layer_id}")  # known in the formula as u
+        self.bonus = Multi_Headed_Dense(num_heads, embed_size, name=f"Bonus_{self.layer_id}")
+        # known in the formula as u
         # self.bonus = tf.keras.layers.Dense(self.head_dim, name=f"Bonus_{self.layer_id}")  # known in the formula as u
         self.bonus_mu = self.add_weight(shape=(self.embed_size,),
                                     name=f"mix_u_{self.layer_id}")
         self.bonus_lambda = self.add_weight(shape=(self.embed_size,),
                                         name=f"key_lambda_time{self.layer_id}")
         self.bonus_A = tf.keras.layers.Dense(token_shift_hidden_dim)
+
+
         self.bonus_B = tf.keras.layers.Dense(embed_size)
-
-
         self.gn = tf.keras.layers.GroupNormalization(self.num_heads, axis=-1, name=f"GroupNorm_{self.layer_id}")
         self.out = tf.keras.layers.Dense(self.embed_size, name=f"Out_{self.layer_id}")
-        # self.built = True
-    def token_shift(self, inputs):
-        return tf.pad(inputs, [[0, 0], [1, 0], [0, 0]])[:, :-1]
+    # self.built = True
 
     def token_shift_v6(self, x, last_x, mu, l, A_matrix, B_matrix):
         """
@@ -155,7 +177,10 @@ class Time_Mix(tf.keras.layers.Layer):
         batch_size, context_length, embed_size = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2]
         diff = x - last_x
         lora = x + (diff * mu)
+        # print(lora.shape)
+        # print(A_matrix(lora).shape)
         lora = B_matrix(tf.nn.tanh(A_matrix(lora)))
+        # raise ValueError
         lora += l
 
         output = lora * diff
@@ -163,6 +188,9 @@ class Time_Mix(tf.keras.layers.Layer):
         # # # split the output into individual heads
         return tf.reshape(output, [batch_size, context_length, self.num_heads, self.head_dim])
         # return tf.reshape(x, [batch_size, context_length, self.num_heads, self.head_dim])
+
+    def token_shift(self, inputs):
+        return tf.pad(inputs, [[0, 0], [1, 0], [0, 0]])[:, :-1]
 
     def combine_fn(self, sum_a, prod_a, sum_b, prod_b):
         """
@@ -214,8 +242,8 @@ class Time_Mix(tf.keras.layers.Layer):
         batch_size, context_length, embed_size = tf.shape(inputs)[0], tf.shape(inputs)[1], tf.shape(inputs)[2]
         x = inputs
         last_x = self.token_shift(inputs)
-        k = self.key(self.token_shift_v6(x, last_x, self.key_mu, self.key_lambda, self.key_A, self.key_B))  # keys
 
+        k = self.key(self.token_shift_v6(x, last_x, self.key_mu, self.key_lambda, self.key_A, self.key_B))  # keys
         r = self.receptance(
             self.token_shift_v6(x, last_x, self.receptance_mu, self.receptance_lambda, self.receptance_A,
                                 self.receptance_B))  # receptance
@@ -296,6 +324,7 @@ class RWKV_Block(tf.keras.layers.Layer):
     def __init__(self, layer_id, num_heads, embed_size, token_shift_hidden_dim=32, hidden_size=None, **kwargs):
         super().__init__(**kwargs)
         self.layer_norm1 = tf.keras.layers.LayerNormalization()
+
         self.time_mix = Time_Mix(layer_id, num_heads, embed_size, token_shift_hidden_dim, name=f"Time_Mix_{layer_id}")
 
         self.layer_norm2 = tf.keras.layers.LayerNormalization()
