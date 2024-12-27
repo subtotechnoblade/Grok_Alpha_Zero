@@ -116,7 +116,15 @@ class TicTacToe:
 
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
+    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
+        # Note that board is a (3, 3) matrix
+        # and policy is a (9,) vector
+
+        # first task is to set every element in policy to 0 if the position on board is not empty (aka not 0)
+
+
+
+
         """
         THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board
@@ -295,7 +303,11 @@ class TicTacToe:
 if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
-    print(game.input_action())
+    game.do_action((0, 0))
+    game.do_action((1, 1))
+    game.do_action((2, 2))
+    dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
+    print(game.get_legal_actions_policy_MCTS(game.baord, dummy_policy))
 
 
 
