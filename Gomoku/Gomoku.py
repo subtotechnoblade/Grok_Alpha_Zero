@@ -21,7 +21,9 @@ class Gomoku:
         return self.current_player
 
     def input_action(self):
-        return np.array(list(map(int, input().split(" "))))
+        # try:
+        #     coords = list(map(int, input().split(" ")))
+        return np.array([1, 2, 3, 4])
 
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
@@ -97,7 +99,7 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
+        return self.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
 
     @staticmethod
     @njit(cache=True, fastmath=True)

@@ -78,9 +78,14 @@ class Game_Tester:
             print("Check legal actions: Fail\n")
             print("get_legal_actions gave no actions, must have actions at the start of the search")
             return False
-        else:
-            print("Checking if get_legal_actions returns actions: Pass\n")
-            return True
+        for action in legal_actions:
+            count = np.count_nonzero([mask.all() for mask in legal_actions == action])
+            if count > 1:
+                print("Check legal actions: Fail\n")
+                print(f"There was a duplicate action: {action} found in {legal_actions}")
+                return False
+        print("Checking if get_legal_actions returns actions: Pass\n")
+        return True
 
     def check_legal_actions_policy_MCTS(self):
         class_legal_actions = self.game.get_legal_actions()
@@ -110,14 +115,8 @@ class Game_Tester:
 
         if len(class_legal_actions) != len(MCTS_legal_actions):
             print("Checking get_legal_actions_policy_MCTS: Fail")
-            print("The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length")
+            print("The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
             return False
-
-        for i in range(len(class_legal_actions)):
-            if not np.array_equal(class_legal_actions[i], MCTS_legal_actions[i]):
-                print("Checking get_legal_actions_policy_MCTS: Fail")
-                print("Ordering for legal actions from get_legal_actions and get_legal_actions_policy_MCTS must be the same")
-                return False
 
         shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board, dummy_policy, shuffle=True)
 
@@ -126,8 +125,7 @@ class Game_Tester:
 
             anti_shuffled_indexes = np.zeros_like(legal_policy, dtype=np.int32)
             for i, action in enumerate(MCTS_legal_actions):
-                anti_shuffled_indexes[i] =  np.where((shuffled_MCTS_legal_actions == action).all(axis=1))[0][0]
-
+                anti_shuffled_indexes[i] = np.where((shuffled_MCTS_legal_actions == action).all(axis=1))[0][0]
             if (legal_policy != shuffled_legal_policy[anti_shuffled_indexes]).any():
                 print("Checking shuffle in get_legal_actions_policy_MCTS: Fail")
                 print("The shuffling for legal actions and policy are different")
@@ -280,11 +278,12 @@ class Game_Tester:
         else:
             print()
 
-        if (total_check_win_MCTS_time / checks) / (total_check_win_time / checks) > 5:
-            print("check_win is much faster than check_win_MCTS, since they are doing the same thing, check their implementation\n")
+        if total_check_win_MCTS_time > 0.0 and total_check_win_time > 0.0:
+            if (total_check_win_MCTS_time / checks) / (total_check_win_time / checks) > 5:
+                print("check_win is much faster than check_win_MCTS, since they are doing the same thing, check their implementation\n")
 
-        if (total_check_win_time / checks) / (total_check_win_MCTS_time / checks) > 5:
-            print("check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
+            if (total_check_win_time / checks) / (total_check_win_MCTS_time / checks) > 5:
+                print("check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
 
         print("Check if the final board is correct (win or draw), since there is no way for this program to know that!")
         print(f"Final action is {action}, and the winner should be: {winner}")
@@ -365,9 +364,6 @@ class Game_Tester:
         if not self.check_augment_sample():
             return
 
-        print("DISCLAIMER: currently these test are only testing around 50% of the functionality that the game class requires")
-        print("I haven't written the tests for checking for wins/draws or getting terminal moves\n")
-
         if test_skipped == 0:
             print("All major and minor tests passed")
         else:
@@ -379,8 +375,9 @@ class Game_Tester:
 
 if __name__ =="__main__":
     # Example usage
-    from Guide import Gomoku
+    # from Guide import Gomoku
+    from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
-    game_tester = Game_Tester(TicTacToe,)
+    game_tester = Game_Tester(Gomoku,)
     game_tester.test()

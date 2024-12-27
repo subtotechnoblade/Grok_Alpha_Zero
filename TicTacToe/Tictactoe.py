@@ -113,7 +113,7 @@ class TicTacToe:
         self.total_action is a set
         :return: a list of actions [action0, action1]
         """
-        return list(self.total_actions - set(self.action_history)) # Note: O(n)
+        return np.array(list(self.total_actions - set([(x, y) for x, y in self.action_history]))) # Note: O(n)
 
 
     @staticmethod
@@ -131,7 +131,7 @@ class TicTacToe:
 
         if shuffle:
             random_indexes = np.random.permutation(len(legal_actions))
-            legal_moves = legal_actions[random_indexes]
+            legal_actions = legal_actions[random_indexes]
             legal_policy = legal_policy[random_indexes]
 
         return legal_actions, legal_policy
