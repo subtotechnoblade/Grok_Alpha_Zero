@@ -124,9 +124,10 @@ class TicTacToe:
         for i, value in enumerate(board.reshape(-1)):
             if value == 0:
                 legal_actions.append(np.array([i%3, i//3]))
-                legal_policies.append(policy[i])
+                legal_policy.append(policy[i])
         legal_actions, legal_policy = np.array(legal_actions), np.array(legal_policy)
 
+        legal_policy /= np.sum(legal_policy)
 
         # add everything in legal_policy using np.sum()
         # divide every element in legal_policy by that sum
@@ -183,7 +184,7 @@ class TicTacToe:
         # for checking use
         # assert len(legal_actions) == len(set(legal_action))
         # set cannot have any duplicates and thus removed so if the lengths are different the there is a problem
-        return legal_actions, legal_policies
+        return legal_actions, legal_policy
 
     def do_action(self, action): # must conform to this format - Brian
         x, y = action
