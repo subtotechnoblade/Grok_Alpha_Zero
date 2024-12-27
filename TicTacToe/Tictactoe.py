@@ -1,3 +1,5 @@
+from distutils.command.check import check
+
 import numpy as np
 from numba import njit
 # make zeros array np.zeros(shape)
@@ -117,6 +119,14 @@ class TicTacToe:
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
+        legal_actions = []
+        legal_policies = []
+        for i, value in enumerate(board.reshape(-1)):
+            if value == 0:
+                legal_actions.append(np.array([i%3, i//3]))
+                legal_policies.append(policy[i])
+        legal_actions, legal_policies = np.array(legal_actions), np.array(legal_policies)
+
         # Note that board is a (3, 3) matrix
         # and policy is a (9,) vector
 
@@ -307,7 +317,7 @@ if __name__ == "__main__":
     game.do_action((1, 1))
     game.do_action((2, 2))
     dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
-    print(game.get_legal_actions_policy_MCTS(game.baord, dummy_policy))
+    print(game.get_legal_actions_policy_MCTS(game.board, dummy_policy))
 
 
 
