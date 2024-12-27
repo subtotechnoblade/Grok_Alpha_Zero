@@ -96,6 +96,8 @@ class TicTacToe:
         return self.current_player
 
     def input_action(self):
+        x, y = input()
+
         # returns an action using input()
         # return the x y coordinate as a numpy array when the user inputs two numbers with a space such as : 1 1
         # make sure that the action is legal. If is is not "raise ValueError("Illegal move given")"
@@ -290,16 +292,11 @@ class TicTacToe:
 if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
-    game.do_action((0, 0))
-    game.do_action((1, 0))
-    game.do_action((2, 0))
-    print(game.board)
-    # game.do_action((0, 0))
+    print(game.input_action())
 
-    print(game.check_win())
-    # print(game.get_legal_actions())
-    # print(len(game.get_legal_actions()))
-    # game.check_win()
+
+
+
 
 
 
