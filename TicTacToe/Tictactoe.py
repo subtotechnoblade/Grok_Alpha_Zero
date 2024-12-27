@@ -260,22 +260,25 @@ class TicTacToe:
 
     @staticmethod
     #@njit(cache=True)
-    def augment_sample(board, policy):
-        # optional method to improve convergence
-        # rotate the board and flip it using numpy and return those as a list along with the original
-        # remember to rotate the flip the policy in the same way as board
-        # return [board, rotated_board, ...], [policy, rotated_policy, ...]
+    def augment_array(arr):
+        arr_augmentation = [arr, np.flipud(arr), np.fliplr(arr)]
+        for k in range(1, 4):
+            rotated_arr = np.rot90(arr, k)
+            arr_augmentation.append(rotated_arr)
+            if k == 1:
+                arr_augmentation.append(np.fliplr(rotated_arr))
+                arr_augmentation.append(np.flipud(rotated_arr))
+        return arr_augmentation
 
-        # Note the optimal rotations and flips for tictactoe, and gomoku is
-        # [original arr, flipup(arr), fliplr(arr)]
-        # and [np.rot_90(arr, k = 1) + flipup(rot_arr), fliplr(rot_arr)]
-        # and [np.rot_90(arr, k = 2)
-        # and [np.rot_90(arr, k = 3)
 
-        # Note that this won't be the case for connect4, and ult_tictactoe
+    def augment_sample(self, board, policy):
+        augmented_boards = self.augment_array(board)
 
-        return [board], [policy] # just return [board], [policy] if you don't want to implement this
-        # don't be lazy, this will help convergence very much
+        augmented_policies = []
+        for augmented_policy in self.augment_array(policy.reshape(3, 3)):
+            augmented_policies.append(augmented_policy.reshape(-1))
+
+        return augmented_boards, augmented_policies
 
 
 if __name__ == "__main__":
