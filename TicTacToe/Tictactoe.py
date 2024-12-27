@@ -98,6 +98,9 @@ class TicTacToe:
     def input_action(self):
         x, y = input()
 
+        # use .split(" ") to convert the string "1 1" to a list ["1", "1"], note that we split with a space " " not ""
+        # then call int() on each element of the list
+
         # returns an action using input()
         # return the x y coordinate as a numpy array when the user inputs two numbers with a space such as : 1 1
         # make sure that the action is legal. If is is not "raise ValueError("Illegal move given")"
