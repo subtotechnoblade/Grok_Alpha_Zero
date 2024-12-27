@@ -129,61 +129,11 @@ class TicTacToe:
 
         legal_policy /= np.sum(legal_policy)
 
-        # add everything in legal_policy using np.sum()
-        # divide every element in legal_policy by that sum
-
-        # Note that board is a (3, 3) matrix
-        # and policy is a (9,) vector
-
-        # first task is to set every element in policy to 0 if the position on board is not empty (aka not 0)
-
         if shuffle:
             random_indexes = np.random.permutation(len(legal_actions))
             legal_moves = legal_actions[random_indexes]
             legal_policy = legal_policy[random_indexes]
 
-
-
-
-
-        """
-        THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
-        :param board: numpy array of the board
-        :param policy: a numpy array of shape = self.policy shape defined in __init__, straight from the neural network's policy head
-        :param shuffle: You might want to shuffle the policy and legal_actions because the last index is where the search starts
-        if it is too hard you don't implement anything much will happen, its just that randomizing might improve convergence just by a bit
-        :return: legal_actions as a list [action0, action1, ...], child_prob_prior as a numpy array
-
-        In essence, index 0 in legal_actions and child_prob_prior should be the probability of the best move for that legal action
-        so for example in tic tac toe
-        legal_actions =             [0,     1,   2,   3,    4,    5,    6,    7,    8,    9]
-        child_prob_prior / policy = [0.1, 0.1, 0.3, 0.2, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05] (I made these up, shape=(9,))
-        it means that action 0 will have a predicted chance of 10% of being the best move, 1 will have 10%, 2 will have 30% and so on
-        Note that this is a probability distribution, after removing the un wanted actions you have to normalize it to sum up to 1
-        do that with policy /= np.sum(policy)
-
-
-        Anyway, if your self.policy shape matches the action shape you can just return the policy without doing anything
-        recommend to use numba njit to speed up this method for MCTS
-        """
-
-        # example with randomization for tictac toe:
-        # assuming policy from the comments above
-        # board = board.reshape((-1)) flatten the 3 by 3 board into a length 9 array
-        # policy = policy.reshape(-1) flatten the policy
-        # policy = policy[board == 0] keep the values that correspond to an empty part of the board
-        # policy /= np.sum(policy) # normalize it
-        # legal_actions = np.argwhere(board == 0) # get the indexes where the board is empty
-        # if shuffle:
-            # shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
-            # legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
-        # return legal_moves, policy
-
-        # MAKE SURE THERE ARE NO DUPLICATES because it is going to increase the tree complexity thus slowing things down
-        # it is also going to give a wrong policy and weird errors might occur
-        # for checking use
-        # assert len(legal_actions) == len(set(legal_action))
-        # set cannot have any duplicates and thus removed so if the lengths are different the there is a problem
         return legal_actions, legal_policy
 
     def do_action(self, action): # must conform to this format - Brian
@@ -191,8 +141,6 @@ class TicTacToe:
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
         self.action_history.append(action)
-
-        # Implement action_history
 
     @staticmethod
     # @njit(cache=True)
