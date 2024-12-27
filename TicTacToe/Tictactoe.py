@@ -95,6 +95,12 @@ class TicTacToe:
     def get_current_player(self):
         return self.current_player
 
+    def input_action(self):
+        # returns an action using input()
+        # return the x y coordinate as a numpy array when the user inputs two numbers with a space such as : 1 1
+        # make sure that the action is legal. If is is not "raise ValueError("Illegal move given")"
+        pass
+
     def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
         """
         self.total_action is a set
