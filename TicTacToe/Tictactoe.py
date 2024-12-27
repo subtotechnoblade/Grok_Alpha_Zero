@@ -125,7 +125,11 @@ class TicTacToe:
             if value == 0:
                 legal_actions.append(np.array([i%3, i//3]))
                 legal_policies.append(policy[i])
-        legal_actions, legal_policies = np.array(legal_actions), np.array(legal_policies)
+        legal_actions, legal_policy = np.array(legal_actions), np.array(legal_policy)
+
+
+        # add everything in legal_policy using np.sum()
+        # divide every element in legal_policy by that sum
 
         # Note that board is a (3, 3) matrix
         # and policy is a (9,) vector
