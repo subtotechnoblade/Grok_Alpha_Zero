@@ -263,7 +263,7 @@ class Game_Tester:
             checks += 1
             legal_actions = self.game.get_legal_actions()
 
-        if current_player != winner:
+        if abs(winner) == 1 and current_player != winner:
             print("If check_win found a winning board then you have to return the previous player")
             print("In do_action the player is changed to the next player to play, but the previous player already won")
             print("Just flip the current player to the previous player by multiplying by -1")
