@@ -120,7 +120,7 @@ class TicTacToe:
     # @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
         legal_actions = []
-        legal_policies = []
+        legal_policy = []
         for i, value in enumerate(board.reshape(-1)):
             if value == 0:
                 legal_actions.append(np.array([i%3, i//3]))
@@ -131,6 +131,12 @@ class TicTacToe:
         # and policy is a (9,) vector
 
         # first task is to set every element in policy to 0 if the position on board is not empty (aka not 0)
+
+        if shuffle:
+            random_indexes = np.random.permutation(len(legal_actions))
+            legal_moves = legal_actions[random_indexes]
+            legal_policy = legal_policy[random_indexes]
+
 
 
 
@@ -173,7 +179,7 @@ class TicTacToe:
         # for checking use
         # assert len(legal_actions) == len(set(legal_action))
         # set cannot have any duplicates and thus removed so if the lengths are different the there is a problem
-        pass
+        return legal_actions, legal_policies
 
     def do_action(self, action): # must conform to this format - Brian
         x, y = action
