@@ -18,6 +18,8 @@ class Batch_Dense(tf.keras.layers.Layer):
         return self.dense(inputs)
 
 
+
+
 class Batch_Conv1D(tf.keras.layers.Layer):
     def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), use_bias=True, **kwargs):
         super().__init__(**kwargs)

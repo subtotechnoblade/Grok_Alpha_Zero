@@ -14,7 +14,8 @@ class Batch_Dense(tf.keras.layers.Layer):
         self.dense = tf.keras.layers.Dense(units, use_bias=use_bias)
 
     def call(self, inputs):
-        return tf.map_fn(self.dense, inputs)
+        x = tf.map_fn(self.dense, inputs)
+        return x
 
 
 class Batch_Conv1D(tf.keras.layers.Layer):

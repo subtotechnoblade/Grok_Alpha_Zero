@@ -7,7 +7,7 @@ def convert_RWKV_to_onnx(tf_model, input_signature, file_path):
     # Use from_function for tf functions
     # similar to [tf.TensorSpec((None, *gf.SHAPE[1:]), TF_DTYPE, name="x")]
     onnx_model, _ = tf2onnx.convert.from_keras(tf_model, input_signature)
-    onnx.save(onnx_model, "test_test.onnx")
+    # onnx.save(onnx_model, "test_test.onnx")
     onnx_model = onnxoptimizer.optimize(onnx_model, passes=['nop', 'eliminate_nop_cast', 'eliminate_nop_dropout', 'eliminate_nop_flatten',
                                     'extract_constant_to_initializer', 'eliminate_if_with_const_cond',
                                     'eliminate_nop_monotone_argmax', 'eliminate_nop_pad', 'eliminate_nop_concat',
@@ -23,34 +23,26 @@ def convert_RWKV_to_onnx(tf_model, input_signature, file_path):
                                     'eliminate_shape_op', 'fuse_consecutive_slices', 'eliminate_unused_initializer',
                                     'eliminate_duplicate_initializer'])
 
-    output_name_mapping = {}
-    # for output in onnx_model.graph.output:
-    #     if len(output.type.tensor_type.shape.dim) == 2:
-    #         output_name_mapping[output.name] = "outputs"
-    #     elif len(output.type.tensor_type.shape.dim) == 3:
-    #         output_name_mapping[output.name] = "output_state"
-    #     elif len(output.type.tensor_type.shape.dim) == 4:
-    #         output_name_mapping[output.name] = "output_state_matrix"
-    #     else:
-    #         raise ValueError("This output doesn't exist")
-    #     print(output)
     onnx.save(onnx_model, file_path)
 
 if __name__ == "__main__":
     import time
     import numpy as np
-    from RWKV_v6_infer import make_test_model_infer
+    from build_model_guide import build_model, build_model_infer
+    from Gomoku.Gomoku import Gomoku, build_config
 
-    embed_size, batch_size, num_heads, num_layers = 64, 1, 8, 5
+    batch_size = 1
+    embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config["num_layers"]
+    game = Gomoku()
 
-    # model = make_test_model_infer(embed_size, num_heads, num_layers)
-    # model.load_weights("test_model.weights.h5")
-    # input_signature = [tf.TensorSpec((None, embed_size), tf.float32, name="inputs"),
-    #                    tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
-    #                    tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
-    #                    ]
-    # convert_RWKV_to_onnx(model, input_signature, "test_model.onnx")
-
+    model = build_model_infer(game.get_state().shape, game.policy_shape, build_config)
+    model.load_weights("test_model.weights.h5")
+    input_signature = [tf.TensorSpec((None, 15, 15), tf.float32, name="inputs"),
+                       tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
+                       tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
+                       ]
+    convert_RWKV_to_onnx(model, input_signature, "test_model.onnx")
+    raise ValueError
     import onnxruntime as rt
     providers = [
         ('TensorrtExecutionProvider', {
