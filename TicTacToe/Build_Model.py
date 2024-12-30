@@ -56,7 +56,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
 
-    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1]))(x)
+    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1],))(x)
 
     x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
 

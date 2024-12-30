@@ -75,7 +75,7 @@ from numba import njit
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
 
-build_config = {"embed_size": 32, # this is the vector for RWKV
+build_config = {"embed_size": 64, # this is the vector for RWKV
           "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
           "hidden_size": None, # this uses the default 3.5 * embed size
