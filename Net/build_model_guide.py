@@ -27,11 +27,12 @@ def build_model(input_shape, policy_shape, build_config):
         x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
     policy = RWKV_v6.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
-    policy = Batched_Net.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
+    policy = Batched_Net.Batch_Dense(policy_shape[0])(policy) # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
     value = RWKV_v6.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
-    value = Batched_Net.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
-
+    value = Batched_Net.Batch_Dense(1)(value) # MUST NAME THIS "value"
+    value = tf.keras.layers.Activation("tanh", name="value")(value)
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
     return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
@@ -61,12 +62,14 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     # Note that layer_id must be
     policy, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
-    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
+    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0])(policy)
+    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)# MUST NAME THE "policy"
 
     value, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
-    value = Batched_Net_Infer.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
+    value = Batched_Net_Infer.Batch_Dense(1)(value)
+    value = tf.keras.layers.Activation("tanh", name="value")(value)# MUST NAME THE "value"
 
-    output_state, output_state_matrix = tf.keras.layers.Identity(name="state_matrix")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
+    output_state, output_state_matrix = tf.keras.layers.Identity(name="output_state")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
     # Must include this as it is necessary to name the outputs
 
 
