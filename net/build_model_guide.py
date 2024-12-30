@@ -1,5 +1,6 @@
 import tensorflow as tf
-import RWKV_v6, RWKV_v6_infer
+from RWKV import RWKV_v6, RWKV_v6_Infer
+import Batched_Net, Batched_Net_Infer
 from Grok_Model import Grok_Fast_EMA_Model
 # Note the imports will not be the same as these ^, but import RWKV.RWKV_v6
 
@@ -19,7 +20,7 @@ def build_model(input_shape, policy_shape, build_config):
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
     # x = inputs
     x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs)
-    x = RWKV_v6.Batch_Dense(embed_size)(x)
+    x = Batched_Net.Batch_Dense(embed_size)(x)
 
 
     for layer_id in range(num_layers - 2): # -2 because later we use two layers for the policy and value
@@ -28,8 +29,8 @@ def build_model(input_shape, policy_shape, build_config):
     policy = RWKV_v6.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
     policy = RWKV_v6.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
 
-    value = RWKV_v6.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim,hidden_size)(x)
-    value = RWKV_v6.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
+    value = RWKV_v6.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
+    value = Batched_Net.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
 
     # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
@@ -52,20 +53,23 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
     x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1],))(x)
-    x = RWKV_v6_infer.Batch_Dense(embed_size)(x)
+    x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
 
 
     for layer_id in range(num_layers - 2):# -2 because later we use two layers for the policy and value
-        x, state, state_matrix = RWKV_v6_infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
+        x, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
 
     # Note that layer_id must be
-    policy, state, state_matrix = RWKV_v6_infer.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
-    policy = RWKV_v6_infer.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
+    policy, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
+    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
 
-    value, state, state_matrix = RWKV_v6_infer.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
-    value = RWKV_v6_infer.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
+    value, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
+    value = Batched_Net_Infer.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
 
     output_state, output_state_matrix = tf.keras.layers.Identity(name="state_matrix")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
+    # Must include this as it is necessary to name the outputs
+
+
     # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
     return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])

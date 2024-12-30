@@ -41,7 +41,7 @@ if __name__ == "__main__":
                        tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
                        tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
                        ]
-    convert_RWKV_to_onnx(model, input_signature, "test_model.onnx")
+    convert_RWKV_to_onnx(model, input_signature, "RWKV/test_model.onnx")
     raise ValueError
     import onnxruntime as rt
     providers = [
