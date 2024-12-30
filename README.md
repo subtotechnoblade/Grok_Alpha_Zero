@@ -13,7 +13,7 @@ Guide.py and game_tester.py
 Game Class files: 
 Gomoku.py, tictactoe.py, ect.
 
-Brian's training code: MCTS.py
+Brian's training code: MCTS.py, the Net directory, Self_Play.py
 
 The rest of the files are test files and are for prototyping
 
