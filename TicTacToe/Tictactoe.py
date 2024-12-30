@@ -1,5 +1,3 @@
-from distutils.command.check import check
-
 import numpy as np
 from numba import njit
 # make zeros array np.zeros(shape)
@@ -65,8 +63,8 @@ from numba import njit
 # function vs method
 # function
 
-def foo(inputs):
-    return inputs ** 2
+# def foo(inputs):
+#     return inputs ** 2
 
 # class
 # class House:
@@ -76,6 +74,13 @@ def foo(inputs):
 #
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
+
+build_config = {"embed_size": 32, # this is the vector for RWKV
+          "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
+          "token_shift_hidden_dim": 32, # this is in the RWKV paper
+          "hidden_size": None, # this uses the default 3.5 * embed size
+          "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+          }
 
 
 class TicTacToe:
