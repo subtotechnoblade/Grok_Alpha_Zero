@@ -353,7 +353,7 @@ class MCTS:
             child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
         else:
-            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_state_MCTS(child_board), node.RNN_state)
+            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board), node.RNN_state)
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, child_policy)

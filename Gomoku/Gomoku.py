@@ -81,7 +81,7 @@ class Gomoku:
         board[y][x] = current_player
         return board
 
-    def get_state(self) -> np.array:
+    def get_input_state(self) -> np.array:
         return self.board
 
     @staticmethod
