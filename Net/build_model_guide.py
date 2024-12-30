@@ -27,12 +27,12 @@ def build_model(input_shape, policy_shape, build_config):
         x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
     policy = RWKV_v6.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
-    policy = RWKV_v6.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
+    policy = Batched_Net.Batch_Dense(policy_shape[0], name="policy")(policy) # MUST NAME THIS "policy"
 
     value = RWKV_v6.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
     value = Batched_Net.Batch_Dense(1, name="value")(value) # MUST NAME THIS "value"
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
+    # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
     return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
 
@@ -70,7 +70,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
     # Must include this as it is necessary to name the outputs
 
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
+    # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
     return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
 
@@ -83,14 +83,14 @@ if __name__ == '__main__':
     batch_size = 10
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
-    model = build_model(game.get_state().shape, game.policy_shape, build_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     tf.keras.utils.plot_model(model, "model_diagram.png",
                               show_shapes=True,
                               show_layer_names=True,
                               expand_nested=True)
     model.save_weights("test_model.weights.h5")
     model.summary()
-    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, 15, 15))
+    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, 15, 15))
     # 10 is the length of the game in moves, 15, 15 is the dim of the board
 
     policy1, value1 = model(dummy_data)
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
 
     # This is for the infer model
-    model_infer = build_model_infer(game.get_state().shape, game.policy_shape, build_config)
+    model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
     model_infer.load_weights("test_model.weights.h5")
     tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
                               show_shapes=True,

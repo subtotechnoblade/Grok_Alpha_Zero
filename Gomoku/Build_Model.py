@@ -90,14 +90,14 @@ if __name__ == '__main__':
     batch_size = 10
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
-    model = build_model(game.get_state().shape, game.policy_shape, build_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     tf.keras.utils.plot_model(model, "model_diagram.png",
                               show_shapes=True,
                               show_layer_names=True,
                               expand_nested=True)
     model.save_weights("test_model.weights.h5")
     model.summary()
-    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, 15, 15))
+    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, *game.get_input_state().shape))
     # 10 is the length of the game in moves, 15, 15 is the dim of the board
 
     policy1, value1 = model(dummy_data)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
 
     # This is for the infer model
-    model_infer = build_model_infer(game.get_state().shape, game.policy_shape, build_config)
+    model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
     model_infer.load_weights("test_model.weights.h5")
     tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
                               show_shapes=True,

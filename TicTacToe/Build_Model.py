@@ -18,15 +18,26 @@ def build_model(input_shape, policy_shape, build_config):
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
 
-    # input shape should be (3, 3)
-    inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
-    # x = inputs
-    x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs)
+    # input shape should be (batch, game length, 3, 3)
+    inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs") # (batch_size, game length, 3, 3)
+
+    x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs) # (batch, game_length, 9)
+
+    x = Batched_Net.Batch_Dense(embed_size)(x) # (batch, game_length, 32)
+
+    for layer_id in range(num_layers):
+        x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x) # (batch, game_length, 32)
+
+    policy = Batched_Net.Batch_Dense(embed_size // 2)(x) # (batch, game_length, 16)
+    policy = Batched_Net.Batch_Dense(policy_shape[0])(policy) # (batch, game_length, 9)
 
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
+    value = Batched_Net.Batch_Dense(embed_size // 2)(x) # (batch, game_length, 16)
+    value = Batched_Net.Batch_Dense(1)(value) # (batch, game_length, 1)
+
+    # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
-    # return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
+    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
 
 def build_model_infer(input_shape, policy_shape, build_config):
     # Since this is just and example for Gomoku
@@ -45,31 +56,46 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
 
+    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1]))(x)
+
+    x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
+
+    for layer_id in range(num_layers):
+        x, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
+
+    policy = Batched_Net_Infer.Batch_Dense(embed_size // 2)(x)
+    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0])(policy)
+
+    value = Batched_Net_Infer.Batch_Dense(embed_size // 2)(x)
+    value = Batched_Net_Infer.Batch_Dense(1)(value)
+
+
+
     output_state, output_state_matrix = tf.keras.layers.Identity(name="state_matrix")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
     # Must include this as it is necessary to name the outputs
 
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
+    # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
-    # return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
+    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
 
 
 
 if __name__ == '__main__':
     import numpy as np
-    from Gomoku.Gomoku import Gomoku, build_config
+    from Tictactoe import TicTacToe, build_config
     # print(build_config)
-    batch_size = 10
+    batch_size = 1
     # Testing code to verify that both the train and infer version of the model result in the same outputs
-    game = Gomoku()
-    model = build_model(game.get_state().shape, game.policy_shape, build_config)
-    tf.keras.utils.plot_model(model, "model_diagram.png",
+    game = TicTacToe()
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+    tf.keras.utils.plot_model(model, "tictactoe_model_diagram.png",
                               show_shapes=True,
                               show_layer_names=True,
                               expand_nested=True)
-    model.save_weights("test_model.weights.h5")
+    model.save_weights("tictactoe_test_model.weights.h5")
     model.summary()
-    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, 15, 15))
+    dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, *game.get_input_state().shape))
     # 10 is the length of the game in moves, 15, 15 is the dim of the board
 
     policy1, value1 = model(dummy_data)
@@ -85,9 +111,10 @@ if __name__ == '__main__':
 
 
     # This is for the infer model
-    model_infer = build_model_infer(game.get_state().shape, game.policy_shape, build_config)
-    model_infer.load_weights("test_model.weights.h5")
-    tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
+    model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
+    model_infer.load_weights("tictactoe_test_model.weights.h5")
+
+    tf.keras.utils.plot_model(model_infer, "tictactoe_model_infer_diagram.png",
                               show_shapes=True,
                               show_layer_names=True,
                               expand_nested=True)
