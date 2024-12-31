@@ -579,19 +579,18 @@ if __name__ == "__main__":
 
     providers = [
         ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable":True,
-        # "trt_dump_ep_context_model": True,
+        "trt_engine_cache_enable":True,
+        "trt_dump_ep_context_model": True,
         # "trt_fp16_enable":True,
-        # "trt_ep_context_file_path": "cache/"
+        "trt_ep_context_file_path": "Gomoku/cache/"
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
-    session = rt.InferenceSession("Net/test_model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/cache/model_ctx.onnx", providers=providers)
 
     mcts = MCTS(game,
                 build_config,
                 session,
-
                 c_puct_init=2.5,
                 tau=0.01,
                 use_dirichlet=True,

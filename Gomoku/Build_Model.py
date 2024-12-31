@@ -73,7 +73,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
                                                           hidden_size)(x, state, state_matrix)
     value = Batched_Net_Infer.Batch_Dense(1, name="value")(value)  # MUST NAME THIS "value"
 
-    output_state, output_state_matrix = tf.keras.layers.Identity(name="state_matrix")(state), tf.keras.layers.Identity(
+    output_state, output_state_matrix = tf.keras.layers.Identity(name="output_state")(state), tf.keras.layers.Identity(
         name="output_state_matrix")(state_matrix)
     # Must include this as it is necessary to name the outputs
 
