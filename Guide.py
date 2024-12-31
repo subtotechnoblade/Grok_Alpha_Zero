@@ -213,7 +213,14 @@ class Gomoku:
         return self.current_player
 
     def input_action(self):
-        return np.array(list(map(int, input().split(" "))))
+        while True:
+            try:
+                coords = list(map(int, input("Move:").split(" ")))
+                if self.board[coords[1]][coords[0]] == 0:
+                    return coords
+                print("Illegal move")
+            except:
+                print("Invalid input")
 
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
