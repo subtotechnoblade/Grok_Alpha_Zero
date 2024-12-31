@@ -4,6 +4,7 @@ import numba as nb
 from numba import njit
 from tqdm import tqdm
 from warnings import warn
+import gc
 
 import onnxruntime as rt
 
@@ -112,7 +113,7 @@ class MCTS:
         self.use_njit = use_njit
         # Note that these are functions getting assigned and jitted
         if self.use_njit:
-            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True, nogil=True)
+            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True)
         else:
             self.get_terminal_actions = self.get_terminal_actions_fn
         # perform inference call to initialize root
@@ -188,7 +189,6 @@ class MCTS:
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
     @staticmethod
-    # @njit(cache=True)
     def get_terminal_actions_fn(legal_actions_fn,
                              do_action_fn,
                              check_win_fn,
@@ -560,6 +560,7 @@ class MCTS:
         # this also assumes that self.game is already updated with the first player's move
         # thus we create a root and expand it
         self.create_expand_root()
+        gc.collect()
 
 
 
@@ -578,15 +579,15 @@ if __name__ == "__main__":
     # game.do_action((6, 4))
 
     providers = [
-        ('TensorrtExecutionProvider', {
-        "trt_engine_cache_enable":True,
-        "trt_dump_ep_context_model": True,
-        # "trt_fp16_enable":True,
-        "trt_ep_context_file_path": "Gomoku/cache/"
-        }),
-        'CUDAExecutionProvider',
+        # ('TensorrtExecutionProvider', {
+        # "trt_engine_cache_enable":True,
+        # "trt_dump_ep_context_model": True,
+        # # "trt_fp16_enable":True,
+        # "trt_ep_context_file_path": "Gomoku/cache/"
+        # }),
+        # 'CUDAExecutionProvider',
         'CPUExecutionProvider']
-    session = rt.InferenceSession("Gomoku/cache/model_ctx.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
 
     mcts = MCTS(game,
                 build_config,
@@ -600,18 +601,18 @@ if __name__ == "__main__":
     winner = -2
     while winner == -2:
         if game.get_current_player() == -1:
-            move = game.input_action()
+            # move = game.input_action()
             # print("You played", move)
-
+            move, probs = mcts.run(iteration_limit=1600, time_limit=None)
             game.do_action(move)
             print(game.board)
             mcts.prune_tree(move)
             winner = game.check_win()
         else:
-            move, probs = mcts.run(iteration_limit=750, time_limit=None)
+            move, probs = mcts.run(iteration_limit=1600, time_limit=None)
             game.do_action(move)
-            print("AI played", move)
-            print(probs)
+            # print("AI played", move)
+            # print(probs)
             print(game.board)
 
             mcts.prune_tree(move)
