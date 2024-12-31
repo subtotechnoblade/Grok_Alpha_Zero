@@ -103,14 +103,20 @@ class TicTacToe:
         return self.current_player
 
     def input_action(self):
-        coords = input().split(" ")
-        coords[0], coords[1] = int(coords[0]), int(coords[1])
+        while True:
+            try:
+                coords = input("Move:").split(" ")
+                coords[0], coords[1] = int(coords[0]), int(coords[1])
+                return np.array(coords)
+            except:
+                print("Invalid Move")
+                continue
 
-        if coords[0] < 0 or coords[0] > 2 or coords[1] < 0 or coords[1] > 2:
-            raise ValueError ("Illegal move given")
-        if self.board[coords[1]][coords[0]] != 0:
-            raise ValueError ("Illegal move given")
-        return np.array(coords)
+            x, y = coords
+            if (0 > x > 2 or 0 < y > 2) or self.board[coords[1]][coords[0]] != 0:
+                print("Illegal move given")
+                continue
+
 
 
     def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
@@ -122,7 +128,7 @@ class TicTacToe:
 
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
         legal_actions = []
         legal_policy = []
@@ -148,7 +154,7 @@ class TicTacToe:
         self.action_history.append(action)
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def do_action_MCTS(board, action, current_player):
         x, y = action
         board[y][x] = current_player
@@ -168,16 +174,6 @@ class TicTacToe:
         if row[0] != 0 and row[0] == row[1] == row[2]:
             return True #If all 3 items on a row equal, someone has won. Yippee!
         return False #If not then sadly not :(
-
-    @staticmethod
-    @njit(cache=True)
-    def _check_row_MCT(row):  # A function for checking if there's a win on each row.
-        # If all 3 items on a row equal, someone has won. Yippee!
-        # If not then sadly not :(
-        # Brian has simplified it, speed is probably the same
-        return row[0] != 0 and row[0] == row[1] == row[2]
-
-
 
     def check_win(self):
         # Note that self.current player is actually the next player
@@ -252,7 +248,7 @@ class TicTacToe:
         return new_policy
 
     @staticmethod
-    #@njit(cache=True)
+    @njit(cache=True)
     def augment_array(arr):
         arr_augmentation = [arr, np.flipud(arr), np.fliplr(arr)]
         for k in range(1, 4):

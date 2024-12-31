@@ -50,10 +50,10 @@ if __name__ == "__main__":
     import onnxruntime as rt
     providers = [
         ('TensorrtExecutionProvider', {
-        "trt_engine_cache_enable":True,
-        "trt_dump_ep_context_model": True,
+        # "trt_engine_cache_enable":True,
+        # "trt_dump_ep_context_model": True,
         # "trt_fp16_enable":True,
-        "trt_ep_context_file_path": "cache/"
+        # "trt_ep_context_file_path": "cache/"
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
@@ -97,6 +97,8 @@ if __name__ == "__main__":
         dt = time.time() - s
         t_total += dt
         # print("Onnx took:", dt)
+        print(policy)
+        raise ValueError
 
         input_state_onnx = state
         input_state_matrix_onnx = state_matrix

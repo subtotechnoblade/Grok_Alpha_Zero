@@ -1,10 +1,12 @@
-import numpy as np
-from warnings import warn
-from numba import njit
-import numba as nb
-from tqdm import tqdm
-from Guide import Gomoku
 import time
+import numpy as np
+import numba as nb
+from numba import njit
+from tqdm import tqdm
+from warnings import warn
+
+import onnxruntime as rt
+
 class Node:
     __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
     def __init__(self,
@@ -68,7 +70,9 @@ class MCTS:
     # will start from point where the game class left off
     # will update itself after every move assuming the methods are called in the right order
     def __init__(self,
-                 game: Gomoku, # the annotation is for testing and debugging
+                 game, # the annotation is for testing and debugging
+                 build_config: dict,
+                 session: rt.InferenceSession,
                  c_puct_init: float=2.5,
                  c_puct_base: float=19_652,
                  use_dirichlet=True,
@@ -89,6 +93,8 @@ class MCTS:
         :param use_njit: jit the method get_terminal_actions
         """
         self.game = game
+        self.build_config = build_config
+        self.session = session
         self.fast_find_win = fast_find_win
 
         self.c_puct_init = c_puct_init # determined experimentally
@@ -160,16 +166,23 @@ class MCTS:
             node: Node = node.children[best_index]
 
 
-    def _compute_outputs(self, input_state, RNN_state):
+    def _compute_outputs(self, inputs, RNN_state):
         # I'll do this once I have everything else working
         # this returns the policy, value, RNN_state in a list
-        return self._get_dummy_outputs(input_state, RNN_state)
-    def _get_dummy_outputs(self, input_state, RNN_state):
-        # since I'm not using RNN_state I can just return it for the next node
-        # this will also give the next RNN_state that is required for the next inference call
-        if RNN_state is None:
-            raise RuntimeError("RNN state cannot be None")
-        return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
+        input_state, input_state_matrix = RNN_state
+        policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+                                                              input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
+                                                                "input_state": input_state,
+                                                                "input_state_matrix": input_state_matrix})
+        return policy[0], value[0][0], [state, state_matrix]
+
+
+    # def _get_dummy_outputs(self, input_state, RNN_state):
+    #     # since I'm not using RNN_state I can just return it for the next node
+    #     # this will also give the next RNN_state that is required for the next inference call
+    #     if RNN_state is None:
+    #         raise RuntimeError("RNN state cannot be None")
+    #     return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
     def _apply_dirichlet(self, legal_policy):
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
@@ -234,6 +247,7 @@ class MCTS:
             else:
                 value = 0
                 child_policy = np.ones(len(terminal_mask)) / len(terminal_mask)
+
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              self.game.get_current_player() * -1,
@@ -261,7 +275,13 @@ class MCTS:
 
 
         else:
-            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), [1, 3,3])
+            num_layers = self.build_config["num_layers"]
+            embed_size = self.build_config["embed_size"]
+            num_heads = self.build_config["num_heads"]
+
+            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(),
+                                                                                 [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                                    np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)])
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
@@ -544,7 +564,7 @@ class MCTS:
 
 
 if __name__ == "__main__":
-    from Guide import Gomoku
+    from Gomoku.Gomoku import Gomoku, build_config
     game = Gomoku()
     # game.do_action((7, 7))
     # game.do_action((6, 7))
@@ -556,7 +576,22 @@ if __name__ == "__main__":
 
     # game.do_action((7, 4))
     # game.do_action((6, 4))
+
+    providers = [
+        ('TensorrtExecutionProvider', {
+        # "trt_engine_cache_enable":True,
+        # "trt_dump_ep_context_model": True,
+        # "trt_fp16_enable":True,
+        # "trt_ep_context_file_path": "cache/"
+        }),
+        'CUDAExecutionProvider',
+        'CPUExecutionProvider']
+    session = rt.InferenceSession("Net/test_model.onnx", providers=providers)
+
     mcts = MCTS(game,
+                build_config,
+                session,
+
                 c_puct_init=2.5,
                 tau=0.01,
                 use_dirichlet=True,
@@ -574,7 +609,7 @@ if __name__ == "__main__":
             mcts.prune_tree(move)
             winner = game.check_win()
         else:
-            move, probs = mcts.run(iteration_limit=75000, time_limit=None)
+            move, probs = mcts.run(iteration_limit=750, time_limit=None)
             game.do_action(move)
             print("AI played", move)
             print(probs)
