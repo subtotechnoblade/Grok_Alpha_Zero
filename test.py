@@ -9,6 +9,16 @@ from tqdm import tqdm
 
 
 if __name__ == "__main__":
+    import tensorflow as tf
+    y_true = [[0, 1, 0, 0], [1, 0, 0, 0]]
+    y_pred = [[-18.6, 0.51, 2.94, -12.8], [-18.6, 0.51, 2.94, -12.8]]
+    # bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, )
+    # print(bce(y_true, y_pred))
+
+    y_true  = tf.convert_to_tensor(y_true)
+    print(y_true[:, 0])
+    # print(tf.cast(y_true == 0, tf.float32))
+    raise ValueError
 
     def task(lock, i):
 
