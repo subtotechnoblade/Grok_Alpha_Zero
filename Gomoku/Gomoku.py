@@ -87,12 +87,13 @@ class Gomoku:
         board[y][x] = current_player
         return board
 
+
     def get_input_state(self) -> np.array:
         return self.board
 
     @staticmethod
-    @njit(cache=True)
-    def get_state_MCTS(board: np.array) -> np.array:
+    # @njit(cache=True)
+    def get_input_state_MCTS(board: np.array) -> np.array:
         return board
 
     def check_win(self, ) -> int:

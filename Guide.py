@@ -282,7 +282,7 @@ class Gomoku:
         return self.board
 
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def get_input_state_MCTS(board: np.array) -> np.array:
         return board
 
