@@ -2,8 +2,8 @@
 Slow AlphaZero development, done the right way. Hopefully full stack.
 The strongest AI in history vs worst programmer in the modern era.
 
-Anti Ian repo
-No Ians beyond this point
+Partially Anti Ian repo
+Only the original Ians beyond this point
 
 Important files are organized into three categories.
 
