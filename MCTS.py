@@ -590,7 +590,7 @@ if __name__ == "__main__":
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
-    session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/cache/model_ctx.onnx", providers=providers)
 
     mcts = MCTS(game,
                 build_config,

@@ -12,6 +12,29 @@ from numba import njit
 # players are represented with -1 and 1 <- this rule cannot change
 # game board must be a numpy array
 
+# This is the default model build config and will be passed to Build_Model.py
+build_config = {"embed_size": 32, # this is the vector for RWKV
+          "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
+          "token_shift_hidden_dim": 32, # this is in the RWKV paper
+          "hidden_size": None, # this uses the default 3.5 * embed size
+          "num_layers": 3, # This is the total amount of RWKV layers in the model that is using
+          }
+# feel free to define your own build_config if you are using sth other than RWKV
+
+train_config = {
+    "total_generations": 100, # Total amount of generations, the training can stop and resume at any moment
+    # a generation is defined by a round of self play, and model training
+
+    # Self Play variables
+    "games_per_generation": 100, # amount of self play games until we re train the network
+    "num_explore_moves": 2, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "c_puct": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
+
+    "train_epochs": 5, # The amount of epochs for training
+    "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+
+}
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
     """
