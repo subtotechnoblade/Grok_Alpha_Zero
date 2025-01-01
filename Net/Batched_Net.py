@@ -33,7 +33,7 @@ class Batch_Conv2D(tf.keras.layers.Layer):
         return tf.map_fn(self.conv2D, inputs)
 
 
-class Batch_Conv2D(tf.keras.layers.Layer):
+class Batch_Conv3D(tf.keras.layers.Layer):
     def __init__(self, filters, kernel_size=(1, 1, 1), strides=(1, 1, 1), use_bias=True, **kwargs):
         super().__init__(**kwargs)
         self.conv3D= tf.keras.layers.Conv3D(filters, kernel_size, strides, use_bias=use_bias)
