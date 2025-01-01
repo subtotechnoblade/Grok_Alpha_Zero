@@ -29,20 +29,20 @@ def cache_tensorrt(game,
                                providers=providers)
 
 
-    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape), dtype=np.float32)
+    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape)).astype(np.float32)
 
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
     num_layers = build_config["num_layers"]
 
-    input_state = np.zeros((num_layers, 2, 1, embed_size))
-    input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads))
+    input_state = np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32)
+    input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
     for _ in range(warmup_iterations):
         policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": dummy_inputs,
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
-    print("Sucessfully built trt engine!")
+    print("Successfully built trt engine!")
 
 def get_speed(game, build_config, folder_path, generation, iterations=100):
     providers = [
@@ -60,14 +60,14 @@ def get_speed(game, build_config, folder_path, generation, iterations=100):
     sess = rt.InferenceSession(f"{folder_path}/{generation}/TRT_cache/model_ctx.onnx",
                                providers=providers)
 
-    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape), dtype=np.float32)
+    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape)).astype(np.float32)
 
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
     num_layers = build_config["num_layers"]
 
-    input_state = np.zeros((num_layers, 2, 1, embed_size))
-    input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads))
+    input_state = np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32)
+    input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
 
     for _ in range(5):
         policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
