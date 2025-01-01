@@ -15,6 +15,7 @@ train_config = {
 
     # Self Play variables
     "games_per_generation": 100, # amount of self play games until we re train the network
+    "num_explore_moves": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": True,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
@@ -22,7 +23,6 @@ train_config = {
     # MCTS variables
     "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     "MCTS_time_limit": None, # Not recommended to use for training
-    "num_explore_moves": 7, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
