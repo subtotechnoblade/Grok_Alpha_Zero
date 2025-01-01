@@ -26,7 +26,7 @@ def build_model(input_shape, policy_shape, build_config):
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
-    eyes = Batched_Net.Batch_Conv2D(filters=2, kernel_size=(3, 3), strides=(1, 1))(eyes)
+    eyes = Batched_Net.Batch_Conv2D(filters=4, kernel_size=(3, 3), strides=(1, 1))(eyes)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
 
     x = tf.keras.layers.Reshape((-1, eyes.shape[2] * eyes.shape[3] * eyes.shape[4]))(eyes)
@@ -125,6 +125,8 @@ if __name__ == '__main__':
     #                           show_layer_names=True,
     #                           expand_nested=True
     #                           )
+    model.save("test_model.keras")
+    # raise ValueError
     model.save_weights("test_model.weights.h5")
     model.summary()
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, *game.get_input_state().shape))
