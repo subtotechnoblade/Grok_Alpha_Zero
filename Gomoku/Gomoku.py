@@ -6,8 +6,22 @@ build_config = {"embed_size": 128, # this is the vector for RWKV
           "num_heads": 8, # this must be a factor of embed_size or else an error will be raised
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
           "hidden_size": None, # this uses the default 3.5 * embed size
-          "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+          "num_layers": 5, # This is the total amount of RWKV layers in the model that are used
           }
+
+train_config = {
+    "total_generations": 100, # Total amount of generations, the training can stop and resume at any moment
+    # a generation is defined by a round of self play, and model training
+
+    # Self Play variables
+    "games_per_generation": 100, # amount of self play games until we re train the network
+    "num_explore_moves": 7, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "c_puct": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
+
+    "train_epochs": 5, # The amount of epochs for training
+    "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+}
 class Gomoku:
     def __init__(self, width=15, height=15):
         self.board = np.zeros((height, width),
