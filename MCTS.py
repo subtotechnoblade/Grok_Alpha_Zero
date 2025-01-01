@@ -434,7 +434,7 @@ class MCTS:
         self.root.visits += 1
 
 
-    def run(self, iteration_limit: int or bool=None, time_limit: int or float=None):
+    def run(self, iteration_limit: int or bool=None, time_limit: int or float=None, use_bar=True):
         """
         :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
         :param time_limit: The time limit MCTS is allowed to run, note that MCTS can go over the time limit by small amounts
@@ -454,15 +454,14 @@ class MCTS:
         if iteration_limit is None and time_limit is True:
             time_limit = 30.0 # 30 seconds by default
 
-        if iteration_limit and time_limit is None:
-            bar = tqdm(total=iteration_limit)
-        else:
-            bar = tqdm(total=time_limit)
+        if use_bar:
+            if iteration_limit and time_limit is None:
+                bar = tqdm(total=iteration_limit)
+            else:
+                bar = tqdm(total=time_limit)
 
         current_iteration = 0
         start_time = time.time()
-
-
         while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
             loop_start_time = time.time()
             node = self._PUCT_select()
@@ -475,12 +474,14 @@ class MCTS:
 
             self._back_propagate(node, value)
 
-            if iteration_limit:
-                bar.update(1)
-            else:
-                bar.update(time.time() - loop_start_time)
+            if use_bar:
+                if iteration_limit:
+                    bar.update(1)
+                else:
+                    bar.update(time.time() - loop_start_time)
             current_iteration += 1
-        bar.close()
+        if bar:
+            bar.close()
 
 
 
