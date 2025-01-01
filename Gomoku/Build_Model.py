@@ -39,7 +39,8 @@ def build_model(input_shape, policy_shape, build_config):
 
     policy = Batched_Net.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "policy"
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net.Batch_Dense(policy_shape[0], name="policy")(policy)  # MUST NAME THIS "policy"
+    policy = Batched_Net.Batch_Dense(policy_shape[0])(policy)  # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
 
     value = Batched_Net.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "value"
@@ -72,9 +73,9 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
 
-    reshaped_x = tf.keras.layers.Reshape((*input_shape, 1))(x)
+    reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = Batched_Net_Infer.Batch_Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1))(reshaped_x)
+    eyes = Batched_Net_Infer.Batch_Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1))(reshaped_inputs)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
@@ -91,7 +92,8 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     policy = Batched_Net_Infer.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "policy"
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0], name="policy")(policy)  # MUST NAME THIS "policy"
+    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0])(policy)  # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
 
     value = Batched_Net_Infer.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "value"
@@ -118,11 +120,11 @@ if __name__ == '__main__':
     game = Gomoku()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     # raise ValueError
-    tf.keras.utils.plot_model(model, "model_diagram.png",
-                              show_shapes=True,
-                              show_layer_names=True,
-                              expand_nested=True
-                              )
+    # tf.keras.utils.plot_model(model, "model_diagram.png",
+    #                           show_shapes=True,
+    #                           show_layer_names=True,
+    #                           expand_nested=True
+    #                           )
     model.save_weights("test_model.weights.h5")
     model.summary()
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, *game.get_input_state().shape))
@@ -144,10 +146,10 @@ if __name__ == '__main__':
     # This is for the infer model
     model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
     model_infer.load_weights("test_model.weights.h5")
-    tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
-                              show_shapes=True,
-                              show_layer_names=True,
-                              expand_nested=True)
+    # tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
+    #                           show_shapes=True,
+    #                           show_layer_names=True,
+    #                           expand_nested=True)
 
     state, state_matrix = create_states(build_config)
     dummy_data = np.transpose(dummy_data, [1, 0, 2, 3])

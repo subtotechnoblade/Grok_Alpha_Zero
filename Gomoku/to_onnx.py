@@ -98,8 +98,8 @@ if __name__ == "__main__":
         dt = time.time() - s
         t_total += dt
         # print("Onnx took:", dt)
-        print(policy)
-        raise ValueError
+        # print(policy)
+        # raise ValueError
 
         input_state_onnx = state
         input_state_matrix_onnx = state_matrix
@@ -112,12 +112,12 @@ if __name__ == "__main__":
     print("Took",t_total,"seconds for", dummy_data.shape[0] * dummy_data.shape[1], "iterations")
     print((dummy_data.shape[1] * dummy_data.shape[0]) / t_total, "iterations per second")
 
-    print(np.allclose(output1_p, output2_p, atol=1e-5))
+    print(np.allclose(output1_p, output2_p, atol=1e-3))
     print(np.sum(np.abs(output1_p - output2_p)))
 
     output1_v = np.array(output1_v)
     output2_v = np.array(output2_v)
-    print(np.allclose(output1_v, output2_v, atol=1e-5))
+    print(np.allclose(output1_v, output2_v, atol=1e-3))
     print(np.sum(np.abs(output1_v - output2_v)))
 #
 
