@@ -20,6 +20,8 @@ train_config = {
     # change this to False to use CUDAExecutionProvider
 
     # MCTS variables
+    "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_time_limit": None, # Not recommended to use for training
     "num_explore_moves": 7, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)

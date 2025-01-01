@@ -32,6 +32,10 @@ train_config = {
     # change this to False to use CUDAExecutionProvider
 
     # MCTS variables
+    "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    # set to True
+    "MCTS_time_limit": None, # Not recommended to use for training
+    # Set to True for a default of 30 seconds per move
     "num_explore_moves": 2, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
@@ -39,9 +43,7 @@ train_config = {
 
     # tensorflow training variables
     "train_epochs": 5, # The amount of epochs for training a generation's network
-    "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
-
-
+    "grok_lambda": 4.0, # This is for grok fast, won't be used if the model is not a Grok_Fast_EMA_Model
 }
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
