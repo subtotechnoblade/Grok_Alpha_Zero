@@ -124,6 +124,8 @@ class MCTS:
         self.create_expand_root()
 
     def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
+        if new_c_puct_init < 0.0 or new_tau < 0.0:
+            raise ValueError(f"Updated to hyperparams are invalid, {new_c_puct_init} and {new_tau} cannot be negative")
         self.c_puct_init = new_c_puct_init
         self.tau = new_tau
 
