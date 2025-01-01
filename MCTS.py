@@ -175,6 +175,9 @@ class MCTS:
                                                               input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
+
+        # print(np.min(state), np.min(state_matrix), np.max(state), np.max(state_matrix))
+
         return policy[0], value[0][0], [state, state_matrix]
 
 
@@ -394,16 +397,16 @@ class MCTS:
             # there will be more redundant children that do nothing (very unlikely to be visited)
             node.children.append(child)
 
-            if len(node.child_legal_actions) == 0: # we will never use this parent again for generating children
+            if len(node.child_legal_actions) == 0:  # we will never use this parent again for generating children
                 # because node.children is full
                 # and there will no longer be any more legal moves cuz they all have been expanded
-                del node.child_legal_actions # saves a lot of memory as we no longer need it
+                del node.child_legal_actions  # saves a lot of memory as we no longer need it
 
                 # since we got the policy and value from inputs node.board
                 # we can delete it because the NN will not evaluate it again thus saving more memory
                 del node.board
                 del node.current_player
-                del node.RNN_state # we no longer need RNN state
+                del node.RNN_state  # we no longer need RNN state
 
             # negated child_child_values is the child value
 
@@ -579,13 +582,13 @@ if __name__ == "__main__":
     # game.do_action((6, 4))
 
     providers = [
-        # ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable":True,
-        # "trt_dump_ep_context_model": True,
-        # # "trt_fp16_enable":True,
-        # "trt_ep_context_file_path": "Gomoku/cache/"
-        # }),
-        # 'CUDAExecutionProvider',
+        ('TensorrtExecutionProvider', {
+        "trt_engine_cache_enable":True,
+        "trt_dump_ep_context_model": True,
+        # "trt_fp16_enable":True,
+        "trt_ep_context_file_path": "Gomoku/cache/"
+        }),
+        'CUDAExecutionProvider',
         'CPUExecutionProvider']
     session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
 
@@ -603,12 +606,26 @@ if __name__ == "__main__":
         if game.get_current_player() == -1:
             # move = game.input_action()
             # print("You played", move)
+            # mcts = MCTS(game,
+            #             build_config,
+            #             session,
+            #             c_puct_init=2.5,
+            #             tau=0.01,
+            #             use_dirichlet=True,
+            #             fast_find_win=True)
             move, probs = mcts.run(iteration_limit=1600, time_limit=None)
             game.do_action(move)
             print(game.board)
             mcts.prune_tree(move)
             winner = game.check_win()
         else:
+            # mcts = MCTS(game,
+            #             build_config,
+            #             session,
+            #             c_puct_init=2.5,
+            #             tau=0.01,
+            #             use_dirichlet=True,
+            #             fast_find_win=True)
             move, probs = mcts.run(iteration_limit=1600, time_limit=None)
             game.do_action(move)
             # print("AI played", move)

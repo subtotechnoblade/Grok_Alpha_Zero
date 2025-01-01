@@ -84,7 +84,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
 if __name__ == '__main__':
     import numpy as np
-    from Gomoku.Gomoku import Gomoku, build_config
+    from Gomoku import Gomoku, build_config
 
     # print(build_config)
     batch_size = 10
