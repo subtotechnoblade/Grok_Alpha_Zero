@@ -42,19 +42,20 @@ if __name__ == "__main__":
 
     model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
     # model.load_weights("test_model.weights.h5")
-    input_signature = [tf.TensorSpec((None, 15, 15), tf.float32, name="inputs"),
-                       tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
-                       tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
+    input_signature = [tf.TensorSpec((1, 15, 15), tf.float32, name="inputs"),
+                       tf.TensorSpec((num_layers, 2, 1, embed_size), tf.float32, name="input_state"),
+                       tf.TensorSpec((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
                        ]
     convert_to_onnx(model, input_signature, "model.onnx")
 
     import onnxruntime as rt
     providers = [
         ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable":True,
-        # "trt_dump_ep_context_model": True,
-        # "trt_fp16_enable":True,
-        # "trt_ep_context_file_path": "cache/"
+        "trt_engine_cache_enable":True,
+        "trt_dump_ep_context_model": True,
+        "trt_builder_optimization_level": 5,
+        "trt_auxiliary_streams": 0,
+        "trt_ep_context_file_path": "Cache/"
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
