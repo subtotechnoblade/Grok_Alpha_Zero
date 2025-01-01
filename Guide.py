@@ -29,11 +29,10 @@ train_config = {
     "games_per_generation": 100, # amount of self play games until we re train the network
     "num_explore_moves": 2, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "c_puct": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
+    "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
 
     "train_epochs": 5, # The amount of epochs for training
     "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
-
 }
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
