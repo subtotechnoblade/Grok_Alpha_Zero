@@ -1,7 +1,10 @@
 import time
+from typing import Any
+
 import numpy as np
 import numba as nb
 from numba import njit
+from numpy import signedinteger
 from tqdm import tqdm
 from warnings import warn
 import gc
@@ -120,6 +123,9 @@ class MCTS:
 
         self.create_expand_root()
 
+    def update_hyperparams(self, new_c_puct_base, new_tau) -> None:
+        self.c_puct_base = new_c_puct_base
+        self.tau = new_tau
 
     @staticmethod
     @njit(cache=True, fastmath=True)
@@ -128,7 +134,7 @@ class MCTS:
                                    child_visits: np.array,
                                    parent_visits: float,
                                    c_puct_init: float,
-                                   c_puct_base: float):
+                                   c_puct_base: float) -> signedinteger[Any]:
         # note that np.log is actually a math ln with base e (2.7)
         U = c_puct_init * child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
         PUCT_score = (child_values / child_visits) + U
@@ -437,7 +443,7 @@ class MCTS:
         returns the top action and action distribution for the storage buffer
         """
 
-        if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
+        if iteration_limit is True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
             warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())}"
                  f"because all depth 1 actions must be visited to produce a valid policy"
                  f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
@@ -585,12 +591,19 @@ if __name__ == "__main__":
         ('TensorrtExecutionProvider', {
         "trt_engine_cache_enable":True,
         "trt_dump_ep_context_model": True,
-        # "trt_fp16_enable":True,
-        "trt_ep_context_file_path": "Gomoku/cache/"
+        "trt_builder_optimization_level": 5,
+        "trt_auxiliary_streams": 0,
+        "trt_ep_context_file_path": "Gomoku/Cache/"
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
-    session = rt.InferenceSession("Gomoku/cache/model_ctx.onnx", providers=providers)
+    # sess_options = rt.SessionOptions()
+    # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+    session = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx",
+                                  # sess_options=sess_options,
+                                  providers=providers)
+    # session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
 
     mcts = MCTS(game,
                 build_config,
@@ -613,7 +626,7 @@ if __name__ == "__main__":
             #             tau=0.01,
             #             use_dirichlet=True,
             #             fast_find_win=True)
-            move, probs = mcts.run(iteration_limit=1600, time_limit=None)
+            move, probs = mcts.run(iteration_limit=500, time_limit=None)
             game.do_action(move)
             print(game.board)
             mcts.prune_tree(move)
@@ -626,7 +639,7 @@ if __name__ == "__main__":
             #             tau=0.01,
             #             use_dirichlet=True,
             #             fast_find_win=True)
-            move, probs = mcts.run(iteration_limit=1600, time_limit=None)
+            move, probs = mcts.run(iteration_limit=500, time_limit=None)
             game.do_action(move)
             # print("AI played", move)
             # print(probs)
