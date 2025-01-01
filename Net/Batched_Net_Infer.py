@@ -21,7 +21,7 @@ class Batch_Conv1D(tf.keras.layers.Layer):
         return self.conv1D(inputs)
 
 class Batch_Conv2D(tf.keras.layers.Layer):
-    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), padding="same", use_bias=True, **kwargs):
+    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), padding="valid", use_bias=True, **kwargs):
         super().__init__(**kwargs)
         self.conv2D= tf.keras.layers.Conv2D(filters, kernel_size, strides, padding=padding, use_bias=use_bias)
 
@@ -29,7 +29,7 @@ class Batch_Conv2D(tf.keras.layers.Layer):
         return self.conv2D(inputs)
 
 class Batch_Conv3D(tf.keras.layers.Layer):
-    def __init__(self, filters, kernel_size=(1, 1, 1), strides=(1, 1, 1), padding="same", use_bias=True, **kwargs):
+    def __init__(self, filters, kernel_size=(1, 1, 1), strides=(1, 1, 1), padding="valid", use_bias=True, **kwargs):
         super().__init__(**kwargs)
         self.conv3D= tf.keras.layers.Conv3D(filters, kernel_size, strides, padding=padding, use_bias=use_bias)
 
