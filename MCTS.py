@@ -443,7 +443,7 @@ class MCTS:
         returns the top action and action distribution for the storage buffer
         """
 
-        if iteration_limit is True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
+        if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
             warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())}"
                  f"because all depth 1 actions must be visited to produce a valid policy"
                  f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
