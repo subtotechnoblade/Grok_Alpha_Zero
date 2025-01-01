@@ -16,7 +16,7 @@ train_config = {
     # Self Play variables
     "games_per_generation": 100, # amount of self play games until we re train the network
     "num_explore_moves": 7, # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "c_puct": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "c_puct_base": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
 
     "train_epochs": 5, # The amount of epochs for training
