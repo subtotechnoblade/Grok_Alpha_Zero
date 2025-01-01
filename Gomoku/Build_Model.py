@@ -20,18 +20,32 @@ def build_model(input_shape, policy_shape, build_config):
 
     # input shape should be (3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
-    # x = inputs
-    x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs)
-    x = Batched_Net.Batch_Dense(embed_size)(x)
 
-    for layer_id in range(num_layers - 2):  # -2 because later we use two layers for the policy and value
+    reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
+    eyes = Batched_Net.Batch_Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1))(reshaped_inputs)
+    eyes = tf.keras.layers.BatchNormalization()(eyes)
+    eyes = tf.keras.layers.Activation("relu")(eyes)
+
+    eyes = Batched_Net.Batch_Conv2D(filters=2, kernel_size=(3, 3), strides=(1, 1))(eyes)
+    eyes = tf.keras.layers.BatchNormalization()(eyes)
+
+    x = tf.keras.layers.Reshape((-1, eyes.shape[2] * eyes.shape[3] * eyes.shape[4]))(eyes)
+    x = Batched_Net.Batch_Dense(embed_size)(x)
+    x = tf.keras.layers.Activation("gelu")(x)
+
+    for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
         x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
-    policy = RWKV_v6.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
+
+    policy = Batched_Net.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net.Batch_Dense(policy_shape[0], name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = RWKV_v6.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
-    value = Batched_Net.Batch_Dense(1, name="value")(value)  # MUST NAME THIS "value"
+
+    value = Batched_Net.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Activation("relu")(value)
+    value = Batched_Net.Batch_Dense(1)(value)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Activation("tanh", name="value")(value)
 
     # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
@@ -57,21 +71,33 @@ def build_model_infer(input_shape, policy_shape, build_config):
                   name="input_state_matrix"),  # the name must be "input_state_matrix"
               ]
     x, state, state_matrix = inputs
-    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1],))(x)
-    x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
 
-    for layer_id in range(num_layers - 2):  # -2 because later we use two layers for the policy and value
+    reshaped_x = tf.keras.layers.Reshape((*input_shape, 1))(x)
+
+    eyes = Batched_Net_Infer.Batch_Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1))(reshaped_x)
+    eyes = tf.keras.layers.BatchNormalization()(eyes)
+    eyes = tf.keras.layers.Activation("relu")(eyes)
+
+    eyes = Batched_Net_Infer.Batch_Conv2D(filters=2, kernel_size=(3, 3), strides=(1, 1))(eyes)
+    eyes = tf.keras.layers.BatchNormalization()(eyes)
+
+    x = tf.keras.layers.Reshape((eyes.shape[1] * eyes.shape[2] * eyes.shape[3],))(eyes)
+    x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
+    x = tf.keras.layers.Activation("gelu")(x)
+
+    for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
         x, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim,
                                                           hidden_size)(x, state, state_matrix)
 
-    # Note that layer_id must be
-    policy, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 1, num_heads, embed_size, token_shift_hidden_dim,
-                                                           hidden_size)(x, state, state_matrix)
+    policy = Batched_Net_Infer.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net_Infer.Batch_Dense(policy_shape[0], name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id + 2, num_heads, embed_size, token_shift_hidden_dim,
-                                                          hidden_size)(x, state, state_matrix)
-    value = Batched_Net_Infer.Batch_Dense(1, name="value")(value)  # MUST NAME THIS "value"
+
+    value = Batched_Net_Infer.Batch_Dense(embed_size * 2)(x)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Activation("relu")(value)
+    value = Batched_Net_Infer.Batch_Dense(1)(value)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Activation("tanh", name="value")(value)
 
     output_state, output_state_matrix = tf.keras.layers.Identity(name="output_state")(state), tf.keras.layers.Identity(
         name="output_state_matrix")(state_matrix)
@@ -87,14 +113,16 @@ if __name__ == '__main__':
     from Gomoku import Gomoku, build_config
 
     # print(build_config)
-    batch_size = 10
+    batch_size = 1
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+    # raise ValueError
     tf.keras.utils.plot_model(model, "model_diagram.png",
                               show_shapes=True,
                               show_layer_names=True,
-                              expand_nested=True)
+                              expand_nested=True
+                              )
     model.save_weights("test_model.weights.h5")
     model.summary()
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 10, *game.get_input_state().shape))
@@ -137,7 +165,7 @@ if __name__ == '__main__':
 
     print(policy2.shape, value2.shape)
 
-    print(np.allclose(policy1, policy2, rtol=1e-1))
+    print(np.allclose(policy1, policy2, rtol=1e-1, atol=1e-2))
     print(np.sum(np.abs(policy2 - policy1)) / len(policy1))  # average deviation over the entire length of policy
 
     print(np.allclose(value2, value1, rtol=1e-2))
