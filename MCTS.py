@@ -123,8 +123,8 @@ class MCTS:
 
         self.create_expand_root()
 
-    def update_hyperparams(self, new_c_puct_base, new_tau) -> None:
-        self.c_puct_base = new_c_puct_base
+    def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
+        self.c_puct_init = new_c_puct_init
         self.tau = new_tau
 
     @staticmethod
