@@ -79,7 +79,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
-    eyes = Batched_Net_Infer.Batch_Conv2D(filters=2, kernel_size=(3, 3), strides=(1, 1))(eyes)
+    eyes = Batched_Net_Infer.Batch_Conv2D(filters=4, kernel_size=(3, 3), strides=(1, 1))(eyes)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
 
     x = tf.keras.layers.Reshape((eyes.shape[1] * eyes.shape[2] * eyes.shape[3],))(eyes)
