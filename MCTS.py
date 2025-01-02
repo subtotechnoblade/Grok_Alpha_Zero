@@ -290,9 +290,12 @@ class MCTS:
             embed_size = self.build_config["embed_size"]
             num_heads = self.build_config["num_heads"]
 
+            if num_heads != 0 or embed_size != 0:
+                RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                                        np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+
             child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(),
-                                                                                 [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                                    np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)])
+                                                                                 RNN_state)
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
@@ -304,13 +307,17 @@ class MCTS:
                              child_prob_prior)
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
         # winning actions must have at least 1 winning action
-        len_terminal_moves = len(terminal_actions)
+
         if 1 in terminal_mask: # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
-            terminal_parent_value = 1
-            terminal_parent_prob_prior = terminal_mask / len_terminal_moves
+            num_winning_actions = len(terminal_mask == 1) # get the length of thr array that is equal to 1
+            terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
+            terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
+            terminal_parent_prob_prior = terminal_mask / num_winning_actions
         else: # there are only draws
+            len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0
+            terminal_parent_visits = len_terminal_moves
             terminal_parent_prob_prior = np.ones(len_terminal_moves) / len_terminal_moves # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
             # it's nice to see the some numbers that state that there is a win or loss
@@ -330,7 +337,7 @@ class MCTS:
 
         terminal_parent.child_values = terminal_mask # 0 for draws and 1 for wins, thus perfect for child_values
 
-        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.float32) # formality so that we don't get division by 0 when calcing stats
+        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.int32) # formality so that we don't get division by 0 when calcing stats
 
         for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
@@ -358,7 +365,7 @@ class MCTS:
 
             terminal_parent.children.append(terminal_child)
 
-        return terminal_parent, terminal_parent_value
+        return terminal_parent, -terminal_parent_value, terminal_parent_visits
         # negative because the child's POV won, thus the parent's POV lost in this searched path
         # don't backprop child as there could be multiple ways to win, but all backprop only cares
         # if someone wins
@@ -381,7 +388,7 @@ class MCTS:
                                                                     fast_find_win=self.fast_find_win)
 
         if terminal_actions:
-            child, child_value = self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
+            return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
         else:
             child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board), node.RNN_state)
@@ -418,9 +425,9 @@ class MCTS:
 
             # negated child_child_values is the child value
 
-        return child, -child_value # contact Brian if you don't understand why it is -value
+        return child, -child_value, 1 # contact Brian if you don't understand why it is -value
 
-    def _back_propagate(self, node: Node, value: float) -> None:
+    def _back_propagate(self, node: Node, value: float, visits=1) -> None:
         # note that the node class is the child returned by expand or selection method
         while node.parent is not None:
             # stats are stored in parent
@@ -431,9 +438,9 @@ class MCTS:
             # ^ does two things, 1. moves up the thee
             # 2. stores the pointer within in the variable rather than indexing twice
             node.child_values[node_id] += value
-            node.child_visits[node_id] += 1
+            node.child_visits[node_id] += visits
             value *= -1 # negate for the opponent's move
-        self.root.visits += 1
+        self.root.visits += visits
 
 
     def run(self, iteration_limit: int or bool=None, time_limit: int or float=None, use_bar=True):
@@ -462,6 +469,8 @@ class MCTS:
             else:
                 bar = tqdm(total=time_limit)
 
+        assert iteration_limit > 0
+
         current_iteration = 0
         start_time = time.time()
         while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
@@ -470,11 +479,12 @@ class MCTS:
 
             if node.is_terminal is not None:
                 value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
+                visits = 1
             else:
-                node, value = self._expand(node)
+                node, value, visits = self._expand(node)
 
 
-            self._back_propagate(node, value)
+            self._back_propagate(node, value, visits)
 
             if use_bar:
                 if iteration_limit:
@@ -495,8 +505,14 @@ class MCTS:
                                                                                          self.root.child_visits,
                                                                                          self.root.child_prob_priors)):
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
-
-        prob_weights = (self.root.child_visits / self.root.visits) ** (1.0 / self.tau)
+        print(np.sum(self.root.child_visits), np.sum(self.root.visits))
+        prob_weights = ((self.root.child_visits / self.root.visits) ** (1.0 / self.tau)) + 1e-10
+        # add 1e-10 to prevent underflow to 0, and thus division by 0, 1e-10 should be
+        if np.sum(self.root.child_visits) > np.sum(self.root.visits):
+            print(prob_weights)
+            print(self.root.child_visits)
+            print(self.root.visits)
+            print(1.0 / self.tau)
         prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
         chosen_index = np.random.choice(np.arange(len(move_probs)), size=1, replace=False, p=prob_weights)[0]
         move = move_probs[chosen_index][0]
@@ -545,7 +561,7 @@ class MCTS:
                 del new_root.child_legal_actions, new_root.RNN_state, new_root.current_player
 
         if child.is_terminal is not None:
-            del new_root.children, new_root.child_visits, new_root.child_values, new_root.child_prob_priors,  new_root.child_legal_actions, new_root.RNN_state, new_root.current_player
+            del new_root.children, new_root.child_values, new_root.child_prob_priors,  new_root.child_legal_actions, new_root.RNN_state, new_root.current_player
 
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
