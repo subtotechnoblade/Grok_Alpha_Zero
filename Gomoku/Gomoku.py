@@ -19,6 +19,7 @@ train_config = {
     "use_gpu": True,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
+    "num_workers": 4, # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
