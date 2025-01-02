@@ -482,7 +482,7 @@ class MCTS:
                 else:
                     bar.update(time.time() - loop_start_time)
             current_iteration += 1
-        if bar:
+        if use_bar:
             bar.close()
 
 
