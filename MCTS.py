@@ -293,7 +293,8 @@ class MCTS:
             if num_heads != 0 or embed_size != 0:
                 RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
                                         np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
-
+            else:
+                RNN_state = []
             child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(),
                                                                                  RNN_state)
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
