@@ -506,14 +506,10 @@ class MCTS:
                                                                                          self.root.child_visits,
                                                                                          self.root.child_prob_priors)):
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
-        print(np.sum(self.root.child_visits), np.sum(self.root.visits))
+
         prob_weights = ((self.root.child_visits / self.root.visits) ** (1.0 / self.tau)) + 1e-10
         # add 1e-10 to prevent underflow to 0, and thus division by 0, 1e-10 should be
-        if np.sum(self.root.child_visits) > np.sum(self.root.visits):
-            print(prob_weights)
-            print(self.root.child_visits)
-            print(self.root.visits)
-            print(1.0 / self.tau)
+
         prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
         chosen_index = np.random.choice(np.arange(len(move_probs)), size=1, replace=False, p=prob_weights)[0]
         move = move_probs[chosen_index][0]
@@ -567,14 +563,6 @@ class MCTS:
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
 
-        # terminals = ""
-        # for node in self.root.children:
-        #     if node.is_terminal is not None:
-        #         terminals += f"{node.is_terminal}"
-        # print(CRED + terminals + CEND)
-
-        # if self.root.children:
-        #     print(self.root.children[0].current_player)
 
     def prune_tree(self, action):
         # given the move set the root to the child that corresponds to the move played
