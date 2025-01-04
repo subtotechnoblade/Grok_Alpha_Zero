@@ -67,26 +67,8 @@ if __name__ == "__main__":
     import multiprocessing as mp
 
 
-    def compute_transposition(new_shape: list):
-        # locate the place of the -1
-        # original will be the shape with the batch_dim at the start at index 0
-
-        batch_dim = new_shape.index(-1)
-        transposition = list(range(len(new_shape)))
-        if batch_dim == 0:
-            return transposition
-        # original shape is [0, 1, 2] # batch dim is 0
-        # propose the new shape is [1, 2, 0] # batch dim is 2
-
-        transposition.insert(batch_dim + 1, 0) # +1 to conpensate for the batch dim at the start
-        return transposition[1:]
 
 
-    # original shape is [0, 1, 2] # batch dim is 0
-    # propose the new shape is [1, 2, 0] # batch dim is 2
-    # given shape is [-1, 1, 2]
-    new_shape = [1, 2, -1] # we should expect a transposition of [1, 2, 0]
-    print(compute_transposition(new_shape))
 
 
 
