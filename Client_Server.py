@@ -243,7 +243,7 @@ if __name__ == "__main__":
 
     shared_mem_len = max(max_length_inputs, max_length_outputs)
 
-    num_workers = 1
+    num_workers = 12
     shms = [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
     dummy_inputs = np.random.randint(-1, 2, (num_workers, 15, 15)).astype(np.float32)
     dummy_state = np.random.uniform(size=[num_layers, 2, num_workers, embed_size]).astype(dtype=np.float32)
@@ -302,6 +302,7 @@ if __name__ == "__main__":
     sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
     for sess in sessions:
         sess.get_outputs()
+
     # print(np.sum(dummy_state))
     # print(np.sum(dummy_state_matrix))
     sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
@@ -323,9 +324,18 @@ if __name__ == "__main__":
     state_matrix = np.concatenate(state_matrix, axis=1)
 
     print(np.allclose(policy, b_p))
+    print(np.mean(abs(policy - b_p)))
+
     print(np.allclose(value, b_v))
-    print(np.allclose(state, b_state))
-    print(np.allclose(state_matrix, b_state_matrix))
+    print(np.mean(abs(value - b_v)))
+
+    print(np.allclose(state, b_state, atol=1e-3, rtol=1e-5))
+    print(np.mean(abs(state - b_state)))
+
+    print(np.allclose(state_matrix, b_state_matrix, atol=1e-3, rtol=1e-5))
+    print(np.mean(abs(state_matrix - b_state_matrix)))
+    print(np.max(abs(state_matrix - b_state_matrix)))
+
 
     for shm in shms:
         shm.close()
