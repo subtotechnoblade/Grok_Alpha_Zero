@@ -37,20 +37,24 @@ class Parallelized_Session:
 
         while True:
             if self.shared_arr[0] == 0.0:
+
                 outputs = []
                 start_index = 1
                 for arr_shape in self.outputs_feed_shape.values():
                     arr_len = np.prod(arr_shape)
                     # print(arr_len)
-                    outputs.append(self.shared_arr[start_index: start_index + arr_len].reshape(arr_shape))
+                    outputs.append(np.copy(self.shared_arr[start_index: start_index + arr_len]).reshape(arr_shape))
                     # Only need a reshape because batch dim = 1
+                    # Must copy as without doing so, any changes to shared memory will reflect in the outputs
                     start_index += arr_len
-                # print(outputs)
+                # self.shared_arr[:] = 0.0 # Can do this because the outputs are copied
+                # ^ probably not needed
                 return outputs
 
 class Server:
     def __init__(self,
                  inputs_feed_shape: dict[str: list], # this is multi-batched
+                 inference_dtype,
                  outputs_feed_shape: dict[str: list],
                  shared_memories: list[SharedMemory, ...],
                  providers,
@@ -73,11 +77,14 @@ class Server:
         # inputs_feed_shape will be a dict {"input_name": shape (as a numpy array or tuple)}
         self.inputs_feed_shape = inputs_feed_shape
         self.inputs_memory_length = 0
+        if not isinstance(inference_dtype, dict):
+            inference_dtype = {name: inference_dtype for name in inputs_feed_shape.keys()}
         self.inputs_feed_config = {} # this is for getting the inputs from the client
         for input_name, input_shape in inputs_feed_shape.items():
+
             self.inputs_feed_config[input_name] = [-np.prod(input_shape), self.compute_transposition_to_standard(input_shape)]
             input_shape.remove(-1)
-            self.inputs_feed_config[input_name].append(input_shape)
+            self.inputs_feed_config[input_name] += [input_shape, inference_dtype[input_name]]
             # -np.prod(shape) because the batch dim is -1 and thus mul by -1 back to get a pos number
             self.inputs_memory_length += np.prod(input_shape)
 
@@ -85,13 +92,7 @@ class Server:
         self.outputs_memory_length = 0
         self.outputs_feed_config = {} # this is for sending the outputs to the client
         for output_name, output_shape in outputs_feed_shape.items():
-            print("Output trans:", self.compute_transposition_from_standard(output_shape), output_shape)
             self.outputs_feed_config[output_name] = [-np.prod(output_shape), self.compute_transposition_from_standard(output_shape)]
-            # if self.outputs_feed_config[output_name][1]  is not None:
-            #     # print(np.array(output_shape), (self.outputs_feed_config[output_name][1]))
-            #     print(np.array(np.zeros([5, 2, 1, 128]).transpose(self.outputs_feed_config[output_name][1])).shape)
-            #
-            #     # raise ValueError
             output_shape.remove(-1)
             self.outputs_feed_config[output_name].append(output_shape)
             self.outputs_memory_length += np.prod(output_shape)
@@ -141,64 +142,65 @@ class Server:
         return transposition
 
     def start(self):
+        while True:
+            active_connections = []
+            inactivate_connections = []
+            batched_input_feed = {name:[] for name in self.inputs_feed_shape.keys()}
 
-        active_connections = []
-        inactivate_connections = []
-        batched_input_feed = {name:[] for name in self.inputs_feed_shape.keys()}
+            self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
+            while len(active_connections) == 0:
+                for shared_array in self.shared_arrs:
+                    if shared_array[0] == 1.0: # wait until the client has sent some data
+                        active_connections.append(shared_array)
+                        start_index = 1
+                        for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
+                            batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(arr_shape))
+                            start_index += arr_len
+                    else:
+                        inactivate_connections.append(shared_array)
 
-        self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
-        while len(active_connections) == 0:
-            for shared_array in self.shared_arrs:
-                if shared_array[0] == 1.0: # wait until the client has sent some data
-                    active_connections.append(shared_array)
-                    start_index = 1
-                    for input_name, (arr_len, _, shape) in self.inputs_feed_config.items():
-                        batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(shape))
-                        start_index += arr_len
+            # for shared_array in inactivate_connections:
+            #     if shared_array[0] == 1.0:  # wait until the client has sent some data
+            #         active_connections.append(shared_array)
+            #         start_index = 1
+            #         for input_name, (arr_len, _, shape) in self.inputs_feed_config.items():
+            #             batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(shape))
+            #             start_index += arr_len
+
+            # implement sync by checking for inputs again
+
+            for input_name, (_, transposition, shape, infer_dtype) in self.inputs_feed_config.items():
+                if transposition is None:
+                    batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype)
                 else:
-                    inactivate_connections.append(shared_array)
+                    batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
-        # for shared_array in inactivate_connections:
-        #     if shared_array[0] == 1.0:  # wait until the client has sent some data
-        #         active_connections.append(shared_array)
-        #         start_index = 1
-        #         for input_name, (arr_len, _, shape) in self.inputs_feed_config.items():
-        #             input_feeds[input_name].append(shared_array[start_index: start_index + arr_len].reshape(shape))
-        #             start_index += arr_len
 
-        # implement sync by checking for inputs again
+            # outputs = [np.array([np.ones(shape=shape, dtype=np.float32) for _ in range(self.num_workers)]).transpose([1, 0]) for _, _, shape in self.outputs_feed_config.values()]
+            # outputs[0] *= 0
+            # assert np.sum(batched_input_feed["input_state"]) == 0
+            batched_outputs = self.sess.run(list(self.outputs_feed_shape.keys()), input_feed=batched_input_feed)
 
-        for input_name, (_, transposition, shape) in self.inputs_feed_config.items():
-            if transposition is None:
-                batched_input_feed[input_name] = np.array(batched_input_feed[input_name])
-            else:
-                batched_input_feed[input_name] = np.array(batched_input_feed[input_name]).transpose(transposition)
+            # print(batched_outputs[1])
 
-        # print(batched_input_feed)
-        # outputs = [np.array([np.ones(shape=shape, dtype=np.float32) for _ in range(self.num_workers)]).transpose([1, 0]) for _, _, shape in self.outputs_feed_config.values()]
-        # outputs[0] *= 0
-        print([s.shape for s in batched_input_feed.values()])
-        batched_outputs = self.sess.run(list(batched_outputs_feeds_shape.keys()), input_feed=batched_input_feed)
+            # Must transpose if possible to (batch, ...) to iterate through it
+            for i, (_, transposition, _) in enumerate(self.outputs_feed_config.values()):
+                if transposition is not None:
+                    # print(batched_outputs[i].shape, transposition)
+                    batched_outputs[i] = batched_outputs[i].transpose(transposition)
+                    # print(batched_outputs[i].shape)
+                    # print(batched_outputs[i].shape.transpose(transposition))
 
-        # Must transpose if possible to (batch, ...) to iterate through it
-        for i, (_, transposition, _) in enumerate(self.outputs_feed_config.values()):
-            if transposition is not None:
-                # print(batched_outputs[i].shape, transposition)
-                batched_outputs[i] = batched_outputs[i].transpose(transposition)
-                # print(batched_outputs[i].shape)
-                # print(batched_outputs[i].shape.transpose(transposition))
+            # verify that
+            for o in batched_outputs:
+                if o.shape[0] != len(active_connections):
+                    raise ValueError(f"The last batch dim isn't iterable because is it greater or less than the active connections. Meaning that it is not the batch dim. Shape:{o.shape}!")
 
-        # verify that
-        for o in batched_outputs:
-            if o.shape[0] != len(active_connections):
-                raise ValueError(f"The last batch dim isn't iterable because is it greater or less than the active connections. Meaning that it is not the batch dim. Shape:{o.shape}!")
-
-        # print(active_connections[0][0])
-        for i, shared_array in enumerate(active_connections):
-            flattened_outputs = np.concatenate([output[i].flatten() for output in batched_outputs], dtype=np.float32)
-            shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
-
-            shared_array[0] = 0.0 # reset it so that the session can pick it up
+            # print(active_connections[0][0])
+            for i, shared_array in enumerate(active_connections):
+                flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
+                shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
+                shared_array[0] = 0.0 # reset it so that the session can pick it up
 
 
         # policies,
@@ -223,62 +225,64 @@ if __name__ == "__main__":
 
 
 
-    batched_inputs_feeds_shape = {"inputs": [-1, 15, 15,],
-                                  "input_state":[num_layers, 2, -1, embed_size],
-                                  "input_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # required inputs shape for the neural network
-    batched_outputs_feeds_shape = {"policy": [-1, 255],
-                                   "value": [-1, 1],
-                                   "output_state": [num_layers, 2, -1, embed_size],
-                                   "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # neural networks batch dim
+    batched_inputs_feed_shape = {"inputs": [-1, 15, 15,],
+                                 "input_state":[num_layers, 2, -1, embed_size],
+                                 "input_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # required inputs shape for the neural network
+    batched_outputs_feed_shape = {"policy": [-1, 255],
+                                  "value": [-1, 1],
+                                  "output_state": [num_layers, 2, -1, embed_size],
+                                  "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # neural networks batch dim
 
     max_length_inputs = 1
-    for shape in batched_inputs_feeds_shape.values():
+    for shape in batched_inputs_feed_shape.values():
         max_length_inputs += -np.prod(shape)
 
     max_length_outputs = 1
-    for shape in batched_outputs_feeds_shape.values():
+    for shape in batched_outputs_feed_shape.values():
         max_length_outputs += -np.prod(shape)
 
     shared_mem_len = max(max_length_inputs, max_length_outputs)
 
-    num_workers = 2
+    num_workers = 1
     shms = [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
-    dummy_inputs = np.random.randint(-1, 2, (2, 15, 15)).astype(np.float32)
-    dummy_state = np.zeros([num_layers, 2, 2, embed_size], dtype=np.float32)
-    dummy_state_matrix = np.zeros([num_layers, 2, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32)
+    dummy_inputs = np.random.randint(-1, 2, (num_workers, 15, 15)).astype(np.float32)
+    dummy_state = np.random.uniform(size=[num_layers, 2, num_workers, embed_size]).astype(dtype=np.float32)
+    dummy_state_matrix = np.random.uniform(size=[num_layers, num_workers, num_heads, embed_size // num_heads, embed_size // num_heads]).astype(dtype=np.float32)
     def task(worker_id, shm):
         inputs_feed_shape = {"inputs": [1, 15, 15,],
-                            "input_state":[num_layers, 2, 1, embed_size],
-                            "input_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}# shouldn't have the batch dimension
+                             "input_state":[num_layers, 2, 1, embed_size],
+                             "input_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}# shouldn't have the batch dimension
 
         outputs_feed_shape = {"policy": [1, 225],
                               "value": [1, 1],
-                            "output_state": [num_layers, 2, 1, embed_size],
-                            "output_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}
+                              "output_state": [num_layers, 2, 1, embed_size],
+                              "output_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}
 
         sess = Parallelized_Session(worker_id, shm, inputs_feed_shape, outputs_feed_shape)
         # print(dummy_state[:, :,worker_id: worker_id + 1].shape)
         sess.run(list(outputs_feed_shape.keys()),
                  {"inputs": dummy_inputs[worker_id],
-                  "input_state": dummy_state[:, :, worker_id: worker_id + 1],
-                  "input_state_matrix": dummy_state[:, worker_id: worker_id + 1]
+                  "input_state": np.copy(dummy_state[:, :, worker_id: worker_id + 1]),
+                  "input_state_matrix": np.copy(dummy_state_matrix[:, worker_id: worker_id + 1])
                   })
         return sess
-    sess0 = task(0, shms[0])
-    sess1 = task(1, shms[1])
-    # print(np.ndarray(shape=(shms[0].size // 4), dtype=np.float32, buffer=shms[0].buf))
 
-    server = Server(batched_inputs_feeds_shape,
-                    batched_outputs_feeds_shape,
-                    shms,
-                    providers,
-                    "Gomoku/model.onnx")
+    def start_server(inputs_feed_shape, outputs_feed_shape, shms, providers):
 
-    server.start()
+        server = Server(inputs_feed_shape,
+            {"inputs": np.float32,
+                         "input_state": np.float32,
+                         "input_state_matrix":np.float32},
+                        outputs_feed_shape,
+                        shms,
+                        providers,
+                        "Gomoku/model.onnx")
 
-    policy0, value0, state0, state_matrix0 =  sess0.get_outputs()
-    policy1, value1, state1, state_matrix1 = sess1.get_outputs()
-    # print(state0.shape, state1.shape)
+        server.start()
+    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_shape, batched_outputs_feed_shape, shms, providers))
+    server_process.start()
+
+
 
     # real_sess = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx", providers=providers)
     real_sess = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
@@ -288,15 +292,35 @@ if __name__ == "__main__":
         "input_state": dummy_state,
         "input_state_matrix": dummy_state_matrix
     })
+
+
     # print(state0.shape, b_state.shape)
     # print(np.allclose(state0, b_state))
     # print(state0 == b_state)
 
-    policy = np.concatenate((policy0, policy1))
-    value = np.concatenate((value0, value1))
-    state = np.concatenate((state0, state1), axis=2)
-    print(state.shape)
-    state_matrix = np.concatenate((state_matrix0, state_matrix1), axis=1)
+    policy, value, state, state_matrix = [], [], [], []
+    sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
+    for sess in sessions:
+        sess.get_outputs()
+    # print(np.sum(dummy_state))
+    # print(np.sum(dummy_state_matrix))
+    sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
+
+    for session in sessions:
+        outputs = session.get_outputs()
+        p, v, s, s_m = outputs
+        policy.append(p)
+        value.append(v)
+        state.append(s)
+        state_matrix.append(s_m)
+
+
+
+    policy = np.concatenate(policy)
+    value = np.concatenate(value)
+    state = np.concatenate(state, axis=2)
+    # print(state.shape)
+    state_matrix = np.concatenate(state_matrix, axis=1)
 
     print(np.allclose(policy, b_p))
     print(np.allclose(value, b_v))
@@ -306,5 +330,6 @@ if __name__ == "__main__":
     for shm in shms:
         shm.close()
         shm.unlink()
+    server_process.terminate()
 
 
