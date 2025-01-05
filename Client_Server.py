@@ -31,9 +31,9 @@ class Parallelized_Session:
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
                 break
-    def get_outputs(self):
-        # assume the server puts data into the shared memory buffer
-        # and signifies with a 0.0 that the returned p,v is here
+    # def get_outputs(self):
+    #     # assume the server puts data into the shared memory buffer
+    #     # and signifies with a 0.0 that the returned p,v is here
 
         while True:
             if self.shared_arr[0] == 0.0:
@@ -172,7 +172,6 @@ class Server:
                 else:
                     batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
-
             batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
 
             # print(batched_outputs[1])
@@ -192,9 +191,43 @@ class Server:
                 flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
                 shared_array[0] = 0.0 # reset it so that the session can pick it up
+def start_server(inputs_feed_info, outputs_feed_info, shms, providers, file_path):
+
+    server = Server(inputs_feed_info,
+                    outputs_feed_info,
+                    shms,
+                    providers,
+                    file_path
+                    )
+
+    server.start()
+def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu_count()):
+    max_length_inputs = 1
+    for (input_shape, _) in inputs_feed_info.values():
+        max_length_inputs += -np.prod(input_shape)
+
+    max_length_outputs = 1
+    for output_shape in outputs_feed_info.values():
+        max_length_outputs += -np.prod(output_shape)
+
+    shared_mem_len = max(max_length_inputs, max_length_outputs)
+
+    return [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
+
+def convert_to_single_info(batched_info):
+    # removes the -1 and replaces it with a 1, which should be what a single instance requires
+    unbatched_info = {}
+    for name, info in batched_info.items():
+        if isinstance(info[0], list):
+            arr_shape = np.array(info[0])
+        else:
+            arr_shape = np.array(info)
+        arr_shape[arr_shape == -1] = 1
+        unbatched_info[name] = arr_shape.tolist()
+    return unbatched_info
 
 
-        # policies,
+
 if __name__ == "__main__":
     from Gomoku.Gomoku import build_config, train_config
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
@@ -219,35 +252,22 @@ if __name__ == "__main__":
     batched_inputs_feed_info = {"inputs": [[-1, 15, 15,], np.float32],
                                  "input_state": [[num_layers, 2, -1, embed_size], np.float32],
                                  "input_state_matrix": [[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]} # required inputs shape for the neural network
-    batched_outputs_feed_info = {"policy": [-1, 255],
+    batched_outputs_feed_info = {"policy": [-1, 225],
                                   "value": [-1, 1],
                                   "output_state": [num_layers, 2, -1, embed_size],
                                   "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # neural networks batch dim
-
-    max_length_inputs = 1
-    for (input_shape, _) in batched_inputs_feed_info.values():
-        max_length_inputs += -np.prod(input_shape)
-
-    max_length_outputs = 1
-    for output_shape in batched_outputs_feed_info.values():
-        max_length_outputs += -np.prod(output_shape)
-
-    shared_mem_len = max(max_length_inputs, max_length_outputs)
-
+    # print(convert_to_single_info(batched_inputs_feed_info))
+    # raise ValueError
     num_workers = 12
-    shms = [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
+
+    shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers)
+
     dummy_inputs = np.random.randint(-1, 2, (num_workers, 15, 15)).astype(np.float32)
     dummy_state = np.random.uniform(size=[num_layers, 2, num_workers, embed_size]).astype(dtype=np.float32)
     dummy_state_matrix = np.random.uniform(size=[num_layers, num_workers, num_heads, embed_size // num_heads, embed_size // num_heads]).astype(dtype=np.float32)
     def task(worker_id, shm):
-        inputs_feed_shape = {"inputs": [1, 15, 15,],
-                             "input_state":[num_layers, 2, 1, embed_size],
-                             "input_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}# shouldn't have the batch dimension
-
-        outputs_feed_shape = {"policy": [1, 225],
-                              "value": [1, 1],
-                              "output_state": [num_layers, 2, 1, embed_size],
-                              "output_state_matrix": [num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads]}
+        inputs_feed_shape = convert_to_single_info(batched_inputs_feed_info)
+        outputs_feed_shape = convert_to_single_info(batched_outputs_feed_info)
 
         sess = Parallelized_Session(worker_id, shm, inputs_feed_shape, outputs_feed_shape)
         # print(dummy_state[:, :,worker_id: worker_id + 1].shape)
@@ -258,18 +278,8 @@ if __name__ == "__main__":
                   })
         return sess
 
-    def start_server(inputs_feed_info, outputs_feed_info, shms, providers):
 
-        server = Server(inputs_feed_info,
-                        outputs_feed_info,
-                        shms,
-                        providers,
-                        # "Gomoku/model.onnx"
-                        "Gomoku/Cache/model_ctx.onnx"
-                        )
-
-        server.start()
-    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers))
+    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers, "Gomoku/Cache/model_ctx.onnx"))
     server_process.start()
 
 

@@ -1,15 +1,14 @@
 import time
-from typing import Any
 
 import numpy as np
 import numba as nb
 from numba import njit
-from numpy import signedinteger
 from tqdm import tqdm
 from warnings import warn
 import gc
 
 import onnxruntime as rt
+from Client_Server import Parallelized_Session
 
 class Node:
     __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
@@ -76,7 +75,7 @@ class MCTS:
     def __init__(self,
                  game, # the annotation is for testing and debugging
                  build_config: dict,
-                 session: rt.InferenceSession,
+                 session: rt.InferenceSession or Parallelized_Session,
                  c_puct_init: float=2.5,
                  c_puct_base: float=19_652,
                  use_dirichlet=True,
@@ -136,7 +135,7 @@ class MCTS:
                                    child_visits: np.array,
                                    parent_visits: float,
                                    c_puct_init: float,
-                                   c_puct_base: float) -> signedinteger[Any]:
+                                   c_puct_base: float):
         # note that np.log is actually a math ln with base e (2.7)
         U = c_puct_init * child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
         PUCT_score = (child_values / child_visits) + U
@@ -179,11 +178,12 @@ class MCTS:
         # I'll do this once I have everything else working
         # this returns the policy, value, RNN_state in a list
         input_state, input_state_matrix = RNN_state
-        policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+        x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
-
+        # print(x)
+        policy, value, state, state_matrix = x
         # print(np.min(state), np.min(state_matrix), np.max(state), np.max(state_matrix))
 
         return policy[0], value[0][0], [state, state_matrix]
@@ -582,7 +582,9 @@ class MCTS:
 
 
 if __name__ == "__main__":
-    from Gomoku.Gomoku import Gomoku, build_config
+    import multiprocessing as mp
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
     game = Gomoku()
     # game.do_action((7, 7))
     # game.do_action((6, 7))
@@ -595,23 +597,52 @@ if __name__ == "__main__":
     # game.do_action((7, 4))
     # game.do_action((6, 4))
 
+    embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
+    max_shape, opt_shape = 12, 12
     providers = [
         ('TensorrtExecutionProvider', {
-        "trt_engine_cache_enable":True,
+        "trt_engine_cache_enable": True,
         "trt_dump_ep_context_model": True,
         "trt_builder_optimization_level": 5,
         "trt_auxiliary_streams": 0,
-        "trt_ep_context_file_path": "Gomoku/Cache/"
+        "trt_ep_context_file_path": "Gomoku/Cache/",
+
+        "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-    session = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx",
-                                  # sess_options=sess_options,
-                                  providers=providers)
+    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32],
+                                "input_state": [[num_layers, 2, -1, embed_size], np.float32],
+                                "input_state_matrix": [[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]
+                                }
+    batched_outputs_feed_info = {"policy": [-1, 225],
+                                 "value": [-1, 1],
+                                 "output_state": [num_layers, 2, -1, embed_size],
+                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
+                                 }
+
+    shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
+    # No need for dtype for outputs info
+
+    server = mp.Process(target=start_server, args=(batched_inputs_feed_info,
+                                       batched_outputs_feed_info,
+                                       shms,
+                                       providers,
+                                       "Gomoku/Cache/model_ctx.onnx"))
+    server.start()
+    # session = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx",
+    #                               # sess_options=sess_options,
+    #                               providers=providers)
     # session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
+    session = Parallelized_Session(0,
+                                   shms[0],
+                                   convert_to_single_info(batched_inputs_feed_info),
+                                   convert_to_single_info(batched_outputs_feed_info))
 
     mcts = MCTS(game,
                 build_config,
@@ -656,4 +687,5 @@ if __name__ == "__main__":
             mcts.prune_tree(move)
             winner = game.check_win()
     print("player", winner, "won")
+    server.terminate()
 
