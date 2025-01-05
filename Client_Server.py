@@ -31,9 +31,9 @@ class Parallelized_Session:
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
                 break
-    # def get_outputs(self):
-    #     # assume the server puts data into the shared memory buffer
-    #     # and signifies with a 0.0 that the returned p,v is here
+    def get_outputs(self):
+        # assume the server puts data into the shared memory buffer
+        # and signifies with a 0.0 that the returned p,v is here
 
         while True:
             if self.shared_arr[0] == 0.0:
@@ -153,16 +153,17 @@ class Server:
                         for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
                             batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(arr_shape))
                             start_index += arr_len
-                    else:
+                    elif len(active_connections) >= 1:
                         inactivate_connections.append(shared_array)
 
-            # for shared_array in inactivate_connections:
-            #     if shared_array[0] == 1.0:  # wait until the client has sent some data
-            #         active_connections.append(shared_array)
-            #         start_index = 1
-            #         for input_name, (arr_len, _, shape) in self.inputs_feed_config.items():
-            #             batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(shape))
-            #             start_index += arr_len
+            for shared_array in inactivate_connections:
+                if shared_array[0] == 1.0:  # wait until the client has sent some data
+                    active_connections.append(shared_array)
+                    start_index = 1
+                    for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
+                        batched_input_feed[input_name].append(
+                            shared_array[start_index: start_index + arr_len].reshape(arr_shape))
+                        start_index += arr_len
 
             # implement sync by checking for inputs again
 
@@ -172,6 +173,7 @@ class Server:
                 else:
                     batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
+            # raise ValueError
             batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
 
             # print(batched_outputs[1])
@@ -211,7 +213,7 @@ def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu
         max_length_outputs += -np.prod(output_shape)
 
     shared_mem_len = max(max_length_inputs, max_length_outputs)
-
+    print(shared_mem_len)
     return [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
 
 def convert_to_single_info(batched_info):
@@ -299,9 +301,9 @@ if __name__ == "__main__":
     # print(state0 == b_state)
 
     policy, value, state, state_matrix = [], [], [], []
-    sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
-    for sess in sessions:
-        sess.get_outputs()
+    # sessions = [task(worker_id, shms[worker_id]) for worker_id in range(num_workers)]
+    # for sess in sessions:
+    #     sess.get_outputs()
 
     # print(np.sum(dummy_state))
     # print(np.sum(dummy_state_matrix))
