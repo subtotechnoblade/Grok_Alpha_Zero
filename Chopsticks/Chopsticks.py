@@ -282,26 +282,6 @@ class Chopsticks:
 
 
 if __name__ == "__main__":
-    # example usage
-    # game = Gomoku()
-    # game.do_action((7, 7))
-    # print(game.get_state())
-
     from Game_Tester import Game_Tester
 
-    tester = Game_Tester(Gomoku)
-    tester.test()
-
-    """
-    Brian's deep thinking, I have to write it somewhere
-    proof that mu zero isn't dependent on game methods
-    I thought that mu zero's MCTS needed to remove illegal moves in the tree well because how else is
-    the tree able to get terminal moves?
-    But that doesn't even need to happen, its even easier than alpha zero's tree because we allow "illegal" moves within the tree
-    but when getting the improved policy from the MCTS, the "illegal" actions are just removed and the distribution is 
-    normalized
-
-    use quotations "illegal" because there is no way for us to know if it is or not, as the tree no longer uses a board
-    but a hidden state which is similar to a compressed version of the board, which the representation and dynamic network
-    generates
-    """
+    game = Chopsticks()
