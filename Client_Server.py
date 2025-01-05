@@ -156,14 +156,14 @@ class Server:
                     elif len(active_connections) >= 1:
                         inactivate_connections.append(shared_array)
 
-            # for shared_array in inactivate_connections:
-            #     if shared_array[0] == 1.0:  # wait until the client has sent some data
-            #         active_connections.append(shared_array)
-            #         start_index = 1
-            #         for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
-            #             batched_input_feed[input_name].append(
-            #                 shared_array[start_index: start_index + arr_len].reshape(arr_shape))
-            #             start_index += arr_len
+            for shared_array in inactivate_connections:
+                if shared_array[0] == 1.0:  # wait until the client has sent some data
+                    active_connections.append(shared_array)
+                    start_index = 1
+                    for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
+                        batched_input_feed[input_name].append(
+                            shared_array[start_index: start_index + arr_len].reshape(arr_shape))
+                        start_index += arr_len
 
             # implement sync by checking for inputs again
 

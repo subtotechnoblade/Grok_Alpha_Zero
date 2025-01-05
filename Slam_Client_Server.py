@@ -39,7 +39,7 @@ if __name__ == "__main__":
                                  }
     infer_output_feed_info = convert_to_single_info(batched_outputs_feed_info)
 
-    num_workers = 12
+    num_workers = 9
     shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=num_workers)
 
     def slam(slammer_id,
@@ -53,14 +53,17 @@ if __name__ == "__main__":
             dtype=np.float32)
 
         sess = Parallelized_Session(slammer_id, shm, infer_input_feed_info, infer_output_feed_info)
+        for _ in range(10):
+            sess.run(None, {"inputs": dummy_inputs,
+                            "input_state": dummy_state,
+                            "input_state_matrix": dummy_state_matrix})
         s = time.time()
         for i in tqdm(range(1000)):
-            # print("sent")
             sess.run(None, {"inputs": dummy_inputs,
                             "input_state": dummy_state,
                             "input_state_matrix": dummy_state_matrix})
         its = 1000 / (time.time() - s)
-        print("Slammer:", slammer_id, "did:", its, "iterations per second!")
+        print("Slammer:", slammer_id, "did:", its, "slams per second!")
 
 
     slammers = []
