@@ -15,6 +15,7 @@ class Parallelized_Session:
 
         self.inputs_feed_info = inputs_feed_info
         self.outputs_feed_info = outputs_feed_info
+        self.outputs_feed_info = {name: [arr_shape, np.prod(arr_shape)] for name, arr_shape in self.outputs_feed_info.items()}
 
         self.worker_id = worker_id
         self.shared_arr = np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf)
@@ -26,24 +27,22 @@ class Parallelized_Session:
         while True:
             if self.shared_arr[0] == 0.0:
 
-                data = np.concatenate([input_feed[key].reshape((-1,)) for key in input_feed.keys()], dtype=np.float32)
+                data = np.concatenate([arr.flatten() for arr in input_feed.values()], dtype=np.float32)
 
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
                 break
-    def get_outputs(self):
-        # assume the server puts data into the shared memory buffer
-        # and signifies with a 0.0 that the returned p,v is here
+    # def get_outputs(self):
+    #     # assume the server puts data into the shared memory buffer
+    #     # and signifies with a 0.0 that the returned p,v is here
 
         while True:
             if self.shared_arr[0] == 0.0:
 
-                outputs = []
+                outputs = [0] * len(self.outputs_feed_info)
                 start_index = 1
-                for arr_shape in self.outputs_feed_info.values():
-                    arr_len = np.prod(arr_shape)
-                    # print(arr_len)
-                    outputs.append(np.copy(self.shared_arr[start_index: start_index + arr_len]).reshape(arr_shape))
+                for i, (arr_shape, arr_len) in enumerate(self.outputs_feed_info.values()):
+                    outputs[i] = np.copy(self.shared_arr[start_index: start_index + arr_len]).reshape(arr_shape)
                     # Only need a reshape because batch dim = 1
                     # Must copy as without doing so, any changes to shared memory will reflect in the outputs
                     start_index += arr_len
@@ -139,12 +138,12 @@ class Server:
         return transposition
 
     def start(self):
+        self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
         while True:
             active_connections = []
             inactivate_connections = []
             batched_input_feed = {name:[] for name in self.inputs_feed_info.keys()}
 
-            self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
             while len(active_connections) == 0:
                 for shared_array in self.shared_arrs:
                     if shared_array[0] == 1.0: # wait until the client has sent some data
@@ -184,9 +183,9 @@ class Server:
                     batched_outputs[i] = batched_outputs[i].transpose(transposition)
 
             # verify that
-            for o in batched_outputs:
-                if o.shape[0] != len(active_connections):
-                    raise ValueError(f"The last batch dim isn't iterable because is it greater or less than the active connections. Meaning that it is not the batch dim. Shape:{o.shape}!")
+            # for o in batched_outputs:
+            #     if o.shape[0] != len(active_connections):
+            #         raise ValueError(f"The last batch dim isn't iterable because is it greater or less than the active connections. Meaning that it is not the batch dim. Shape:{o.shape}!")
 
             # print(active_connections[0][0])
             for i, shared_array in enumerate(active_connections):

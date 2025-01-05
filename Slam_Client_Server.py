@@ -39,7 +39,7 @@ if __name__ == "__main__":
                                  }
     infer_output_feed_info = convert_to_single_info(batched_outputs_feed_info)
 
-    num_workers = 9
+    num_workers = 12
     shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=num_workers)
 
     def slam(slammer_id,
@@ -57,11 +57,13 @@ if __name__ == "__main__":
             sess.run(None, {"inputs": dummy_inputs,
                             "input_state": dummy_state,
                             "input_state_matrix": dummy_state_matrix})
+            # sess.get_outputs()
         s = time.time()
         for i in tqdm(range(1000)):
             sess.run(None, {"inputs": dummy_inputs,
                             "input_state": dummy_state,
                             "input_state_matrix": dummy_state_matrix})
+            # sess.get_outputs()
         its = 1000 / (time.time() - s)
         print("Slammer:", slammer_id, "did:", its, "slams per second!")
 

@@ -65,7 +65,7 @@ from tqdm import tqdm
 if __name__ == "__main__":
     import time
     import multiprocessing as mp
-    print(isinstance(np.float32, np.dtype))
+    print(len({"1":1, "2":2}))
 
 
 
