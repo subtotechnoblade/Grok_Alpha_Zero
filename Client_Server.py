@@ -8,25 +8,25 @@ class Parallelized_Session:
     def __init__(self,
                  worker_id,
                  shm,
-                 inputs_feed_shape:dict, # this is single batch
-                 outputs_feed_shape:dict):
+                 inputs_feed_info:dict, # this is single batch
+                 outputs_feed_info:dict):
         # This is a client class which will use shared memory to send the board state and receive the policy/value
         # from the server class
 
-        self.inputs_feed_shape = inputs_feed_shape
-        self.outputs_feed_shape = outputs_feed_shape
+        self.inputs_feed_info = inputs_feed_info
+        self.outputs_feed_info = outputs_feed_info
 
         self.worker_id = worker_id
         self.shared_arr = np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf)
 
     def run(self, output_names:list, input_feed:dict):
-        if not list(input_feed.keys()) == list(self.inputs_feed_shape.keys()):
-            raise ValueError(f"input feed key's doesn't match in content and order to the input_feed_shape, {self.inputs_feed_shape.keys()}, {input_feed.keys()}")
+        if not list(input_feed.keys()) == list(self.inputs_feed_info.keys()):
+            raise ValueError(f"input feed key's doesn't match in content and order to the input_feed_shape, {self.inputs_feed_info.keys()}, {input_feed.keys()}")
 
         while True:
             if self.shared_arr[0] == 0.0:
 
-                data = np.concatenate([input_feed[key].reshape((-1,)) for key in input_feed.keys()])
+                data = np.concatenate([input_feed[key].reshape((-1,)) for key in input_feed.keys()], dtype=np.float32)
 
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
@@ -40,7 +40,7 @@ class Parallelized_Session:
 
                 outputs = []
                 start_index = 1
-                for arr_shape in self.outputs_feed_shape.values():
+                for arr_shape in self.outputs_feed_info.values():
                     arr_len = np.prod(arr_shape)
                     # print(arr_len)
                     outputs.append(np.copy(self.shared_arr[start_index: start_index + arr_len]).reshape(arr_shape))
@@ -53,45 +53,42 @@ class Parallelized_Session:
 
 class Server:
     def __init__(self,
-                 inputs_feed_shape: dict[str: list], # this is multi-batched
-                 inference_dtype,
-                 outputs_feed_shape: dict[str: list],
+                 inputs_feed_info: dict[str: list], # this is multi-batched
+                 outputs_feed_info: dict[str: list],
                  shared_memories: list[SharedMemory, ...],
                  providers,
                  file_path):
 
         # batch dim is denoted with -1
 
-        for shape in inputs_feed_shape.values():
-            if not isinstance(shape, list):
+        for input_shape in inputs_feed_info.values():
+            if not isinstance(input_shape, list):
                 raise TypeError("The input's shape must be a list")
-            if shape.count(-1) > 1:
+            if input_shape.count(-1) > 1:
                 raise ValueError("There can only be 1 dimension for the batch! This means that only 1 (-1) batch dim can be included")
 
-        for shape in outputs_feed_shape.values():
-            if not isinstance(shape, list):
+        for output_shape in outputs_feed_info.values():
+            if not isinstance(output_shape, list):
                 raise TypeError("The output's shape must be a list")
-            if shape.count(-1) > 1:
+            if output_shape.count(-1) > 1:
                 raise ValueError("There can only be 1 dimension for the batch! This means that only 1 (-1) batch dim can be included")
 
-        # inputs_feed_shape will be a dict {"input_name": shape (as a numpy array or tuple)}
-        self.inputs_feed_shape = inputs_feed_shape
+        # inputs_feed_info will be a dict {"input_name": shape (as a numpy array or tuple)}
+        self.inputs_feed_info = inputs_feed_info
         self.inputs_memory_length = 0
-        if not isinstance(inference_dtype, dict):
-            inference_dtype = {name: inference_dtype for name in inputs_feed_shape.keys()}
         self.inputs_feed_config = {} # this is for getting the inputs from the client
-        for input_name, input_shape in inputs_feed_shape.items():
+        for input_name, (input_shape, infer_dtype) in inputs_feed_info.items():
 
             self.inputs_feed_config[input_name] = [-np.prod(input_shape), self.compute_transposition_to_standard(input_shape)]
             input_shape.remove(-1)
-            self.inputs_feed_config[input_name] += [input_shape, inference_dtype[input_name]]
+            self.inputs_feed_config[input_name] += [input_shape, infer_dtype]
             # -np.prod(shape) because the batch dim is -1 and thus mul by -1 back to get a pos number
             self.inputs_memory_length += np.prod(input_shape)
 
-        self.outputs_feed_shape = outputs_feed_shape
+        self.outputs_feed_info = outputs_feed_info
         self.outputs_memory_length = 0
         self.outputs_feed_config = {} # this is for sending the outputs to the client
-        for output_name, output_shape in outputs_feed_shape.items():
+        for output_name, output_shape in outputs_feed_info.items():
             self.outputs_feed_config[output_name] = [-np.prod(output_shape), self.compute_transposition_from_standard(output_shape)]
             output_shape.remove(-1)
             self.outputs_feed_config[output_name].append(output_shape)
@@ -145,7 +142,7 @@ class Server:
         while True:
             active_connections = []
             inactivate_connections = []
-            batched_input_feed = {name:[] for name in self.inputs_feed_shape.keys()}
+            batched_input_feed = {name:[] for name in self.inputs_feed_info.keys()}
 
             self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
             while len(active_connections) == 0:
@@ -176,20 +173,14 @@ class Server:
                     batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
 
-            # outputs = [np.array([np.ones(shape=shape, dtype=np.float32) for _ in range(self.num_workers)]).transpose([1, 0]) for _, _, shape in self.outputs_feed_config.values()]
-            # outputs[0] *= 0
-            # assert np.sum(batched_input_feed["input_state"]) == 0
-            batched_outputs = self.sess.run(list(self.outputs_feed_shape.keys()), input_feed=batched_input_feed)
+            batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
 
             # print(batched_outputs[1])
 
             # Must transpose if possible to (batch, ...) to iterate through it
             for i, (_, transposition, _) in enumerate(self.outputs_feed_config.values()):
                 if transposition is not None:
-                    # print(batched_outputs[i].shape, transposition)
                     batched_outputs[i] = batched_outputs[i].transpose(transposition)
-                    # print(batched_outputs[i].shape)
-                    # print(batched_outputs[i].shape.transpose(transposition))
 
             # verify that
             for o in batched_outputs:
@@ -209,37 +200,37 @@ if __name__ == "__main__":
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     min_shape, max_shape, opt_shape = 1, 12, 12
     providers = [
-        # ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable": True,
-        # "trt_dump_ep_context_model": True,
-        # "trt_builder_optimization_level": 5,
-        # "trt_auxiliary_streams": 0,
-        # "trt_ep_context_file_path": "Gomoku/Cache/",
-        #
-        # "trt_profile_min_shapes": f"inputs:{min_shape}x15x15,input_state:{num_layers}x2x{min_shape}x{embed_size},input_state_matrix:{num_layers}x{min_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # }),
-        # 'CUDAExecutionProvider',
+        ('TensorrtExecutionProvider', {
+        "trt_engine_cache_enable": True,
+        "trt_dump_ep_context_model": True,
+        "trt_builder_optimization_level": 5,
+        "trt_auxiliary_streams": 0,
+        "trt_ep_context_file_path": "Gomoku/Cache/",
+
+        "trt_profile_min_shapes": f"inputs:{min_shape}x15x15,input_state:{num_layers}x2x{min_shape}x{embed_size},input_state_matrix:{num_layers}x{min_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        }),
+        'CUDAExecutionProvider',
         'CPUExecutionProvider']
 
 
 
-    batched_inputs_feed_shape = {"inputs": [-1, 15, 15,],
-                                 "input_state":[num_layers, 2, -1, embed_size],
-                                 "input_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # required inputs shape for the neural network
-    batched_outputs_feed_shape = {"policy": [-1, 255],
+    batched_inputs_feed_info = {"inputs": [[-1, 15, 15,], np.float32],
+                                 "input_state": [[num_layers, 2, -1, embed_size], np.float32],
+                                 "input_state_matrix": [[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]} # required inputs shape for the neural network
+    batched_outputs_feed_info = {"policy": [-1, 255],
                                   "value": [-1, 1],
                                   "output_state": [num_layers, 2, -1, embed_size],
                                   "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]} # neural networks batch dim
 
     max_length_inputs = 1
-    for shape in batched_inputs_feed_shape.values():
-        max_length_inputs += -np.prod(shape)
+    for (input_shape, _) in batched_inputs_feed_info.values():
+        max_length_inputs += -np.prod(input_shape)
 
     max_length_outputs = 1
-    for shape in batched_outputs_feed_shape.values():
-        max_length_outputs += -np.prod(shape)
+    for output_shape in batched_outputs_feed_info.values():
+        max_length_outputs += -np.prod(output_shape)
 
     shared_mem_len = max(max_length_inputs, max_length_outputs)
 
@@ -267,25 +258,24 @@ if __name__ == "__main__":
                   })
         return sess
 
-    def start_server(inputs_feed_shape, outputs_feed_shape, shms, providers):
+    def start_server(inputs_feed_info, outputs_feed_info, shms, providers):
 
-        server = Server(inputs_feed_shape,
-            {"inputs": np.float32,
-                         "input_state": np.float32,
-                         "input_state_matrix":np.float32},
-                        outputs_feed_shape,
+        server = Server(inputs_feed_info,
+                        outputs_feed_info,
                         shms,
                         providers,
-                        "Gomoku/model.onnx")
+                        # "Gomoku/model.onnx"
+                        "Gomoku/Cache/model_ctx.onnx"
+                        )
 
         server.start()
-    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_shape, batched_outputs_feed_shape, shms, providers))
+    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers))
     server_process.start()
 
 
 
-    # real_sess = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx", providers=providers)
-    real_sess = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
+    real_sess = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx", providers=providers)
+    # real_sess = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
 
     b_p, b_v, b_state, b_state_matrix = real_sess.run(["policy", "value", "output_state", "output_state_matrix"], {
         "inputs": dummy_inputs,
