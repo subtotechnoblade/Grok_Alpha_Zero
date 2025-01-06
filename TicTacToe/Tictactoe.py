@@ -241,7 +241,7 @@ class TicTacToe:
         # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
         # return [0.1, 0.2, ...]
         # this should map the action and probability to a probability distribution
-        new_policy = np.zeros(self.policy_shape)
+        new_policy = np.zeros(self.policy_shape, np.float32)
         for (x, y), prob in statistics:
             new_policy[x + 3 * y] = prob
 
