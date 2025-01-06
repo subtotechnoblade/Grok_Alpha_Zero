@@ -25,20 +25,21 @@ class Parallelized_Session:
         if not list(input_feed.keys()) == list(self.inputs_feed_info.keys()):
             raise ValueError(f"input feed key's doesn't match in content and order to the input_feed_shape, {self.inputs_feed_info.keys()}, {input_feed.keys()}")
 
+        # check if we can send a request
         while True:
             if self.shared_arr[0] == 0.0:
+                # Send the request to the server
 
                 data = np.concatenate([arr.flatten() for arr in input_feed.values()], dtype=np.float32)
 
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
                 break
-    # def get_outputs(self):
-    #     # assume the server puts data into the shared memory buffer
-    #     # and signifies with a 0.0 that the returned p,v is here
 
+        # check if we have received a response
         while True:
             if self.shared_arr[0] == 0.0:
+                # Get the outputs from the shared memory
 
                 outputs = [0] * len(self.outputs_feed_info)
                 start_index = 1
@@ -173,27 +174,14 @@ class Server:
                 else:
                     batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
-            # raise ValueError
-            # print(batched_input_feed.keys())
-            print(batched_input_feed["inputs"].shape)
-            print(batched_input_feed["input_state"].shape)
-            print(batched_input_feed["input_state_matrix"].shape)
-            # print(list(self.outputs_feed_info.keys()))
-            batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
 
-            # print(batched_outputs[1])
+            batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
 
             # Must transpose if possible to (batch, ...) to iterate through it
             for i, (_, transposition, _) in enumerate(self.outputs_feed_config.values()):
                 if transposition is not None:
                     batched_outputs[i] = batched_outputs[i].transpose(transposition)
 
-            # verify that
-            # for o in batched_outputs:
-            #     if o.shape[0] != len(active_connections):
-            #         raise ValueError(f"The last batch dim isn't iterable because is it greater or less than the active connections. Meaning that it is not the batch dim. Shape:{o.shape}!")
-
-            # print(active_connections[0][0])
             for i, shared_array in enumerate(active_connections):
                 flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
@@ -208,8 +196,8 @@ def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_opti
                     file_path,
                     per_process_wait_time
                     )
-    print("Started")
     server.start()
+    print("Inference Server has started!\n")
 def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu_count()):
     max_length_inputs = 1
     for (input_shape, _) in inputs_feed_info.values():
