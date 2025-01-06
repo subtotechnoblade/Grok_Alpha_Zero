@@ -14,15 +14,15 @@ train_config = {
     # a generation is defined by a round of self play, and model training
 
     # Self Play variables
-    "games_per_generation": 100, # amount of self play games until we re train the network
+    "games_per_generation": 7, # amount of self play games until we re train the network
     "num_explore_moves": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "num_workers": 1, # Number of multiprocessing workers used to self play
+    "num_workers": 2, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 226, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     "MCTS_time_limit": None, # Not recommended to use for training
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
