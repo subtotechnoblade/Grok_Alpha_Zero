@@ -39,9 +39,9 @@ def initialize_training(): # This must be ran with a mp.Process
     def initialize_onnx(build_config):
         print("Converting tensorflow model to onnx")
         embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config["num_layers"]
-        input_signature = [tf.TensorSpec((1, *game.get_input_state().shape), tf.float32, name="inputs"),
-                           tf.TensorSpec((num_layers, 2, 1, embed_size), tf.float32, name="input_state"),
-                           tf.TensorSpec((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
+        input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs"),
+                           tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
+                           tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads),
                                          tf.float32, name="input_state_matrix"),
                            ]
         infer_model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
