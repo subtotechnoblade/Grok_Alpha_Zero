@@ -1,6 +1,7 @@
 import os
 import h5py as h5
 import numpy as np
+import time
 from tqdm import tqdm
 from numba import njit
 import onnxruntime as rt
@@ -64,7 +65,7 @@ class Self_Play:
 
             action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=False)
+                                               use_bar=True)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -74,7 +75,7 @@ class Self_Play:
             # We can safely say that target_values are the players that played the move, not the next player
 
             self.game.do_action(action)
-            print(self.game.board)
+            # print(self.game.board)
 
             winner = self.game.check_win()
 
@@ -83,10 +84,10 @@ class Self_Play:
                 # there are no more moves after a winning move
 
             if winner != -2: # there is a winner
-                print(f"Player: {winner} won")
+                # print(f"Player: {winner} won")
                 board_states = np.array(board_states, dtype=board_states[0].dtype)
-                improved_policies = np.array(improved_policies)
-                target_values = np.array(target_values, dtype=np.int8)
+                improved_policies = np.array(improved_policies, dtype=np.float32)
+                target_values = np.array(target_values, dtype=np.float32)
 
                 if winner ==  target_values[-1] == -1: # if player -1 just won
                     target_values *= -1 # Flip it so that the player that won, evaluates to 1 (winner)
@@ -127,14 +128,15 @@ def self_play_task(worker_id,
                    lock: mp.Lock,
                    folder_path:str,
                    generation:int):
-
+    np.random.seed()
 
     parallelized_session = Parallelized_Session(worker_id,
                                                 shm,
                                                 input_feed_info,
                                                 output_feed_info,)
 
-    # print(game_id)
+
+
     task = Self_Play(game_class(),
                      parallelized_session,
                      build_config,
@@ -142,23 +144,25 @@ def self_play_task(worker_id,
                      lock,
                      folder_path,
                      generation)
+
     task.play()
+    shm.close()
 
 def run_self_play(game_class,
                   build_config,
                   train_config,
                   folder_path,
                   generation,
-                  num_processes=1):
+                  num_workers=1):
     if not os.path.exists(f"{folder_path}/{generation}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file")
 
-    with h5.File(f"{folder_path}/{generation}/Self_Play_Data.h5") as file:
-        num_games_left = train_config["games_per_generation"] - ((len(file.keys()) - 1) // 3)
+    with h5.File(f"{folder_path}/{generation}/Self_Play_Data.h5") as dataset_file:
+        num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
 
     bar = tqdm(total=num_games_left)
-    if num_games_left < num_processes:
-        num_processes = num_games_left
+    if num_games_left < num_workers:
+        num_workers = num_games_left
 
     embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
         "num_layers"]
@@ -196,69 +200,80 @@ def run_self_play(game_class,
                                 "output_state": [num_layers, 2, -1, embed_size],
                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
                                 }
-    print(train_config["num_workers"])
-    shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, train_config["num_workers"])
-    lock = mp.Lock()
-    jobs = []
-    for worker_id in range(num_processes):
-        p = mp.Process(target=self_play_task, args=(worker_id,
-                                                    shms[worker_id],
-                                                    game_class,
-                                                    convert_to_single_info(batched_input_feed_info),
-                                                    convert_to_single_info(batched_output_feed_info),
-                                                    build_config,
-                                                    train_config,
-                                                    lock,
-                                                    folder_path,
-                                                    generation))
-        p.start()
-        jobs.append(p)
-    num_games_left -= num_processes
+    print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path}!")
+    shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
+
+    sess_options = rt.SessionOptions()
+    if not train_config["use_gpu"]: # we are using the CPU for self play
+        sess_options.intra_op_num_threads = 2
+        sess_options.inter_op_num_threads = 1
 
     server = mp.Process(target=start_server, args=(batched_input_feed_info,
                                                    batched_output_feed_info,
                                                    shms,
                                                    providers,
-                                                   onnx_file_path))
+                                                   sess_options,
+                                                   onnx_file_path,
+                                                   0.01))
     server.start()
 
-    for worker_id, p in enumerate(jobs):
-        if not p.is_alive():
-            bar.update(1)
-        p.join()
+    lock = mp.Lock()
+    jobs = []
+
+    while num_games_left > 0:
+        if len(jobs) < num_workers:
+            worker_id = len(jobs)
+            worker = mp.Process(target=self_play_task, args=(worker_id,
+                                                             shms[worker_id],
+                                                             game_class,
+                                                             convert_to_single_info(batched_input_feed_info),
+                                                             convert_to_single_info(batched_output_feed_info),
+                                                             build_config,
+                                                             train_config,
+                                                             lock,
+                                                             folder_path,
+                                                             generation),
+                                name=f"{worker_id}")
+            worker.start()
+            jobs.append(worker)
+        else:
+            alive_jobs = []
+            dead_worker_ids = []
+            for worker in jobs:
+                if worker.is_alive():
+                    alive_jobs.append(worker)
+                else:
+                    dead_worker_ids.append(int(worker.name))
+                    worker.join()
+                    num_games_left -= 1
+                    bar.update(1)
+
+
+            if len(alive_jobs) != len(jobs) and num_games_left - len(alive_jobs) > 0:
+                for dead_worker_id in dead_worker_ids:
+                    new_worker = mp.Process(target=self_play_task, args=(dead_worker_id,
+                                                             shms[dead_worker_id],
+                                                             game_class,
+                                                             convert_to_single_info(batched_input_feed_info),
+                                                             convert_to_single_info(batched_output_feed_info),
+                                                             build_config,
+                                                             train_config,
+                                                             lock,
+                                                             folder_path,
+                                                             generation),
+                                name=f"{dead_worker_id}")
+                    # print("Worker", new_worker.name, "has restarted")
+                    alive_jobs.append(new_worker)
+                    new_worker.start()
+                jobs = alive_jobs
+
+    for worker in jobs:
+        worker.join()
 
 
     server.terminate()
-
-    with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
-        print(file.keys())
-        print(file["max_moves"][0])
-        # print(file['board_states_0'])
-        print(len(file['board_states_0']))
-        print(len(file['policies_0']))
-        print(len(file['values_0']))
-
-    # raise ValueError
-    # while num_games_left > 0:
-    #     for process in jobs:
-    #         if not process.is_alive():
-    #
-    #             p = mp.Process(target=self_play_task,
-    #                            args=(game_class, build_config, train_config, lock, folder_path, generation))
-    #             p.start()
-    #             jobs.append(p)
-    #             num_games_left -= 1
-    #             p.join()
-
-
-
-
-
-
-
-    # results = [pool.apply_async(self_play_task, args=(game_id, game_class, build_config, train_config, lock, folder_path, generation)) for game_id in range(train_config["games_per_generation"])]
-    # for r in results:
-    #     r.wait()
+    for shm in shms:
+        shm.unlink()
 
 if __name__== "__main__":
     import time
@@ -268,10 +283,22 @@ if __name__== "__main__":
         os.remove("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5")
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
-        file.create_dataset(f"max_moves", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
+        file.create_dataset(f"max_moves", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
 
     folder_path = "Gomoku/Grok_Zero_Train"
-    run_self_play(Gomoku, build_config, train_config, folder_path, 0)
+    run_self_play(Gomoku, build_config, train_config, folder_path, 0, train_config["num_workers"])
+
+    with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
+        print(file.keys())
+        print(file["max_moves"][0])
+        # print(file['board_states_0'])
+        print(len(file["board_states_0"]))
+        # print(len(file["board_states_1"]))
+
+        for i in range(train_config["num_workers"]):
+            print(file[f'board_states_{i}'][1])
+
+
 
 
 
