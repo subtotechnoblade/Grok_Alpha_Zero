@@ -56,6 +56,7 @@ class Server:
                  outputs_feed_info: dict[str: list],
                  shared_memories: list[SharedMemory, ...],
                  providers,
+                 sess_options,
                  file_path):
 
         # batch dim is denoted with -1
@@ -106,6 +107,7 @@ class Server:
 
 
         self.sess = rt.InferenceSession(f"{self.file_path}",
+                                        sess_options=sess_options,
                                         providers=providers)
 
     def compute_transposition_to_standard(self, new_shape: list):
@@ -192,12 +194,13 @@ class Server:
                 flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
                 shared_array[0] = 0.0 # reset it so that the session can pick it up
-def start_server(inputs_feed_info, outputs_feed_info, shms, providers, file_path):
+def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_options, file_path):
 
     server = Server(inputs_feed_info,
                     outputs_feed_info,
                     shms,
                     providers,
+                    sess_options,
                     file_path
                     )
 
@@ -212,7 +215,6 @@ def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu
         max_length_outputs += -np.prod(output_shape)
 
     shared_mem_len = max(max_length_inputs, max_length_outputs)
-    print(shared_mem_len)
     return [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
 
 def convert_to_single_info(batched_info):
@@ -280,7 +282,12 @@ if __name__ == "__main__":
         return sess
 
 
-    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers, "Gomoku/Cache/model_ctx.onnx"))
+    server_process = mp.Process(target=start_server, args=(batched_inputs_feed_info,
+                                                           batched_outputs_feed_info,
+                                                           shms,
+                                                           providers,
+                                                           rt.SessionOptions(),
+                                                           "Gomoku/Cache/model_ctx.onnx"))
     server_process.start()
 
 

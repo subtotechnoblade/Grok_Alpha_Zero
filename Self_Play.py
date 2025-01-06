@@ -10,7 +10,7 @@ from MCTS import MCTS
 
 from Gomoku import Gomoku
 
-from Client_Server import Parallelized_Session, Server
+from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
 
 
 
@@ -18,12 +18,14 @@ from Client_Server import Parallelized_Session, Server
 class Self_Play:
     def __init__(self,
                  game,
+                 sess,
                  build_config:dict,
                  train_config:dict,
                  lock: mp.Lock,
                  folder_path:str,
                  generation:int):
         self.game: Gomoku = game
+        self.sess = sess
         self.build_config = build_config
         self.train_config = train_config
         self.lock = lock
@@ -62,7 +64,7 @@ class Self_Play:
 
             action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=True)
+                                               use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -115,15 +117,26 @@ class Self_Play:
                                 data=target_values)
 
 
-def self_play_task(game_class,
-                 build_config:dict,
-                 train_config:dict,
-                 lock: mp.Lock,
-                 folder_path:str,
-                 generation:int):
+def self_play_task(worker_id,
+                   shm,
+                   game_class,
+                   input_feed_info: dict,
+                   output_feed_info: dict,
+                   build_config:dict,
+                   train_config:dict,
+                   lock: mp.Lock,
+                   folder_path:str,
+                   generation:int):
+
+
+    parallelized_session = Parallelized_Session(worker_id,
+                                                shm,
+                                                input_feed_info,
+                                                output_feed_info,)
 
     # print(game_id)
     task = Self_Play(game_class(),
+                     parallelized_session,
                      build_config,
                      train_config,
                      lock,
@@ -131,8 +144,7 @@ def self_play_task(game_class,
                      generation)
     task.play()
 
-def run_self_play(
-                  game_class,
+def run_self_play(game_class,
                   build_config,
                   train_config,
                   folder_path,
@@ -148,8 +160,13 @@ def run_self_play(
     if num_games_left < num_processes:
         num_processes = num_games_left
 
-    if self.train_config["use_gpu"]:
-        if self.train_config["use_tensorrt"]:
+    embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
+        "num_layers"]
+    onnx_file_path = f"{folder_path}/{generation}/model.onnx"
+    if train_config["use_gpu"]:
+        if train_config["use_tensorrt"]:
+            max_shape = train_config["num_workers"]
+            onnx_file_path = f"{folder_path}/{generation}/TRT_cache/model_ctx.onnx"
             providers = [
                 ('TensorrtExecutionProvider', {
                     "trt_engine_cache_enable": True,
@@ -157,10 +174,10 @@ def run_self_play(
                     "trt_builder_optimization_level": 5,
                     "trt_auxiliary_streams": 0,
 
-                    "trt_ep_context_file_path": f"{self.folder_path}/{self.generation}/TRT_cache/",
-                    "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{self.num_layers}x2x1x{self.embed_size},input_state_matrix:{self.num_layers}x1x{self.num_heads}x{self.embed_size // self.num_heads}x{self.embed_size // self.num_heads}",
-                    "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{self.num_layers}x2x{max_shape}x{self.embed_size},input_state_matrix:{self.num_layers}x{max_shape}x{self.num_heads}x{self.embed_size // self.num_heads}x{self.embed_size // self.num_heads}",
-                    "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{self.num_layers}x2x{opt_shape}x{self.embed_size},input_state_matrix:{self.num_layers}x{opt_shape}x{self.num_heads}x{self.embed_size // self.num_heads}x{self.embed_size // self.num_heads}",
+                    "trt_ep_context_file_path": f"{folder_path}/{generation}/TRT_cache/",
+                    "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+                    "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+                    "trt_profile_opt_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
@@ -171,20 +188,47 @@ def run_self_play(
     else:
         providers = ['CPUExecutionProvider']
 
-
+    batched_input_feed_info = {"inputs": [[-1, 15, 15], np.float32],
+                               "input_state": [[num_layers, 2, -1, embed_size], np.float32],
+                               "input_state_matrix":[[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]}
+    batched_output_feed_info = {"policy": [-1, 225],
+                                "value": [-1, 1],
+                                "output_state": [num_layers, 2, -1, embed_size],
+                                "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
+                                }
+    print(train_config["num_workers"])
+    shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, train_config["num_workers"])
     lock = mp.Lock()
     jobs = []
-    for _ in range(num_processes):
-        p = mp.Process(target=self_play_task, args=(game_class, build_config, train_config, lock, folder_path, generation))
+    for worker_id in range(num_processes):
+        p = mp.Process(target=self_play_task, args=(worker_id,
+                                                    shms[worker_id],
+                                                    game_class,
+                                                    convert_to_single_info(batched_input_feed_info),
+                                                    convert_to_single_info(batched_output_feed_info),
+                                                    build_config,
+                                                    train_config,
+                                                    lock,
+                                                    folder_path,
+                                                    generation))
         p.start()
         jobs.append(p)
-
     num_games_left -= num_processes
 
-    for p in jobs:
+    server = mp.Process(target=start_server, args=(batched_input_feed_info,
+                                                   batched_output_feed_info,
+                                                   shms,
+                                                   providers,
+                                                   onnx_file_path))
+    server.start()
+
+    for worker_id, p in enumerate(jobs):
         if not p.is_alive():
             bar.update(1)
         p.join()
+
+
+    server.terminate()
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
         print(file.keys())
@@ -226,7 +270,7 @@ if __name__== "__main__":
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"max_moves", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
 
-    folder_path = "Gomoku/Grok_Zero_Train/"
+    folder_path = "Gomoku/Grok_Zero_Train"
     run_self_play(Gomoku, build_config, train_config, folder_path, 0)
 
 

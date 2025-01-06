@@ -182,9 +182,8 @@ class MCTS:
                                                               input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
-        # print(x)
+
         policy, value, state, state_matrix = x
-        # print(np.min(state), np.min(state_matrix), np.max(state), np.max(state_matrix))
 
         return policy[0], value[0][0], [state, state_matrix]
 
@@ -628,11 +627,14 @@ if __name__ == "__main__":
 
     shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
     # No need for dtype for outputs info
-
+    sess_options = rt.SessionOptions()
+    # sess_options.intra_op_num_threads = 2
+    # sess_options.inter_op_num_threads = 1
     server = mp.Process(target=start_server, args=(batched_inputs_feed_info,
                                        batched_outputs_feed_info,
                                        shms,
                                        providers,
+                                       sess_options,
                                        "Gomoku/Cache/model_ctx.onnx"))
     server.start()
     # session = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx",
