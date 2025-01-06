@@ -23,7 +23,7 @@ if __name__ == "__main__":
     #         "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
     #         "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
     #     }),
-        'CUDAExecutionProvider',
+    #     'CUDAExecutionProvider',
         'CPUExecutionProvider']
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -73,6 +73,7 @@ if __name__ == "__main__":
     for slammer_id in range(num_workers):
         slammer = mp.Process(target=slam, args=(slammer_id, infer_input_feed_info, infer_output_feed_info, shms[slammer_id]))
         slammer.start()
+        slammers.append(slammer)
 
     sess_options = rt.SessionOptions()
     sess_options.intra_op_num_threads = 2
@@ -83,7 +84,8 @@ if __name__ == "__main__":
                                                    providers,
                                                    sess_options,
                                                    # "Gomoku/Cache/model_ctx.onnx"
-                                                   "Gomoku/model.onnx"
+                                                   "Gomoku/model.onnx",
+                                                   0.001,
                                                    ))
     server.start()
     # start_server(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers, "Gomoku/Cache/model_ctx.onnx")
@@ -91,4 +93,7 @@ if __name__ == "__main__":
     for slammer in slammers:
         slammer.join()
 
-    # server.terminate()
+    server.terminate()
+    for shm in shms:
+        shm.unlink()
+    print("terminated")
