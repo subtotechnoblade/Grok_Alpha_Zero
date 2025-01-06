@@ -16,8 +16,8 @@ train_config = {
     # Self Play variables
     "games_per_generation": 100, # amount of self play games until we re train the network
     "num_explore_moves": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "use_gpu": True,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": False,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "num_workers": 1, # Number of multiprocessing workers used to self play
 
@@ -197,7 +197,7 @@ class Gomoku:
         return -2
 
     def compute_policy_improvement(self, statistics):
-        new_policy = np.zeros_like(self.board)
+        new_policy = np.zeros_like(self.board, dtype=np.float32)
         for (x, y), prob in statistics:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
