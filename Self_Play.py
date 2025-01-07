@@ -65,7 +65,7 @@ class Self_Play:
 
             action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=True)
+                                               use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -87,9 +87,9 @@ class Self_Play:
                 # print(f"Player: {winner} won")
                 board_states = np.array(board_states, dtype=board_states[0].dtype)
                 improved_policies = np.array(improved_policies, dtype=np.float32)
-                target_values = np.array(target_values, dtype=np.float32)
+                target_values = np.array(target_values, dtype=np.float32).reshape((-1, 1))
 
-                if winner ==  target_values[-1] == -1: # if player -1 just won
+                if winner == target_values[-1][0] == -1: # if player -1 just won
                     target_values *= -1 # Flip it so that the player that won, evaluates to 1 (winner)
                 # else the player that played was 1, and won which is 1, thus no need to invert
 
@@ -102,20 +102,24 @@ class Self_Play:
 
             dataset_name = f"{(len(file.keys()) - 1) // 3}" # starts from 0
 
-            file.create_dataset(f"board_states_{dataset_name}",
-                                shape=(game_length, *self.game.get_input_state().shape),
-                                dtype=board_states.dtype,
-                                data=board_states)
 
+            file.create_dataset(f"boards_{dataset_name}",
+                                maxshape=(None, *self.game.get_input_state().shape),
+
+                                dtype=board_states.dtype,
+                                data=board_states,
+                                chunks=None)
             file.create_dataset(f"policies_{dataset_name}",
-                                shape=(game_length, self.game.policy_shape[0]),
+                                maxshape=(None, self.game.policy_shape[0]),
                                 dtype=np.float32,
-                                data=improved_policies)
+                                data=improved_policies,
+                                chunks=None)
 
             file.create_dataset(f"values_{dataset_name}",
-                                shape=(game_length, 1),
+                                maxshape=(None, 1),
                                 dtype=np.float32,
-                                data=target_values)
+                                data=target_values,
+                                chunks=None)
 
 
 def self_play_task(worker_id,
@@ -223,16 +227,17 @@ def run_self_play(game_class,
     while num_games_left > 0:
         if len(jobs) < num_workers:
             worker_id = len(jobs)
-            worker = mp.Process(target=self_play_task, args=(worker_id,
-                                                             shms[worker_id],
-                                                             game_class,
-                                                             convert_to_single_info(batched_input_feed_info),
-                                                             convert_to_single_info(batched_output_feed_info),
-                                                             build_config,
-                                                             train_config,
-                                                             lock,
-                                                             folder_path,
-                                                             generation),
+            worker = mp.Process(target=self_play_task,
+                                args=(worker_id,
+                                      shms[worker_id],
+                                      game_class,
+                                      convert_to_single_info(batched_input_feed_info),
+                                      convert_to_single_info(batched_output_feed_info),
+                                      build_config,
+                                      train_config,
+                                      lock,
+                                      folder_path,
+                                      generation),
                                 name=f"{worker_id}")
             worker.start()
             jobs.append(worker)
@@ -291,12 +296,13 @@ if __name__== "__main__":
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
         print(file.keys())
         print(file["max_moves"][0])
-        # print(file['board_states_0'])
-        print(len(file["board_states_0"]))
-        # print(len(file["board_states_1"]))
+        # print(file['boards_0'])
+        # for i in range(file["max_moves"][0]):
+        #     print(file["boards_0"][i])
+        # print(len(file["boards_1"]))
 
-        for i in range(train_config["num_workers"]):
-            print(file[f'board_states_{i}'][1])
+        # for i in range(train_config["num_workers"]):
+        #     print(file[f'boards_{i}'][1])
 
 
 
