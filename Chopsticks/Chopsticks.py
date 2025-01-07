@@ -165,6 +165,29 @@ class Chopsticks:
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
         pass
+
+
+
+
+        # actions = []
+        # check if split is possible
+        # [-1, 2, 3]
+        # [ 0, 1, 4]
+
+
+
+
+        # if sum(self.board[1][1:]) == 4:
+        #     # [1, 3] -> [2, 2]
+        # elif sum(self.board[1][1:]) == 5:
+            # [1, 4] -> [2, 2]
+
+            # [1, 4] -> [1, 3]
+
+        # check if split is possible
+        #
+
+
     @staticmethod
     # @njit(cache=True)
     def get_legal_actions_MCTS(board):
