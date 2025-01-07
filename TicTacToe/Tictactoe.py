@@ -80,7 +80,7 @@ build_config = {"embed_size": 64, # this is the vector for RWKV
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
           "hidden_size": None, # this uses the default 3.5 * embed size
           "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
-          }
+                }
 
 
 class TicTacToe:
@@ -273,11 +273,37 @@ class TicTacToe:
 if __name__ == "__main__":
     # test your code here
     game = TicTacToe()
-    game.do_action((0, 0))
-    game.do_action((1, 1))
-    game.do_action((2, 2))
+    # print(game.board)
+    # board = np.zeros((2, 2))
+    # board = np.array([0.0, 0.0], dtype=np.uint8)
+    # print(board.dtype)
+
+    #dtype -> data type
+    # integer
+    # np.uint8 0 to 255
+    # np.int16 short, int
+    # np.int32 long
+    # np.int64 long long
+
+
+
+
+
+
+    #
+
+
+
+
+
+
+
+
+    # game.do_action((0, 0))
+    # game.do_action((1, 1))
+    # game.do_action((2, 2))
     dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
-    print(game.get_legal_actions_policy_MCTS(game.board, dummy_policy))
+    # print(game.get_legal_actions_policy_MCTS(game.board, dummy_policy))
 
 
 
