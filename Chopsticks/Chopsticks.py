@@ -81,7 +81,11 @@ class Chopsticks:
     def __init__(self):
         # MUST HAVE VARIABLES
         # define your board as a numpy array
-        self.board = np.array([0, 0], [0, 0])
+        self.board = np.zeros(shape = (2, 3,), dtype = np.int8) # store current_player in board # 1 for the whole array
+
+            # L R current_player
+            # L R 0
+
         # 0 will mean that the hand is alive
         # -1 will mean that the hand is dead
         # other numbers <= 5 are the amount of fingers held up
@@ -133,21 +137,21 @@ class Chopsticks:
         actions = np.zeros((1, 12))
 
         # tap opponents hands
-        if board[opposite_layer, 0] != -1:
-            legal_actions_count =+ 1
+        if self.board[opposite_layer, 0] != -1:
+            legal_actions_count += 1
             actions[0, legal_actions_count] = self.current_player + "L"
-        if board[opposite_layer, 1] != -1:
-            legal_actions_count =+ 1
+        if self.board[opposite_layer, 1] != -1:
+            legal_actions_count += 1
             actions[0, legal_actions_count] = self.current_player + "R"
 
         # transfer chopsticks
-        left_hand = board[current_layer, 0] 
-        right_hand = board[current_layer, 1]
+        left_hand = self.board[current_layer, 0] 
+        right_hand = self.board[current_layer, 1]
 
         left_hand_copy = left_hand
         right_hand_copy = right_hand
 
-        for left_hand_copy < 5 :
+        # for left_hand_copy < 5 :
 
     
 
@@ -282,6 +286,11 @@ class Chopsticks:
 
 
 if __name__ == "__main__":
-    from Game_Tester import Game_Tester
+    # from Game_Tester import Game_Tester
+    # from Grok_Alpha_Zero.Game_Tester import Game_Tester
 
-    game = Chopsticks()
+    # game = Chopsticks()
+
+    import os
+    import Game_Tester
+    print(os.listdir())
