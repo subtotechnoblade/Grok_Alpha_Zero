@@ -180,13 +180,13 @@ class Chopsticks:
         # if sum(self.board[1][1:]) == 4:
         #     # [1, 3] -> [2, 2]
         # elif sum(self.board[1][1:]) == 5:
-            # [1, 4] -> [2, 2]
 
-            # [1, 4] -> [1, 3]
+            # [1, 4] -> [2, 3]
+            # [1, 4] -> [3, 2]
 
         # check if split is possible
         #
-
+        return self.get_legal_actions_MCTS(self.board)
 
     @staticmethod
     # @njit(cache=True)
