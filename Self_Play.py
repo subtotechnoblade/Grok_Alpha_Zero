@@ -105,7 +105,6 @@ class Self_Play:
 
             file.create_dataset(f"boards_{dataset_name}",
                                 maxshape=(None, *self.game.get_input_state().shape),
-
                                 dtype=board_states.dtype,
                                 data=board_states,
                                 chunks=None)
