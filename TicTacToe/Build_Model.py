@@ -23,17 +23,17 @@ def build_model(input_shape, policy_shape, build_config):
 
     x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs) # (batch, game_length, 9)
 
-    x = Batched_Net.Batch_Dense(embed_size)(x) # (batch, game_length, 32)
+    x = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(x) # (batch, game_length, 32)
 
     for layer_id in range(num_layers):
         x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x) # (batch, game_length, 32)
 
-    policy = Batched_Net.Batch_Dense(embed_size // 2)(x) # (batch, game_length, 16)
-    policy = Batched_Net.Batch_Dense(policy_shape[0])(policy) # (batch, game_length, 9)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy) # (batch, game_length, 9)
     policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
-    value = Batched_Net.Batch_Dense(embed_size // 2)(x) # (batch, game_length, 16)
-    value = Batched_Net.Batch_Dense(1)(value) # (batch, game_length, 1)
+    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
+    value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value) # (batch, game_length, 1)
     value = tf.keras.layers.Activation("tanh", name="value")(value)
 
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value])
@@ -59,17 +59,17 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1],))(x)
 
-    x = Batched_Net_Infer.Batch_Dense(embed_size)(x)
+    x = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(x)
 
     for layer_id in range(num_layers):
         x, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
 
-    policy = Batched_Net_Infer.Batch_Dense(embed_size // 2)(x)
-    policy = Batched_Net_Infer.Batch_Dense(policy_shape[0])(policy)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
     policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
-    value = Batched_Net_Infer.Batch_Dense(embed_size // 2)(x)
-    value = Batched_Net_Infer.Batch_Dense(1)(value)
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(1))(value)
     value = tf.keras.layers.Activation("tanh", name="value")(value)
 
     output_state, output_state_matrix = tf.keras.layers.Identity(name="output_state")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
