@@ -13,6 +13,5 @@ class Batch(tf.keras.layers.Layer):
         super().__init__(**kwargs)
         self.operation = operation
 
-    @tf.function
     def call(self, inputs):
         return tf.vectorized_map(self.operation, inputs)
