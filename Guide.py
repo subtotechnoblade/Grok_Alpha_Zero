@@ -215,7 +215,7 @@ class Game:
         pass
     @staticmethod
     #@njit(cache=True)
-    def augment_sample(board, policy):
+    def augment_sample(boards, policies):
         # optional method to improve convergence
         # rotate the board and flip it using numpy and return those as a list along with the original
         # remember to rotate the flip the policy in the same way as board
@@ -229,7 +229,16 @@ class Game:
 
         # Note that this won't be the case for connect4, and ult_tictactoe
 
-        return [board], [policy] # just return [board], [policy] if you don't want to implement this
+        # Know that boards will be multiple boards of shape (num_moves, board shape)
+        # Know that the policies will be multiple policies (num_moves, policy shape)
+
+        # Know that the expected output will be [[augmented_board_0_0, augmented_board_0_1, ...], [augmented_board_1_0, ...], ...]
+        # Similarly to policy
+
+
+        # If that is too hard, inform Brian and he can implement for you
+        # Or
+        return np.expand_dims(boards, 1), np.expand_dims(policies, 1) # just return [board], [policy] if you don't want to implement this
         # don't be lazy, this will help convergence very much
 
 
