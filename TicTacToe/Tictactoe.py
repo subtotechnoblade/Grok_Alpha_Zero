@@ -11,7 +11,7 @@ from numba import njit
 #
 # [[0, 0, 0],
 #  [0, 0, 0],
-#  [0, 0, 0]]
+#  [0, 0, 0]]hi
 # pieces with -1, 0, 1
 
 # board = np.zeros((3, 3), dtype=np.int8)
