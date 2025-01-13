@@ -14,12 +14,12 @@ train_config = {
     # a generation is defined by a round of self play, and model training
 
     # Self Play variables
-    "games_per_generation": 7, # amount of self play games until we re train the network
+    "games_per_generation": 2, # amount of self play games until we re train the network
     "num_explore_moves": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "num_workers": 2, # Number of multiprocessing workers used to self play
+    "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 226, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
@@ -204,22 +204,62 @@ class Gomoku:
 
     @staticmethod
     @njit(cache=True)
-    def augment_array(arr):
-        augmented_arrs = [arr, np.flipud(arr), np.fliplr(arr)]
-        for k in range(1, 4):
-            rot_arr = np.rot90(arr, k)
-            augmented_arrs.append(rot_arr)
-            if k == 1:
-                augmented_arrs.append(np.flipud(rot_arr))
-                augmented_arrs.append(np.fliplr(rot_arr))
-        return augmented_arrs
+    def augment_sample_fn(boards: np.array, policies: np.array):
+        policies = policies.reshape((-1, 15, 15))# we need
+        # to reshape this because we can only rotate a matrix, not a vector
 
-    def augment_sample(self, board, policy):
-        augmented_boards = self.augment_array(board)
-
+        augmented_boards = []
         augmented_policies = []
-        for augmented_policy in self.augment_array(policy.reshape((15, 15))): # we need
-            # to reshape this because we can only rotate a matrix, not a vector
-            augmented_policies.append(augmented_policy.reshape((-1,)))
 
+        for action_id in range(boards.shape[0]):
+            board = boards[action_id]
+            # augmented_board = np.zeros((8, board_shape))
+            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+
+
+            policy = policies[action_id]
+            augmented_policy = [policy, np.flipud(policy), np.fliplr(policy)]
+
+
+            for k in range(1, 4):
+                rot_board = np.rot90(board, k)
+                augmented_board.append(rot_board)
+
+                rot_policy = np.rot90(policy, k)
+                augmented_policy.append(rot_policy)
+
+                if k == 1:
+                    augmented_board.append(np.flipud(rot_board))
+                    augmented_board.append(np.fliplr(rot_board))
+
+                    augmented_policy.append(np.flipud(rot_policy))
+                    augmented_policy.append(np.fliplr(rot_policy))
+            augmented_boards.append(augmented_board)
+
+            augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
+
+    def augment_sample(self, boards, policies):
+        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
+        return np.array(augmented_boards), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
+
+if __name__ == "__main__":
+    import time
+    game = Gomoku()
+    boards = []
+    game.do_action((0, 0))
+    for _ in range(1):
+        boards.append(game.board.copy())
+
+    policies = np.ones((1, 225))
+    for i in range(10):
+        augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
+
+    s = time.time()
+    for i in range(100):
+        augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
+    ttime = (time.time() - s)
+    print(ttime)
+    print(ttime / 100)
+    # print(augmented_boards.shape)
+    # print(augmented_policies.shape)
