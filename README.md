@@ -29,6 +29,8 @@ Gumbel Alpha Zero and Mu Zero: https://openreview.net/forum?id=bERaNdoegnO
 
 Grok Fast paper: https://arxiv.org/abs/2405.20233
 
+Grokking at the edge of numerical stability: https://arxiv.org/pdf/2501.04697
+
 
 RWKV-v4 paper: https://arxiv.org/abs/2305.13048
 
