@@ -128,7 +128,7 @@ if __name__ == "__main__":
     print((dummy_data.shape[1] * dummy_data.shape[0]) / t_total, "iterations per second")
 
     # print(np.allclose(output1_p, output2_p, atol=1e-3))
-    # print(np.sum(np.abs(output1_p - output2_p)))
+    print(np.sum(np.abs(output1_p - output2_p)))
     #
     # output1_v = np.array(output1_v)
     # output2_v = np.array(output2_v)

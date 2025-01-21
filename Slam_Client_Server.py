@@ -12,18 +12,18 @@ if __name__ == "__main__":
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [
-    #     ('TensorrtExecutionProvider', {
-    #         "trt_engine_cache_enable": True,
-    #         "trt_dump_ep_context_model": True,
-    #         "trt_builder_optimization_level": 5,
-    #         "trt_auxiliary_streams": 0,
-    #         "trt_ep_context_file_path": "Gomoku/Cache/",
-    #
-    #         "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    #         "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    #         "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    #     }),
-    #     'CUDAExecutionProvider',
+        # ('TensorrtExecutionProvider', {
+        #     "trt_engine_cache_enable": True,
+        #     "trt_dump_ep_context_model": True,
+        #     "trt_builder_optimization_level": 5,
+        #     "trt_auxiliary_streams": 0,
+        #     "trt_ep_context_file_path": "Gomoku/Cache/",
+        #
+        #     "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # }),
+        # 'CUDAExecutionProvider',
         'CPUExecutionProvider']
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                                  }
     infer_output_feed_info = convert_to_single_info(batched_outputs_feed_info)
 
-    num_workers = 6
+    num_workers = 11
     shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=num_workers)
 
     def slam(slammer_id,
@@ -84,8 +84,8 @@ if __name__ == "__main__":
                                                    providers,
                                                    sess_options,
                                                    # "Gomoku/Cache/model_ctx.onnx"
-                                                   "Gomoku/model.onnx",
-                                                   0.001,
+                                                   "Gomoku/Grok_Zero_Train/0/model.onnx",
+                                                   0.01,
                                                    ))
     server.start()
     # start_server(batched_inputs_feed_info, batched_outputs_feed_info, shms, providers, "Gomoku/Cache/model_ctx.onnx")
