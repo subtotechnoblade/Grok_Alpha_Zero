@@ -240,8 +240,9 @@ class Gomoku:
         return augmented_boards, augmented_policies
 
     def augment_sample(self, boards, policies):
+        # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
-        return np.array(augmented_boards), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
+        return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
 
 if __name__ == "__main__":
     import time
