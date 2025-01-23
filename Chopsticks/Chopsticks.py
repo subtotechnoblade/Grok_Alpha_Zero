@@ -274,7 +274,7 @@ class Chopsticks:
 
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action, current_player) -> int:
+    def check_win_MCTS(board, action_history, current_player) -> int:
         # Used to check if MCTS has reached a terminal node
         # return the player (-1 or 1) if that player won, 0 if draw, and -2 if game hasn't ended
         pass
