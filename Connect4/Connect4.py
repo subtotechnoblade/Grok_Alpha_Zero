@@ -309,7 +309,7 @@ class Connect4:
 
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, last_action):
+    def check_win_MCTS(board, action_history, current_player):
         # Used to check if MCTS has reached a terminal node
         pass
 

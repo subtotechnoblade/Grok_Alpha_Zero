@@ -130,16 +130,17 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return self.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
+        return self.check_win_MCTS(self.board, np.array(self.action_history, dtype=np.int32), -self.current_player)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def check_win_MCTS(board: np.array, last_action: tuple, current_player: int) -> int:
+    def check_win_MCTS(board: np.array, action_history: np.array, current_player: int) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
 
-        current_x, current_y = last_action
+        current_x, current_y = action_history[-1]
+        # current_x, current_y = action_history
 
         fives = 0
         for i in range(-5 + 1, 5):
