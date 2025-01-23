@@ -44,8 +44,8 @@ class Node:
 
         self.is_terminal = is_terminal # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
-    def __repr__(self):
-        return f"{self.action_history, self.is_terminal}"
+    # def __repr__(self):
+    #     return f"{self.action_history, self.is_terminal}"
 class Root(Node): # inheritance
     __slots__ = "visits"
     def __init__(self,
@@ -83,7 +83,7 @@ class MCTS:
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
                  tau=1.0,
                  fast_find_win=False, # this is for training, when exploiting change to True
-                 use_njit=True):
+                 use_njit=0):
         """
         :param game: Your game class
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
@@ -110,6 +110,10 @@ class MCTS:
         # see https://ai.stackexchange.com/questions/25939/alpha-zero-does-not-converge-for-connect-6-a-game-with-huge-branching-factor
         # for more info on what c_puct should be along with how dirichlet alpha should be calculated
 
+        if tau != 0.0 and tau < 5e-3:
+            warn("Tau cannot be smaller than 1e-3 as it will cause floating point errors")
+            warn("If you want the most visited move, set tau = 0.0, defaulting tau to 0.0")
+            tau = 0.0
         self.tau = tau # temperature parameter in alpha zero
 
         self.use_njit = use_njit
@@ -123,9 +127,14 @@ class MCTS:
         self.create_expand_root()
 
     def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
-        if new_c_puct_init < 0.0 or new_tau < 0.0:
-            raise ValueError(f"Updated to hyperparams are invalid, {new_c_puct_init} and {new_tau} cannot be negative")
+        if new_c_puct_init < 0.0:
+            warn(f"Cpuct value is invalid, {new_c_puct_init} cannot be negative. Invalidating update and returning")
+            return
         self.c_puct_init = new_c_puct_init
+
+        if new_tau != 0 and new_tau < 5e-3:
+            warn(f"Tau can't be less than 5e-3. Invalidating update and returning")
+            return
         self.tau = new_tau
 
     @staticmethod
@@ -175,36 +184,36 @@ class MCTS:
 
 
     def _compute_outputs(self, inputs, RNN_state):
-        # I'll do this once I have everything else working
-        # this returns the policy, value, RNN_state in a list
-        input_state, input_state_matrix = RNN_state
-        x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
-                                                              input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
-                                                                "input_state": input_state,
-                                                                "input_state_matrix": input_state_matrix})
+        # input_state, input_state_matrix = RNN_state
+        # x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+        #                                                       input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
+        #                                                         "input_state": input_state,
+        #                                                         "input_state_matrix": input_state_matrix})
+        #
+        # policy, value, state, state_matrix = x
+        #
+        # return policy[0], value[0][0], [state, state_matrix]
 
-        policy, value, state, state_matrix = x
+        return self._get_dummy_outputs(inputs, RNN_state)
 
-        return policy[0], value[0][0], [state, state_matrix]
-
-
-    # def _get_dummy_outputs(self, input_state, RNN_state):
-    #     # since I'm not using RNN_state I can just return it for the next node
-    #     # this will also give the next RNN_state that is required for the next inference call
-    #     if RNN_state is None:
-    #         raise RuntimeError("RNN state cannot be None")
-    #     return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
+    def _get_dummy_outputs(self, input_state, RNN_state):
+        # since I'm not using RNN_state I can just return it for the next node
+        # this will also give the next RNN_state that is required for the next inference call
+        if RNN_state is None:
+            raise RuntimeError("RNN state cannot be None")
+        return np.random.normal(loc=1, scale=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
     def _apply_dirichlet(self, legal_policy):
         return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
     @staticmethod
-    def get_terminal_actions_fn(legal_actions_fn,
-                             do_action_fn,
-                             check_win_fn,
-                             board,
-                             current_player,
-                             fast_find_win=False) -> (np.array, np.array):
+    def get_terminal_actions_fn(action_history,
+                                legal_actions_fn,
+                                do_action_fn,
+                                check_win_fn,
+                                board,
+                                current_player,
+                                fast_find_win=False) -> (np.array, np.array):
         """
         :param board: The board
         :param current_player: Current player we want to check for
@@ -215,25 +224,36 @@ class MCTS:
         with more than 1 terminal move
         :return:
         """
+
         legal_actions = legal_actions_fn(board)
+
+        repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
+        # for i in range(len(legal_actions)):
+        #     repeated_action_history[i] = action_history
+        repeated_action_history[:] = action_history
+        action_histories = np.concatenate((repeated_action_history,
+                                       np.expand_dims(legal_actions, 1)), axis=1)
+        # ^ complicated stuff
+
         # reverse the order of each element from [y, x] -> [x, y]
 
         terminal_actions = []  # includes winning and drawing actions
         terminal_mask = []  # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
 
-        for legal_action in legal_actions:
+        for action_id in range(len(action_histories)):
             # Try every legal action anc check if the current player won
             # Very inefficient. There is a better implementation
             # for simplicity this will be the example
 
+            # print(legal_action)
+            legal_action = legal_actions[action_id]
             check_win_board = do_action_fn(board.copy(), legal_action, current_player)
 
-            result = check_win_fn(check_win_board, legal_action, current_player)
+            result = check_win_fn(check_win_board, action_histories[action_id], current_player)
 
             if result != -2:  # this limits the checks by a lot
-                terminal_actions.append(
-                    legal_action)  # in any case as long as the result != -2, we have a terminal action
+                terminal_actions.append(legal_action)  # in any case as long as the result != -2, we have a terminal action
                 if result == current_player:  # found a winning move
                     terminal_mask.append(1)
                     if fast_find_win:
@@ -243,7 +263,8 @@ class MCTS:
         return terminal_actions, np.array(terminal_mask)
 
     def create_expand_root(self):
-        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.get_legal_actions_MCTS,
+        terminal_actions, terminal_mask = self.get_terminal_actions(np.array([[-1, -1]], dtype=np.int64),
+                                                                    self.game.get_legal_actions_MCTS,
                                                                     self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
                                                                     self.game.board,
@@ -380,7 +401,8 @@ class MCTS:
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
-        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.get_legal_actions_MCTS,
+        terminal_actions, terminal_mask = self.get_terminal_actions(np.array([[-1, -1]] + node.action_history, dtype=np.int64),
+                                                                    self.game.get_legal_actions_MCTS,
                                                                     self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
                                                                     child_board,
@@ -506,10 +528,15 @@ class MCTS:
                                                                                          self.root.child_prob_priors)):
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
 
-        prob_weights = ((self.root.child_visits / self.root.visits) ** (1.0 / self.tau)) + 1e-10
-        # add 1e-10 to prevent underflow to 0, and thus division by 0, 1e-10 should be
-
-        prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
+        if self.tau == 0:
+            prob_weights = np.zeros_like(self.root.child_visits)
+            prob_weights[np.argmax(self.root.child_visits)] = 1.0
+        else:
+            exp = np.array(1.0 / self.tau, dtype=np.float128)
+            prob_weights = ((self.root.child_visits.astype(np.float128) ** exp) / (np.array(self.root.visits, np.float128) ** exp))
+            prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
+            prob_weights = np.array(prob_weights, np.float64)
+        # print(prob_weights)
         chosen_index = np.random.choice(np.arange(len(move_probs)), size=1, replace=False, p=prob_weights)[0]
         move = move_probs[chosen_index][0]
         # stochastically sample a move with the weights affected by tau
@@ -581,15 +608,15 @@ class MCTS:
 
 
 if __name__ == "__main__":
-    import multiprocessing as mp
+    # import multiprocessing as mp
     from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
+    # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
     game = Gomoku()
-    # game.do_action((7, 7))
-    # game.do_action((6, 7))
-    # game.do_action((7, 6))
-    # game.do_action((6, 6))
-    # game.do_action((7, 5))
+    game.do_action((7, 7))
+    game.do_action((6, 7))
+    game.do_action((7, 6))
+    game.do_action((6, 6))
+    game.do_action((7, 5))
     #
     # game.do_action((6, 5))
 
@@ -599,18 +626,18 @@ if __name__ == "__main__":
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [
-        ('TensorrtExecutionProvider', {
-        "trt_engine_cache_enable": True,
-        "trt_dump_ep_context_model": True,
-        "trt_builder_optimization_level": 5,
-        "trt_auxiliary_streams": 0,
-        "trt_ep_context_file_path": "Gomoku/Cache/",
-
-        "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        }),
-        'CUDAExecutionProvider',
+        # ('TensorrtExecutionProvider', {
+        # "trt_engine_cache_enable": True,
+        # "trt_dump_ep_context_model": True,
+        # "trt_builder_optimization_level": 5,
+        # "trt_auxiliary_streams": 0,
+        # "trt_ep_context_file_path": "Gomoku/Cache/",
+        #
+        # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # }),
+        # 'CUDAExecutionProvider',
         'CPUExecutionProvider']
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -625,69 +652,76 @@ if __name__ == "__main__":
                                  "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
                                  }
 
-    shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
+    # sess_options = rt.SessionOptions()
+    # shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
     # No need for dtype for outputs info
-    sess_options = rt.SessionOptions()
-    # sess_options.intra_op_num_threads = 2
-    # sess_options.inter_op_num_threads = 1
-    server = mp.Process(target=start_server, args=(batched_inputs_feed_info,
-                                       batched_outputs_feed_info,
-                                       shms,
-                                       providers,
-                                       sess_options,
-                                       "Gomoku/Cache/model_ctx.onnx"))
-    server.start()
+    # server = mp.Process(target=start_server, args=(batched_inputs_feed_info,
+    #                                    batched_outputs_feed_info,
+    #                                    shms,
+    #                                    providers,
+    #                                    sess_options,
+    #                                    "Gomoku/Grok_Zero_Train/0/model.onnx"))
+    # server.start()
+    # session = Parallelized_Session(0,
+    #                                shms[0],
+    #                                convert_to_single_info(batched_inputs_feed_info),
+    #                                convert_to_single_info(batched_outputs_feed_info))
+
     # session = rt.InferenceSession("Gomoku/Cache/model_ctx.onnx",
     #                               # sess_options=sess_options,
     #                               providers=providers)
-    # session = rt.InferenceSession("Gomoku/model.onnx", providers=providers)
-    session = Parallelized_Session(0,
-                                   shms[0],
-                                   convert_to_single_info(batched_inputs_feed_info),
-                                   convert_to_single_info(batched_outputs_feed_info))
+
+    # sess_options.intra_op_num_threads = 2
+    # sess_options.inter_op_num_threads = 1
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/0/model.onnx", providers=providers)
 
     mcts = MCTS(game,
                 build_config,
                 session,
                 c_puct_init=2.5,
-                tau=0.01,
+                tau=5e-3,
+                use_njit=1,
                 use_dirichlet=True,
-                fast_find_win=True)
+                fast_find_win=False)
 
     print(game.board)
-    winner = -2
-    while winner == -2:
-        if game.get_current_player() == -1:
-            # move = game.input_action()
-            # print("You played", move)
-            # mcts = MCTS(game,
-            #             build_config,
-            #             session,
-            #             c_puct_init=2.5,
-            #             tau=0.01,
-            #             use_dirichlet=True,
-            #             fast_find_win=True)
-            move, probs = mcts.run(iteration_limit=500, time_limit=None)
-            game.do_action(move)
-            print(game.board)
-            mcts.prune_tree(move)
-            winner = game.check_win()
-        else:
-            # mcts = MCTS(game,
-            #             build_config,
-            #             session,
-            #             c_puct_init=2.5,
-            #             tau=0.01,
-            #             use_dirichlet=True,
-            #             fast_find_win=True)
-            move, probs = mcts.run(iteration_limit=500, time_limit=None)
-            game.do_action(move)
-            # print("AI played", move)
-            # print(probs)
-            print(game.board)
-
-            mcts.prune_tree(move)
-            winner = game.check_win()
-    print("player", winner, "won")
-    server.terminate()
+    move, probs = mcts.run(iteration_limit=100000, time_limit=None)
+    print(move)
+    print(probs)
+    # print(game.board)
+    # winner = -2
+    # while winner == -2:
+    #     if game.get_current_player() == -1:
+    #         move = game.input_action()
+    #         print("You played", move)
+    #         # mcts = MCTS(game,
+    #         #             build_config,
+    #         #             session,
+    #         #             c_puct_init=2.5,
+    #         #             tau=0.01,
+    #         #             use_dirichlet=True,
+    #         #             fast_find_win=True)
+    #         # move, probs = mcts.run(iteration_limit=10000, time_limit=None)
+    #         game.do_action(move)
+    #         print(game.board)
+    #         mcts.prune_tree(move)
+    #         winner = game.check_win()
+    #     else:
+    #         # mcts = MCTS(game,
+    #         #             build_config,
+    #         #             session,
+    #         #             c_puct_init=2.5,
+    #         #             tau=0.01,
+    #         #             use_dirichlet=True,
+    #         #             fast_find_win=True)
+    #         move, probs = mcts.run(iteration_limit=50000, time_limit=None)
+    #         game.do_action(move)
+    #         # print("AI played", move)
+    #         # print(probs)
+    #         print(game.board)
+    #
+    #         mcts.prune_tree(move)
+    #         winner = game.check_win()
+    # print("player", winner, "won")
+    # server.terminate()
 
