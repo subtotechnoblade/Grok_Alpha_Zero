@@ -260,12 +260,13 @@ class Gomoku:
     def input_action(self):
         while True:
             try:
-                coords = list(map(int, input("Move:").split(" ")))
+                coords = np.array(list(map(int, input("Move:").split(" "))))
                 if self.board[coords[1]][coords[0]] == 0:
                     return coords
                 print("Illegal move")
             except:
                 print("Invalid input")
+
 
     def get_legal_actions(self) -> np.array:
         # self.board == 0 creates a True and False board array, i.e., the empty places are True
@@ -323,6 +324,7 @@ class Gomoku:
         board[y][x] = current_player
         return board
 
+
     def get_input_state(self) -> np.array:
         return self.board
 
@@ -341,7 +343,7 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return Gomoku.check_win_MCTS(self.board, tuple(self.action_history[-1]), -self.current_player)
+        return self.check_win_MCTS(self.board, np.array(self.action_history, dtype=np.int32), -self.current_player)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
@@ -409,7 +411,7 @@ class Gomoku:
         return -2
 
     def compute_policy_improvement(self, statistics):
-        new_policy = np.zeros_like(self.board)
+        new_policy = np.zeros_like(self.board, dtype=np.float32)
         for (x, y), prob in statistics:
             new_policy[y][x] = prob
         return new_policy.reshape(-1)
@@ -455,8 +457,6 @@ class Gomoku:
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
         return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
-
-
 
 
 

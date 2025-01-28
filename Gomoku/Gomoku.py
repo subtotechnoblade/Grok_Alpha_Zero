@@ -140,7 +140,6 @@ class Gomoku:
         """
 
         current_x, current_y = action_history[-1]
-        # current_x, current_y = action_history
 
         fives = 0
         for i in range(-5 + 1, 5):
