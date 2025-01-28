@@ -214,7 +214,7 @@ class Game_Tester:
             return False
 
         try:
-            self.game.check_win_MCTS(self.game.board, self.game.action_history[-1], -self.game.get_current_player()) # also counts as a warmup
+            self.game.check_win_MCTS(self.game.board, np.array(self.game.action_history), -self.game.get_current_player()) # also counts as a warmup
             MCTS_check_win_implemented = True
         except AttributeError:
             print("Checking check_win_MCTS: Fail")
@@ -248,7 +248,7 @@ class Game_Tester:
             total_check_win_time += time.time() - s
 
             s = time.time()
-            MCTS_winner = self.game.check_win_MCTS(self.game.board, self.game.action_history[-1], -self.game.current_player)
+            MCTS_winner = self.game.check_win_MCTS(self.game.board, np.array(self.game.action_history), -self.game.current_player)
             total_check_win_MCTS_time += time.time() - s
 
             if MCTS_check_win_implemented and winner != MCTS_winner:
@@ -313,9 +313,10 @@ class Game_Tester:
 
 
     def check_augment_sample(self):
-        dummy_policy = np.random.uniform(low=0, high=1.0, size=self.game.policy_shape)
+        dummy_boards = np.array([self.game.board for _ in range(2)])
+        dummy_policy = np.random.uniform(low=0, high=1.0, size=(2, *self.game.policy_shape))
         try:
-            augmented_boards, augmented_policies = self.game.augment_sample(self.game.board, dummy_policy)
+            augmented_boards, augmented_policies = self.game.augment_sample(dummy_boards, dummy_policy)
         except:
             print("Checking augment sample: Fail")
             print("augment_sample isn't implemented")
@@ -375,8 +376,8 @@ class Game_Tester:
 
 if __name__ =="__main__":
     # Example usage
-    # from Guide import Gomoku
-    from Gomoku.Gomoku import Gomoku
+    from Guide import Gomoku
+    # from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
     game_tester = Game_Tester(Gomoku,)
