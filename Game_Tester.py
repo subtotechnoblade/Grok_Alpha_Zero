@@ -38,7 +38,7 @@ class Game_Tester:
                 print("This is just a warning, there can be unforeseen bugs. It is probably fine")
             print("Checking for a current_player attribute: Pass\n")
         except:
-            print("Checking for a board attribute: Fail")
+            print("Checking for a current player attribute: Fail")
             print("The game class doesn't have a current_player attribute")
             return False
 
