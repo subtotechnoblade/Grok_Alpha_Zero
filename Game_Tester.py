@@ -373,6 +373,7 @@ class Game_Tester:
             print("Checking augment sample: Fail")
             print("The dimensions after the first axis should be equal to policy shape")
 
+        print(f"Augment sample duplicates each game by {augmented_boards.shape[1]} times!")
         print("Checking augment sample: Pass\n")
         return True
 
