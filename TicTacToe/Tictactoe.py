@@ -92,13 +92,6 @@ class TicTacToe:
 
         self.policy_shape = (9,)
 
-        self.total_actions = set() # precompute all possible actions at the start
-        for y in range(3):
-            for x in range(3):
-                if self.board[y][x] == 0:
-                    self.total_actions.add((x, y))
-        # todo make move_history and add the played move everytime do_action is called
-
     def get_current_player(self):
         return self.current_player
 
@@ -124,20 +117,24 @@ class TicTacToe:
         self.total_action is a set
         :return: a list of actions [action0, action1]
         """
-        return np.array(list(self.total_actions - set([(x, y) for x, y in self.action_history]))) # Note: O(n)
-
+        # return np.array(list(self.total_actions))
+        return self.get_legal_actions_MCTS(self.board, self.get_current_player(), np.array(self.action_history))
 
     @staticmethod
     @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
-        legal_actions = []
-        legal_policy = []
-        for i, value in enumerate(board.reshape(-1)):
-            if value == 0:
-                legal_actions.append(np.array([i%3, i//3]))
-                legal_policy.append(policy[i])
-        legal_actions, legal_policy = np.array(legal_actions), np.array(legal_policy)
+    def get_legal_actions_MCTS(board, current_player, action_history):
+        return np.argwhere(board == 0)[:,::-1]
 
+    @staticmethod
+    # @njit(cache=True)
+    def get_legal_actions_policy_MCTS(board: np.array,
+                                      current_player:int,
+                                      action_history: np.array,
+                                      policy: np.array,
+                                      shuffle: bool=False):
+
+        legal_actions = np.argwhere(board == 0)[:, ::-1]
+        legal_policy = policy[board.reshape(-1) == 0]
         legal_policy /= np.sum(legal_policy)
 
         if shuffle:
@@ -152,6 +149,7 @@ class TicTacToe:
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
         self.action_history.append(action)
+
 
     @staticmethod
     @njit(cache=True)
