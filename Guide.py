@@ -117,13 +117,13 @@ class Game:
         pass
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_MCTS(board):
+    def get_legal_actions_MCTS(board: np.array, current_player: int, action_history: np.array):
         # this returns the legal moves, just do the same thing as get_legal_actions
         pass
 
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array, current_player: int, action_history: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         """
         THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board
@@ -275,16 +275,16 @@ class Gomoku:
         # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
         # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
         # [:, ::-1] reverses the order of the elements because argwhere returns [[y0, x0], ...] thus becomes [[x1, y0], ...]
-        return np.argwhere(self.board == 0)[:, ::-1]
+        return self.get_legal_actions_MCTS(self.board, self.current_player, np.array(self.action_history))
     @staticmethod
     @njit(cache=True)
-    def get_legal_actions_MCTS(board):
+    def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
         # same as the method above
         return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
     @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array, current_player: int, action_history: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
         flattened_board = board.reshape(-1)  # makes sure that the board is a vector
         policy = policy[flattened_board == 0]  # keep the probabilities where the board is not filled
 
@@ -457,10 +457,6 @@ class Gomoku:
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
         return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
-
-
-
-
 
 
 
