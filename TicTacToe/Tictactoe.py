@@ -247,25 +247,46 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def augment_array(arr):
-        arr_augmentation = [arr, np.flipud(arr), np.fliplr(arr)]
-        for k in range(1, 4):
-            rotated_arr = np.rot90(arr, k)
-            arr_augmentation.append(rotated_arr)
-            if k == 1:
-                arr_augmentation.append(np.fliplr(rotated_arr))
-                arr_augmentation.append(np.flipud(rotated_arr))
-        return arr_augmentation
+    def augment_sample_fn(boards: np.array, policies: np.array):
+        policies = policies.reshape((-1, 3, 3))# we need
+        # to reshape this because we can only rotate a matrix, not a vector
 
-
-    def augment_sample(self, board, policy):
-        augmented_boards = self.augment_array(board)
-
+        augmented_boards = []
         augmented_policies = []
-        for augmented_policy in self.augment_array(policy.reshape(3, 3)):
-            augmented_policies.append(augmented_policy.reshape(-1))
 
+        for action_id in range(boards.shape[0]):
+            board = boards[action_id]
+            # augmented_board = np.zeros((8, board_shape))
+            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+
+
+            policy = policies[action_id]
+            augmented_policy = [policy, np.flipud(policy), np.fliplr(policy)]
+
+
+            for k in range(1, 4):
+                rot_board = np.rot90(board, k)
+                augmented_board.append(rot_board)
+
+                rot_policy = np.rot90(policy, k)
+                augmented_policy.append(rot_policy)
+
+                if k == 1:
+                    augmented_board.append(np.flipud(rot_board))
+                    augmented_board.append(np.fliplr(rot_board))
+
+                    augmented_policy.append(np.flipud(rot_policy))
+                    augmented_policy.append(np.fliplr(rot_policy))
+            augmented_boards.append(augmented_board)
+
+            augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
+
+    def augment_sample(self, boards, policies):
+        # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
+        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
+        return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9))
+
 
 
 if __name__ == "__main__":
