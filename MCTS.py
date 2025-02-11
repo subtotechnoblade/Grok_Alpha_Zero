@@ -225,7 +225,7 @@ class MCTS:
         :return:
         """
 
-        legal_actions = legal_actions_fn(board)
+        legal_actions = legal_actions_fn(board, current_player, action_history)
 
         repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
         # for i in range(len(legal_actions)):
@@ -317,7 +317,7 @@ class MCTS:
                 RNN_state = []
             child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(),
                                                                                  RNN_state)
-            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, child_policy)
+            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history),  child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
             self.root = Root(self.game.board.copy(),
@@ -416,7 +416,7 @@ class MCTS:
             child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board), node.RNN_state)
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
-            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, child_policy)
+            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, node.current_player, np.array(node.action_history),  child_policy)
 
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
@@ -457,7 +457,7 @@ class MCTS:
             # child value and child visits
             node_id = node.child_id
             node = node.parent
-            # ^ does two things, 1. moves up the thee
+            # ^ does two things, 1. moves up the tree
             # 2. stores the pointer within in the variable rather than indexing twice
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
@@ -685,7 +685,7 @@ if __name__ == "__main__":
                 fast_find_win=False)
 
     print(game.board)
-    move, probs = mcts.run(iteration_limit=100000, time_limit=None)
+    move, probs = mcts.run(iteration_limit=150000, time_limit=None)
     print(move)
     print(probs)
     # print(game.board)
