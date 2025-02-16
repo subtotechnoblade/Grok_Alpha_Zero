@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import h5py as h5
 import tensorflow as tf
@@ -22,19 +23,22 @@ def validate_train_config(train_config):
 def initialize_training(): # This must be ran with a mp.Process
     os.makedirs("Grok_Zero_Train/0/", exist_ok=True)
 
-    if os.path.exists("Grok_Zero_Train/0/model.keras") and not os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx")and not os.path.exists("Grok_Zero_Train/0/model.onnx"):
-        raise ValueError("Please delete the entire Grok_Zero_Train folder and start the training again!")
-
+    if os.path.exists("Grok_Zero_Train/0/model.keras") and not os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") and not os.path.exists("Grok_Zero_Train/0/model.onnx"):
+        print("The starting folder is initialized incorrectly!")
+        print("Deleting and remaking the folder!")
+        shutil.rmtree("Grok_Zero_Train/")
+        os.makedirs("Grok_Zero_Train/0/", exist_ok=True)
     validate_train_config(train_config)
 
-    game= Gomoku()
+    game = Gomoku()
     def initialize_model(game, build_config):
         train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
         train_model.save("Grok_Zero_Train/0/model.keras")
-
+    print("Initializing the model")
     p = mp.Process(target=initialize_model, args=(game, build_config))
     p.start()
     p.join()
+
 
     def initialize_onnx(build_config):
         print("Converting tensorflow model to onnx")
@@ -54,11 +58,11 @@ def initialize_training(): # This must be ran with a mp.Process
     p.join()
 
     if train_config["use_gpu"] and train_config["use_tensorrt"]:
-        p = mp.Process(target=cache_tensorrt, args=(game, build_config, "Grok_Zero_Train/", 0))
+        p = mp.Process(target=cache_tensorrt, args=(game, build_config, train_config, "Grok_Zero_Train/", 0))
         p.start()
         p.join()
 
-        p = mp.Process(target=get_speed, args=(game, build_config, "Grok_Zero_Train/", 0))
+        p = mp.Process(target=get_speed, args=(game, build_config, train_config, "Grok_Zero_Train/", 0))
         p.start()
         p.join()
 
