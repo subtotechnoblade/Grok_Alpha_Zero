@@ -184,17 +184,17 @@ class MCTS:
 
 
     def _compute_outputs(self, inputs, RNN_state):
-        # input_state, input_state_matrix = RNN_state
-        # x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
-        #                                                       input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
-        #                                                         "input_state": input_state,
-        #                                                         "input_state_matrix": input_state_matrix})
-        #
-        # policy, value, state, state_matrix = x
-        #
-        # return policy[0], value[0][0], [state, state_matrix]
+        input_state, input_state_matrix = RNN_state
+        x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+                                                              input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
+                                                                "input_state": input_state,
+                                                                "input_state_matrix": input_state_matrix})
 
-        return self._get_dummy_outputs(inputs, RNN_state)
+        policy, value, state, state_matrix = x
+
+        return policy[0], value[0][0], [state, state_matrix]
+
+        # return self._get_dummy_outputs(inputs, RNN_state)
 
     def _get_dummy_outputs(self, input_state, RNN_state):
         # since I'm not using RNN_state I can just return it for the next node
