@@ -18,7 +18,7 @@ class Chopsticks:
 
     def get_legal_actions(self):
         LegalActions = [
-            [0, ]
+            [0, 0, 0]
         ]
 
 
