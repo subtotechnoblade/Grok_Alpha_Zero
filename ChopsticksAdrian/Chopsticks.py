@@ -17,7 +17,7 @@ class Chopsticks:
         return np.array(action)
 
     def get_legal_actions(self):
-        LegalActions = [
+        legal_actions = [
             [0, 0, 0]
         ]
 
