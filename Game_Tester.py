@@ -73,6 +73,10 @@ class Game_Tester:
             print("Check get_legal_actions: Fail\n")
             print("get_legal_actions isn't implemented check method name spelling if it is implemented")
             return False
+        if legal_actions is None:
+            print("Check get_legal_actions: Fail\n")
+            print("get_legal_actions returned None")
+            return False
 
         if len(legal_actions) == 0:
             print("Check get_legal_actions: Fail\n")
