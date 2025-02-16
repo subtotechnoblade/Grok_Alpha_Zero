@@ -25,6 +25,8 @@ Mu Zero paper: https://arxiv.org/pdf/1911.08265
 
 Gumbel Alpha Zero and Mu Zero: https://openreview.net/forum?id=bERaNdoegnO
 
+Monte Carlo Graph Search: https://arxiv.org/pdf/2012.11045
+
 
 
 Grok Fast paper: https://arxiv.org/abs/2405.20233

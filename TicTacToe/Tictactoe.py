@@ -92,13 +92,6 @@ class TicTacToe:
 
         self.policy_shape = (9,)
 
-        self.total_actions = set() # precompute all possible actions at the start
-        for y in range(3):
-            for x in range(3):
-                if self.board[y][x] == 0:
-                    self.total_actions.add((x, y))
-        # todo make move_history and add the played move everytime do_action is called
-
     def get_current_player(self):
         return self.current_player
 
@@ -124,20 +117,24 @@ class TicTacToe:
         self.total_action is a set
         :return: a list of actions [action0, action1]
         """
-        return np.array(list(self.total_actions - set([(x, y) for x, y in self.action_history]))) # Note: O(n)
-
+        # return np.array(list(self.total_actions))
+        return self.get_legal_actions_MCTS(self.board, self.get_current_player(), np.array(self.action_history))
 
     @staticmethod
     @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle: bool=False):
-        legal_actions = []
-        legal_policy = []
-        for i, value in enumerate(board.reshape(-1)):
-            if value == 0:
-                legal_actions.append(np.array([i%3, i//3]))
-                legal_policy.append(policy[i])
-        legal_actions, legal_policy = np.array(legal_actions), np.array(legal_policy)
+    def get_legal_actions_MCTS(board, current_player, action_history):
+        return np.argwhere(board == 0)[:,::-1]
 
+    @staticmethod
+    # @njit(cache=True)
+    def get_legal_actions_policy_MCTS(board: np.array,
+                                      current_player:int,
+                                      action_history: np.array,
+                                      policy: np.array,
+                                      shuffle: bool=False):
+
+        legal_actions = np.argwhere(board == 0)[:, ::-1]
+        legal_policy = policy[board.reshape(-1) == 0]
         legal_policy /= np.sum(legal_policy)
 
         if shuffle:
@@ -152,6 +149,7 @@ class TicTacToe:
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
         self.action_history.append(action)
+
 
     @staticmethod
     @njit(cache=True)
@@ -249,25 +247,46 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def augment_array(arr):
-        arr_augmentation = [arr, np.flipud(arr), np.fliplr(arr)]
-        for k in range(1, 4):
-            rotated_arr = np.rot90(arr, k)
-            arr_augmentation.append(rotated_arr)
-            if k == 1:
-                arr_augmentation.append(np.fliplr(rotated_arr))
-                arr_augmentation.append(np.flipud(rotated_arr))
-        return arr_augmentation
+    def augment_sample_fn(boards: np.array, policies: np.array):
+        policies = policies.reshape((-1, 3, 3))# we need
+        # to reshape this because we can only rotate a matrix, not a vector
 
-
-    def augment_sample(self, board, policy):
-        augmented_boards = self.augment_array(board)
-
+        augmented_boards = []
         augmented_policies = []
-        for augmented_policy in self.augment_array(policy.reshape(3, 3)):
-            augmented_policies.append(augmented_policy.reshape(-1))
 
+        for action_id in range(boards.shape[0]):
+            board = boards[action_id]
+            # augmented_board = np.zeros((8, board_shape))
+            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+
+
+            policy = policies[action_id]
+            augmented_policy = [policy, np.flipud(policy), np.fliplr(policy)]
+
+
+            for k in range(1, 4):
+                rot_board = np.rot90(board, k)
+                augmented_board.append(rot_board)
+
+                rot_policy = np.rot90(policy, k)
+                augmented_policy.append(rot_policy)
+
+                if k == 1:
+                    augmented_board.append(np.flipud(rot_board))
+                    augmented_board.append(np.fliplr(rot_board))
+
+                    augmented_policy.append(np.flipud(rot_policy))
+                    augmented_policy.append(np.fliplr(rot_policy))
+            augmented_boards.append(augmented_board)
+
+            augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
+
+    def augment_sample(self, boards, policies):
+        # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
+        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
+        return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9))
+
 
 
 if __name__ == "__main__":

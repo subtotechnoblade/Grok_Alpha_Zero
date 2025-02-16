@@ -100,7 +100,7 @@ class Self_Play:
 
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
-        augmented_values = np.repeat(target_values, repeats=8, axis=1)
+        augmented_values = np.repeat(target_values, repeats=augmented_policies.shape[1], axis=1)
 
         if augmented_board_states.shape[:2] != augmented_values.shape[:2]:
             print(f"The 0th and 1st dim should the same got: {augmented_board_states.shape[2:]}, {augmented_values.shape[2:]}")
@@ -115,18 +115,18 @@ class Self_Play:
             dataset_name = f"{(len(file.keys()) - 1) // 3}" # starts from 0
 
             file.create_dataset(f"boards_{dataset_name}",
-                                maxshape=(None, 8, *self.game.get_input_state().shape),
+                                maxshape=augmented_board_states.shape,
                                 dtype=augmented_board_states.dtype,
                                 data=augmented_board_states,
                                 chunks=None)
             file.create_dataset(f"policies_{dataset_name}",
-                                maxshape=(None, 8, self.game.policy_shape[0]),
+                                maxshape=augmented_policies.shape,
                                 dtype=np.float32,
                                 data=augmented_policies,
                                 chunks=None)
 
             file.create_dataset(f"values_{dataset_name}",
-                                maxshape=(None, 8, 1),
+                                maxshape=augmented_values.shape,
                                 dtype=np.float32,
                                 data=augmented_values,
                                 chunks=None)
@@ -162,6 +162,12 @@ def self_play_task(worker_id,
     task.play()
     shm.close()
 
+def convert_shape(shape):
+    assert len(shape) > 0
+    str_shape = ""
+    for dim in shape:
+        str_shape += f"{dim}x"
+    return str_shape[:-1]
 def run_self_play(game_class,
                   build_config,
                   train_config,
@@ -178,6 +184,13 @@ def run_self_play(game_class,
     if num_games_left < num_workers:
         num_workers = num_games_left
 
+    game = game_class()
+    board_shape = game.board.shape
+    policy_shape = game.policy_shape
+    str_board_shape = convert_shape(board_shape)
+    del game
+
+
     embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
         "num_layers"]
     onnx_file_path = f"{folder_path}/{generation}/model.onnx"
@@ -193,9 +206,9 @@ def run_self_play(game_class,
                     "trt_auxiliary_streams": 0,
 
                     "trt_ep_context_file_path": f"{folder_path}/{generation}/TRT_cache/",
-                    "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-                    "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-                    "trt_profile_opt_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+                    "trt_profile_min_shapes": f"inputs:1x{str_board_shape},input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+                    "trt_profile_max_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+                    "trt_profile_opt_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
@@ -206,10 +219,10 @@ def run_self_play(game_class,
     else:
         providers = ['CPUExecutionProvider']
 
-    batched_input_feed_info = {"inputs": [[-1, 15, 15], np.float32],
+    batched_input_feed_info = {"inputs": [[-1, *board_shape], np.float32],
                                "input_state": [[num_layers, 2, -1, embed_size], np.float32],
                                "input_state_matrix":[[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]}
-    batched_output_feed_info = {"policy": [-1, 225],
+    batched_output_feed_info = {"policy": [-1, *policy_shape],
                                 "value": [-1, 1],
                                 "output_state": [num_layers, 2, -1, embed_size],
                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]

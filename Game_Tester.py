@@ -70,21 +70,46 @@ class Game_Tester:
         try:
             legal_actions = self.game.get_legal_actions()
         except:
-            print("Check legal actions: Fail\n")
+            print("Check get_legal_actions: Fail\n")
             print("get_legal_actions isn't implemented check method name spelling if it is implemented")
             return False
 
         if len(legal_actions) == 0:
-            print("Check legal actions: Fail\n")
+            print("Check get_legal_actions: Fail\n")
             print("get_legal_actions gave no actions, must have actions at the start of the search")
             return False
         for action in legal_actions:
             count = np.count_nonzero([mask.all() for mask in legal_actions == action])
             if count > 1:
-                print("Check legal actions: Fail\n")
+                print("Check get_legal_actions: Fail\n")
                 print(f"There was a duplicate action: {action} found in {legal_actions}")
                 return False
         print("Checking if get_legal_actions returns actions: Pass\n")
+        return True
+
+    def check_legal_actions_MCTS(self):
+        try:
+            legal_actions = self.game.get_legal_actions()
+            MCTS_legal_actions = self.game.get_legal_actions_MCTS(self.game.board,
+                                                                  self.game.get_current_player(),
+                                                                  np.array(self.game.action_history))
+        except:
+            print("Check get_legal_actions_MCTS: Fail\n")
+            print("get_legal_actions_MCTS isn't implemented, check method name if it is implemented")
+            return False
+
+        if len(legal_actions) != len(MCTS_legal_actions):
+            print("Check get_legal_actions_MCTS: Fail\n")
+            print("len of get_legal_actions can len of get_legal_actions MCTS are different")
+            print("Check implementation")
+            return False
+
+        if not np.array_equal(legal_actions, MCTS_legal_actions):
+            print("Check get_legal_actions_MCTS: Fail\n")
+            print("get_legal_actions and get_legal_actions_MCTS give different results")
+            return False
+
+        print("Checking if get_legal_actions returns actions and validated against get_legal_actions: Pass\n")
         return True
 
     def check_legal_actions_policy_MCTS(self):
@@ -93,7 +118,10 @@ class Game_Tester:
         dummy_policy = np.random.uniform(0, 1, size=self.game.policy_shape)
 
         try:
-            MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board, dummy_policy, shuffle=False)
+            MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
+                                                                                       self.game.get_current_player(),
+                                                                                       np.array(self.game.action_history),
+                                                                                       dummy_policy, shuffle=False)
         except AttributeError:
             print("Checking get_legal_actions_policy_MCTS: Fail")
             print("get_legal_actions_policy_MCTS isn't implemented")
@@ -118,7 +146,10 @@ class Game_Tester:
             print("The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
             return False
 
-        shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board, dummy_policy, shuffle=True)
+        shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
+                                                                                                     self.game.get_current_player(),
+                                                                                                     np.array(self.game.action_history),
+                                                                                                     dummy_policy, shuffle=True)
 
         if (legal_policy != shuffled_legal_policy).any(): # check if arrays are of different order
 
@@ -328,8 +359,21 @@ class Game_Tester:
             return False
         elif len(augmented_boards) == 1 and len(augmented_policies) == 1:
             print("augment_sample isn't fully implemented")
-            print("Recommend implementing this for faster training")
+            print("Recommend implementing this for better training")
 
+        if augmented_boards.shape[0] != 2 or augmented_policies.shape[0] != 2:
+            print("Checking augment sample: Fail")
+            print("The timestep dimension should be the same and should be 2 (testing on 2 boards)")
+            return False
+        if augmented_boards.shape[2:] != self.game.board.shape:
+            print("Checking augment sample: Fail")
+            print("The dimensions after the first axis should be equal to board shape")
+
+        if augmented_policies.shape[2:] != self.game.policy_shape:
+            print("Checking augment sample: Fail")
+            print("The dimensions after the first axis should be equal to policy shape")
+
+        print(f"Augment sample duplicates each game by {augmented_boards.shape[1]} times!")
         print("Checking augment sample: Pass\n")
         return True
 
@@ -341,6 +385,9 @@ class Game_Tester:
             return
         if not self.check_legal_actions():
             print("Tests cannot continue unless the tester can get the legal_actions from get_legal_actions")
+            return
+
+        if not self.check_legal_actions_MCTS():
             return
 
         if not self.check_legal_actions_policy_MCTS():
