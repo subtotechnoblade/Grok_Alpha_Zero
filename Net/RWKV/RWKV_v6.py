@@ -205,7 +205,12 @@ class Time_Mix(tf.keras.layers.Layer):
         w_reshaped = tf.transpose(w, [1, 0, 2, 3, 4])
         kv_reshaped = tf.transpose(kv, [1, 0, 2, 3, 4])
         # decay (w) is [1:] because in the equations w0 is simply not used and x0 goes with w1 not w0
-        matrix_mem_update, _ = tf.scan(lambda a, b: self.combine_fn(*a, *b), (kv_reshaped[:-1], w_reshaped[1:]))
+        matrix_mem_update, _ = tf.scan(lambda a, b: self.combine_fn(*a, *b), (kv_reshaped[:-1], w_reshaped[1:]),
+                                       parallel_iterations=32,
+                                       swap_memory=True,
+                                       infer_shape=False
+                                       )
+
         matrix_mem_update = tf.transpose(matrix_mem_update, [1, 0, 2, 3, 4])
         matrix_mem = kv * tf.expand_dims(u, axis=-1)
 
@@ -327,17 +332,20 @@ def make_test_model(embed_size, num_heads=1, num_layers=1):
 if __name__ == "__main__":
     import numpy as np
 
-    model = make_test_model(64, 4, 1)
+    model = make_test_model(64, 1, 4)
     model.summary()
 
     x_train = np.random.randint(low=0, high=100, size=(4, 2, 64))
     print(x_train.shape)
     y_train = 2 * x_train + 1
 
-    model.compile(optimizer=tf.keras.optimizers.AdamW(learning_rate=1e-2),
+    model.compile(optimizer=tf.keras.optimizers.Nadam(learning_rate=5e-3),
                   loss="mse",
                   metrics=["acc", "mae"])
-    model.fit(x_train, y_train, epochs=150)
+
+    val = np.random.randint(low=0, high=100, size=(4, 2, 64))
+    model.fit(x_train, y_train, epochs=150,
+              validation_data=(val, 2 * val + 1))
     x = np.random.randint(low=0, high=100, size=(4, 2, 64))
     print(x[0][0])
     print()
