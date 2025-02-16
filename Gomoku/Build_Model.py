@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 from Net.RWKV import RWKV_v6 as Train_net, RWKV_v6_Infer as Infer_net
 from Net import Batched_Net, Batched_Net_Infer
@@ -10,6 +11,7 @@ from Net.Grok_Model import Grok_Fast_EMA_Model
 
 # This is just a template
 def build_model(input_shape, policy_shape, build_config):
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
@@ -131,7 +133,10 @@ if __name__ == '__main__':
     model.save("test_model.keras")
     # raise ValueError
     # model.save_weights("test_model.weights.h5")
+
+    model = tf.keras.models.load_model("test_model.keras")
     model.summary()
+
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, *game.get_input_state().shape))
     # 10 is the length of the game in moves, 15, 15 is the dim of the board
 
