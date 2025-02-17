@@ -6,7 +6,7 @@ build_config = {"embed_size": 128, # this is the vector for RWKV
           "num_heads": 8, # this must be a factor of embed_size or else an error will be raised
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
           "hidden_size": None, # this uses the default 3.5 * embed size
-          "num_layers": 5, # This is the total amount of RWKV layers in the model that are used
+          "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
           }
 
 train_config = {
@@ -14,7 +14,7 @@ train_config = {
     # a generation is defined by a round of self play, and model training
 
     # Self Play variables
-    "games_per_generation": 2, # amount of self play games until we re train the network
+    "games_per_generation": 10, # amount of self play games until we re train the network
     "max_actions": 225, # Note that this should be
     "num_explore_actions": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": True,  # Change this to false to use CPU for self play and inference
