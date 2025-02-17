@@ -231,11 +231,14 @@ class Game:
 
         # Note that this won't be the case for connect4, and ult_tictactoe
 
-        # Know that boards will be multiple boards of shape (num_moves, board shape)
-        # Know that the policies will be multiple policies (num_moves, policy shape)
+        # Know that boards will be multiple boards of shape (num_augmentations, num_moves, board shape)
+        # Know that the policies will be multiple policies (num_augmentations, num_moves, policy shape)
 
-        # Know that the expected output will be [[augmented_board_0_0, augmented_board_0_1, ...], [augmented_board_1_0, ...], ...]
-        # Similarly to policy
+        # Know that the expected output will be [[original_board_0, ...], [augmented_board_1, ...], ... for num_augmentations]
+        #                                           ^original game          ^augmented game 1         ^augmented game 2 and so on
+
+        # The expected output shape for the board will be (num_augmentations, num_actions, *board_shape)
+        # The expected output shape for the policy will be (num_augmentations, num_actions, policy_shape[0])
 
 
         # If that is too hard, inform Brian and he can implement for you
@@ -453,7 +456,7 @@ class Gomoku:
     def augment_sample(self, boards, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
-        return np.array(augmented_boards, dtype=boards[0].dtype), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225))
+        return np.array(augmented_boards, dtype=boards[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
 
 
