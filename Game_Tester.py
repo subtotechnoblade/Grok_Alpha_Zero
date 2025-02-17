@@ -74,7 +74,6 @@ class Game_Tester:
 
     def check_legal_actions(self):
         try:
-            print(1)
             legal_actions = self.game.get_legal_actions()
         except:
             print("Check get_legal_actions: Fail\n")
