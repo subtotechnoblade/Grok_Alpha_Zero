@@ -365,7 +365,7 @@ class Game_Tester:
 
         if len(augmented_boards) == 0 or len(augmented_policies) == 0:
             print("Checking augment sample: Fail")
-            print("augment_sample cannot return an empty list")
+            print("augment_sample cannot return an empty list/array")
             return False
         elif len(augmented_boards) == 1 and len(augmented_policies) == 1:
             print("augment_sample isn't fully implemented")
@@ -437,5 +437,5 @@ if __name__ =="__main__":
     from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
-    game_tester = Game_Tester(Gomoku)
+    game_tester = Game_Tester(TicTacToe)
     game_tester.test()
