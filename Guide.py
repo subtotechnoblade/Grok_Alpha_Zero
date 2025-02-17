@@ -260,7 +260,7 @@ class Gomoku:
     def input_action(self):
         while True:
             try:
-                coords = np.array(list(map(int, input("Move:").split(" "))))
+                coords = np.array(list(map(int, input("Action:").split(" "))))
                 if self.board[coords[1]][coords[0]] == 0:
                     return coords
                 print("Illegal move")
