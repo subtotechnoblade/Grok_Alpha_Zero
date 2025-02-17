@@ -5,6 +5,8 @@ import time
 class Game_Tester:
     def __init__(self, game_class):
         self.game_class = game_class
+        if not isinstance(game_class, type):
+            raise TypeError("Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
         try:
             self.game = self.game_class()
         except:
@@ -72,6 +74,7 @@ class Game_Tester:
 
     def check_legal_actions(self):
         try:
+            print(1)
             legal_actions = self.game.get_legal_actions()
         except:
             print("Check get_legal_actions: Fail\n")
@@ -435,5 +438,5 @@ if __name__ =="__main__":
     from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
-    game_tester = Game_Tester(Gomoku,)
+    game_tester = Game_Tester(Gomoku)
     game_tester.test()
