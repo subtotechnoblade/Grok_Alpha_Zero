@@ -64,7 +64,7 @@ class Self_Play:
 
             action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=False)
+                                               use_bar=True)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -91,7 +91,7 @@ class Self_Play:
         board_states = np.array(board_states, dtype=board_states[0].dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
 
-        target_values = np.array(target_values, dtype=np.float32).reshape((-1, 1, 1))
+        target_values = np.array(target_values, dtype=np.float32).reshape((-1, 1))
         if winner == target_values[-1][0] == -1: # if player -1 just won
             target_values *= -1.0 # Flip it so that the player that won, evaluates to 1 (winner)
         elif winner == 0: # if it a draw or
@@ -100,36 +100,38 @@ class Self_Play:
 
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
-        augmented_values = np.repeat(target_values, repeats=augmented_policies.shape[1], axis=1)
+        augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
 
         if augmented_board_states.shape[:2] != augmented_values.shape[:2]:
             print(f"The 0th and 1st dim should the same got: {augmented_board_states.shape[2:]}, {augmented_values.shape[2:]}")
 
         # Assume that a .h5 file has been created and the max moves dataset is already created
-
         with self.lock, h5.File(f"{self.folder_path}/{self.generation}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
             if file["max_moves"][0] < game_length:
                 file["max_moves"][0] = game_length
 
-            dataset_name = f"{(len(file.keys()) - 1) // 3}" # starts from 0
+            dataset_name = (len(file.keys()) - 1) // 3 # starts from 0
 
-            file.create_dataset(f"boards_{dataset_name}",
-                                maxshape=augmented_board_states.shape,
-                                dtype=augmented_board_states.dtype,
-                                data=augmented_board_states,
-                                chunks=None)
-            file.create_dataset(f"policies_{dataset_name}",
-                                maxshape=augmented_policies.shape,
-                                dtype=np.float32,
-                                data=augmented_policies,
-                                chunks=None)
 
-            file.create_dataset(f"values_{dataset_name}",
-                                maxshape=augmented_values.shape,
-                                dtype=np.float32,
-                                data=augmented_values,
-                                chunks=None)
+            for inc in tqdm(range(augmented_policies.shape[0])):
+                file.create_dataset(f"boards_{dataset_name + inc}",
+                                    maxshape=augmented_board_states[inc].shape,
+                                    dtype=augmented_board_states[inc].dtype,
+                                    data=augmented_board_states[inc],
+                                    chunks=None)
+
+                file.create_dataset(f"policies_{dataset_name + inc}",
+                                    maxshape=augmented_policies[inc].shape,
+                                    dtype=np.float32,
+                                    data=augmented_policies[inc],
+                                    chunks=None)
+
+                file.create_dataset(f"values_{dataset_name + inc}",
+                                    maxshape=augmented_values[inc].shape,
+                                    dtype=np.float32,
+                                    data=augmented_values[inc],
+                                    chunks=None)
 
 
 def self_play_task(worker_id,
@@ -324,6 +326,8 @@ if __name__== "__main__":
         print(file['boards_0'].shape)
         print(file['policies_0'].shape)
         print(file['values_0'].shape)
+
+        print((len(file.keys()) - 1) // 3)
         # for i in range(file["max_moves"][0]):
         #     print(file["boards_0"][i])
         # print(len(file["boards_1"]))
