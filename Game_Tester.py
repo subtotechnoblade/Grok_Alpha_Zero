@@ -3,14 +3,20 @@ import time
 
 
 class Game_Tester:
-    def __init__(self, game_class, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
+    def __init__(self, game_class):
         self.game_class = game_class
-        self.game: Gomoku = self.game_class(*self.args, **self.kwargs)
+        if not isinstance(game_class, type):
+            raise TypeError("Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
+        try:
+            self.game = self.game_class()
+        except:
+            print("You cannot specify parameters in the game's __init__ constructor")
+            print("All parameters should be a variable in __init__, nothing should be passed in")
+            raise TypeError("Class initiation failed")
+
 
     def reset(self):
-        self.game = self.game_class(*self.args, **self.kwargs)
+        self.game = self.game_class()
 
     def check_attributes(self):
         try:
@@ -68,10 +74,15 @@ class Game_Tester:
 
     def check_legal_actions(self):
         try:
+            print(1)
             legal_actions = self.game.get_legal_actions()
         except:
             print("Check get_legal_actions: Fail\n")
             print("get_legal_actions isn't implemented check method name spelling if it is implemented")
+            return False
+        if legal_actions is None:
+            print("Check get_legal_actions: Fail\n")
+            print("get_legal_actions returned None")
             return False
 
         if len(legal_actions) == 0:
@@ -423,9 +434,9 @@ class Game_Tester:
 
 if __name__ =="__main__":
     # Example usage
-    from Guide import Gomoku
-    # from Gomoku.Gomoku import Gomoku
+    # from Guide import Gomoku
+    from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
-    game_tester = Game_Tester(Gomoku,)
+    game_tester = Game_Tester(Gomoku)
     game_tester.test()
