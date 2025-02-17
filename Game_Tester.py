@@ -363,6 +363,11 @@ class Game_Tester:
             print("augment_sample isn't implemented")
             return False
 
+        if not (isinstance(augmented_boards, np.ndarray) and isinstance(augmented_policies, np.ndarray)):
+            print("Checking augment sample: Fail")
+            print("augment_sample must return a np.array")
+
+
         if len(augmented_boards) == 0 or len(augmented_policies) == 0:
             print("Checking augment sample: Fail")
             print("augment_sample cannot return an empty list/array")
