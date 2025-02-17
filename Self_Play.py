@@ -64,7 +64,7 @@ class Self_Play:
 
             action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=True)
+                                               use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -115,20 +115,22 @@ class Self_Play:
 
 
             for inc in tqdm(range(augmented_policies.shape[0])):
+                # print((None, *augmented_board_states.shape[1:]))
+                # print(augmented_board_states[inc].shape)
                 file.create_dataset(f"boards_{dataset_name + inc}",
-                                    maxshape=augmented_board_states[inc].shape,
+                                    maxshape=(None, *augmented_board_states[inc].shape[1:]),
                                     dtype=augmented_board_states[inc].dtype,
                                     data=augmented_board_states[inc],
                                     chunks=None)
 
                 file.create_dataset(f"policies_{dataset_name + inc}",
-                                    maxshape=augmented_policies[inc].shape,
+                                    maxshape=(None, *augmented_policies[inc].shape[1:]),
                                     dtype=np.float32,
                                     data=augmented_policies[inc],
                                     chunks=None)
 
                 file.create_dataset(f"values_{dataset_name + inc}",
-                                    maxshape=augmented_values[inc].shape,
+                                    maxshape=(None, *augmented_values[inc].shape[1:]),
                                     dtype=np.float32,
                                     data=augmented_values[inc],
                                     chunks=None)
@@ -309,13 +311,13 @@ if __name__== "__main__":
     import time
     # Testing code for validation
     from Gomoku.Gomoku import Gomoku, build_config, train_config
+    folder_path = "Gomoku/Grok_Zero_Train"
     if os.path.exists("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5"):
         os.remove("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5")
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"max_moves", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
 
-    folder_path = "Gomoku/Grok_Zero_Train"
     run_self_play(Gomoku, build_config, train_config, folder_path, 0, train_config["num_workers"])
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
