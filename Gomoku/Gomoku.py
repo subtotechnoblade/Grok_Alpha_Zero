@@ -17,8 +17,8 @@ train_config = {
     "games_per_generation": 2, # amount of self play games until we re train the network
     "max_actions": 225, # Note that this should be
     "num_explore_actions": 7,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "use_gpu": False,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": True,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
@@ -47,7 +47,7 @@ class Gomoku:
     def input_action(self):
         while True:
             try:
-                coords = np.array(list(map(int, input("Move:").split(" "))))
+                coords = np.array(list(map(int, input("Action:").split(" "))))
                 if self.board[coords[1]][coords[0]] == 0:
                     return coords
                 print("Illegal move")
@@ -56,17 +56,14 @@ class Gomoku:
 
 
     def get_legal_actions(self) -> np.array:
-        # self.board == 0 creates a True and False board array, i.e., the empty places are True
-        # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
-        # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
-        # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
-        # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
-        # [:, ::-1] reverses the order of the elements because argwhere returns [[y0, x0], ...] thus becomes [[x1, y0], ...]
         return self.get_legal_actions_MCTS(self.board, self.current_player, np.array(self.action_history))
     @staticmethod
     @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
-        # same as the method above
+        """
+        np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
+        where the board is empty (board == 0). [:, ::-1] reverses the [[y, x], ...] -> [[x, y], ...]
+        """
         return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
@@ -248,20 +245,22 @@ class Gomoku:
 if __name__ == "__main__":
     import time
     game = Gomoku()
-    boards = []
-    game.do_action((0, 0))
-    for _ in range(1):
-        boards.append(game.board.copy())
+    print(game.get_legal_actions())
+    # boards = []
+    # game.do_action((0, 0))
+    # for _ in range(1):
+    #     boards.append(game.board.copy())
+    #
+    # policies = np.ones((1, 225))
+    # for i in range(10):
+    #     augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
+    #
+    # s = time.time()
+    # for i in range(100):
+    #     augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
+    # ttime = (time.time() - s)
+    # print(ttime)
+    # print(ttime / 100)
 
-    policies = np.ones((1, 225))
-    for i in range(10):
-        augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
-
-    s = time.time()
-    for i in range(100):
-        augmented_boards, augmented_policies = game.augment_sample(np.array(boards), policies)
-    ttime = (time.time() - s)
-    print(ttime)
-    print(ttime / 100)
     # print(augmented_boards.shape)
     # print(augmented_policies.shape)

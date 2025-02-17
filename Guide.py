@@ -269,17 +269,14 @@ class Gomoku:
 
 
     def get_legal_actions(self) -> np.array:
-        # self.board == 0 creates a True and False board array, i.e., the empty places are True
-        # np.argwhere of the mask returns the index where the mask is True, i.e. the indexes of the empty places are returned
-        # ths returns [[1], [2], [3], ...] (shape=(-1, 1)) as an example but this is not what we want
-        # (a -1 dimension means a N dimension meaning any length so it could mean (1, 1) or (234, 1))
-        # we want [1, 2, 3, ...] (-1,) and thus reshape(-1)
-        # [:, ::-1] reverses the order of the elements because argwhere returns [[y0, x0], ...] thus becomes [[x1, y0], ...]
         return self.get_legal_actions_MCTS(self.board, self.current_player, np.array(self.action_history))
     @staticmethod
     @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
-        # same as the method above
+        """
+        np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
+        where the board is empty (board == 0). [:, ::-1] reverses the [[y, x], ...] -> [[x, y], ...]
+        """
         return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
