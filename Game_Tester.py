@@ -385,10 +385,23 @@ class Game_Tester:
         if augmented_boards.shape[2:] != self.game.board.shape:
             print("Checking augment sample: Fail")
             print("The dimensions after the first axis should be equal to board shape")
+            return False
 
         if augmented_policies.shape[2:] != self.game.policy_shape:
             print("Checking augment sample: Fail")
             print("The dimensions after the first axis should be equal to policy shape")
+            return False
+
+        if augmented_boards.dtype != self.game.board.dtype:
+            print("Checking augment sample: Fail")
+            print(f"Augmented boards should have the same dtype as the original board which is {self.game.board.dtype} got {augmented_boards.dtype}")
+            return False
+
+        if augmented_policies.dtype != np.float32:
+            print("Checking augment sample: Fail")
+            print(f"The returned augmented_policy should be of type np.float32 not {augmented_policies.dtype}")
+            return False
+
 
         self.game = self.game_class()
         print(f"Augment sample duplicates each game by {augmented_boards.shape[0]} times!")
