@@ -221,7 +221,7 @@ class Game:
         # optional method to improve convergence
         # rotate the board and flip it using numpy and return those as a list along with the original
         # remember to rotate the flip the policy in the same way as board
-        # return [board, rotated_board, ...], [policy, rotated_policy, ...]
+
 
         # Note the optimal rotations and flips for tictactoe, and gomoku is
         # [original arr, flipup(arr), fliplr(arr)]
@@ -234,8 +234,10 @@ class Game:
         # Know that boards will be multiple boards of shape (num_augmentations, num_moves, board shape)
         # Know that the policies will be multiple policies (num_augmentations, num_moves, policy shape)
 
+        # board_0 is board at move 0, board_1 is boar at move 1 and so on
         # Know that the expected output will be [[original_board_0, ...], [augmented_board_1, ...], ... for num_augmentations]
         #                                           ^original game          ^augmented game 1         ^augmented game 2 and so on
+        # this will be the same for the policies
 
         # The expected output shape for the board will be (num_augmentations, num_actions, *board_shape)
         # The expected output shape for the policy will be (num_augmentations, num_actions, policy_shape[0])
