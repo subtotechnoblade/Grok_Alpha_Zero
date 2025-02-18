@@ -5,7 +5,7 @@ from glob import glob
 import tensorflow as tf
 
 
-class Create_Train_Test_Split_Dataset:
+class Create_Train_Test_Split_Indexes:
     def __init__(self,
                  folder_path,
                  num_previous_generations,
@@ -103,6 +103,25 @@ class Dataloader(tf.keras.utils.PyDataset):
             values[i] = file[f"values_{index}"][:]
         return np.array(boards, np.float32), (np.array(policies, np.float32), np.array(values, np.float32))
 
+def Create_Dataset(folder_path,
+                   num_previous_generations,
+                   batch_size,
+                   test_batch_size=None,
+                   train_percent=1.0,
+                   train_decay=0.5,
+                   test_percent=0.1,
+                   test_decay=0.75):
+    train_indexes, test_indexes = Create_Train_Test_Split_Indexes(folder_path,
+                                                                  num_previous_generations,
+                                                                  train_percent,
+                                                                  train_decay,
+                                                                  test_percent,
+                                                                  test_decay).split()
+
+    train_dataset = Dataloader(folder_path, train_indexes, batch_size)
+    test_dataset = Dataloader(folder_path, test_indexes, batch_size if test_batch_size is None else train_indexes)
+    return train_dataset, test_dataset
+
 
 
 
@@ -110,7 +129,7 @@ if __name__ == "__main__":
     from Gomoku.Gomoku import Gomoku
     np.set_printoptions(threshold=np.inf)
     game = Gomoku()
-    split = Create_Train_Test_Split_Dataset("Gomoku/Grok_Zero_Train/", 3)
+    split = Create_Train_Test_Split_Indexes("Gomoku/Grok_Zero_Train/", 3)
     train_indexes, test_indexes = split.split()
     print(train_indexes.shape, test_indexes.shape)
 
