@@ -76,15 +76,15 @@ from numba import njit
 # print(f"Ha Ha {house.owner} is the new owner")
 
 build_config = {"embed_size": 64, # this is the vector for RWKV
-          "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
-          "token_shift_hidden_dim": 32, # this is in the RWKV paper
-          "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
-          "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+                "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
+                "token_shift_hidden_dim": 32, # this is in the RWKV paper
+                "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
+                "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
 
-          "use_stable_max": True,
-          "use_grok_fast": True,
-          "use_orthograd": True,
-          "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "use_stable_max": True,
+                "use_grok_fast": True,
+                "use_orthograd": True,
+                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 
 train_config = {
