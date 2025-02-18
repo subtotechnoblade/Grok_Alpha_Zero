@@ -1,5 +1,5 @@
 # Grok_Alpha_Zero
-Slow AlphaZero development, done the right way. Hopefully full stack.
+Slow AlphaZero development, done the right way.
 The strongest AI in history vs worst programmer in the modern era.
 
 Partially Anti Ian repo
