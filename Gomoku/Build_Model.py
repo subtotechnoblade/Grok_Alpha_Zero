@@ -40,13 +40,13 @@ def build_model(input_shape, policy_shape, build_config):
         x = Train_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
 
-    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)  # MUST NAME THIS "policy"
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)  # MUST NAME THIS "policy"
     policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
 
-    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)  # MUST NAME THIS "value"
+    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     value = tf.keras.layers.Activation("relu")(value)
     value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
@@ -94,13 +94,13 @@ def build_model_infer(input_shape, policy_shape, build_config):
         x, state, state_matrix = Infer_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim,
                                                           hidden_size)(x, state, state_matrix)
 
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)  # MUST NAME THIS "policy"
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)  # MUST NAME THIS "policy"
     policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
 
-    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)  # MUST NAME THIS "value"
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     value = tf.keras.layers.Activation("relu")(value)
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(1))(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
