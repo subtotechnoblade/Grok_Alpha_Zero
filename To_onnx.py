@@ -31,8 +31,8 @@ def convert_to_onnx(tf_model, input_signature, file_path): # must call this func
 if __name__ == "__main__":
     import time
     import numpy as np
-    from Build_Model import build_model, build_model_infer
-    from Gomoku import Gomoku, build_config
+    from Gomoku.Build_Model import build_model, build_model_infer
+    from Gomoku.Gomoku import Gomoku, build_config
 
     # Test and validation code for gomoku
 
