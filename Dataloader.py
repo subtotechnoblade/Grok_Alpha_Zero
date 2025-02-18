@@ -1,11 +1,9 @@
 import h5py as h5
 import numpy as np
 from glob import glob
-import time
 
 import tensorflow as tf
 
-from Gomoku.Gomoku import Gomoku
 
 class Create_Train_Test_Split_Dataset:
     def __init__(self,
@@ -109,6 +107,7 @@ class Dataloader(tf.keras.utils.PyDataset):
 
 
 if __name__ == "__main__":
+    from Gomoku.Gomoku import Gomoku
     np.set_printoptions(threshold=np.inf)
     game = Gomoku()
     split = Create_Train_Test_Split_Dataset("Gomoku/Grok_Zero_Train/", 3)
@@ -117,8 +116,8 @@ if __name__ == "__main__":
 
     dataloader = Dataloader("Gomoku/Grok_Zero_Train/",
                             train_indexes,
-                            batch_size=80)
-    boards, (policy, value) = dataloader[0]
+                            batch_size=3)
+    boards, (policy, value) = dataloader[len(dataloader) - 1]
     print(boards.shape)
     # print(boards[0])
 
