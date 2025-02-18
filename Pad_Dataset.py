@@ -53,6 +53,7 @@ if __name__ == "__main__":
     pad.pad_dataset()
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
         print(len(file["values_0"]))
+        print(file["num_unaugmented_games"][:])
 
     # with h5.File("Gomoku/Grok_Zero_Train/1/Self_Play_Data.h5", "r") as file:
     #     print(len(file["values_0"]))
