@@ -7,7 +7,6 @@ def cache_tensorrt(game,
                    build_config,
                    train_config,
                    folder_path,
-                   generation,
                    warmup_iterations=10):
     # uses the generation number to build the generation cache
     embed_size = build_config["embed_size"]
@@ -21,7 +20,7 @@ def cache_tensorrt(game,
         "trt_dump_ep_context_model": True,
         "trt_builder_optimization_level": 5,
         "trt_auxiliary_streams": 0,
-        "trt_ep_context_file_path": f"{folder_path}/{generation}/TRT_cache/",
+        "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
 
             "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
             "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
@@ -35,7 +34,7 @@ def cache_tensorrt(game,
 
     sess_options = rt.SessionOptions()
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
-    sess = rt.InferenceSession(f"{folder_path}/{generation}/model.onnx",
+    sess = rt.InferenceSession(f"{folder_path}/model.onnx",
                                sess_options=sess_options,
                                providers=providers)
 
@@ -55,7 +54,6 @@ def get_speed(game,
               build_config,
               train_config,
               folder_path,
-              generation,
               iterations=500):
 
     embed_size = build_config["embed_size"]
@@ -69,7 +67,7 @@ def get_speed(game,
         "trt_dump_ep_context_model": True,
         "trt_builder_optimization_level": 5,
         "trt_auxiliary_streams": 0,
-        "trt_ep_context_file_path": f"{folder_path}/{generation}/TRT_cache/",
+        "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
 
         "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
         "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
@@ -80,7 +78,7 @@ def get_speed(game,
         'CPUExecutionProvider']
 
 
-    sess = rt.InferenceSession(f"{folder_path}/{generation}/TRT_cache/model_ctx.onnx",
+    sess = rt.InferenceSession(f"{folder_path}/TRT_cache/model_ctx.onnx",
                                providers=providers)
 
     dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
