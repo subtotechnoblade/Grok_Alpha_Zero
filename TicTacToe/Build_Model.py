@@ -3,7 +3,9 @@ import tensorflow as tf
 
 from Net.RWKV import RWKV_v6, RWKV_v6_Infer
 from Net import Batched_Net, Batched_Net_Infer
-from Net.Grok_Model import Grok_Fast_EMA_Model
+from Net.Stablemax import Stablemax
+
+from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 # Note the imports will not be the same as these ^, but import RWKV.RWKV_v6
 
 
@@ -30,15 +32,30 @@ def build_model(input_shape, policy_shape, build_config):
 
     policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
     policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy) # (batch, game_length, 9)
-    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
+
+    if build_config["use_stable_max"]:
+        policy = Stablemax(name="policy")(policy) # MUST NAME THIS "policy"
+    else:
+        policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
     value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
     value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value) # (batch, game_length, 1)
-    value = tf.keras.layers.Activation("tanh", name="value")(value)
+    value = tf.keras.layers.Activation("tanh", name="value")(value) # MUST NAME THIS "value"
 
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
-    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
+    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
+        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
+                                         lamb=build_config["grok_lambda"],
+                                         alpha=0.99)
+    elif build_config["use_grok_fast"]:
+        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
+                                   lamb=build_config["grok_lambda"], alpha=0.99)
+    elif build_config["use_orthograd"]:
+        return Ortho_Model(inputs=inputs, outputs=[policy, value],
+                           lamb=build_config["grok_lambda"], alpha=0.99)
+    else:
+        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 def build_model_infer(input_shape, policy_shape, build_config):
     # Since this is just and example for Gomoku
@@ -66,11 +83,15 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
-    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
+
+    if build_config["use_stable_max"]:
+        policy = Stablemax(name="policy")(policy) # MUST NAME THIS "policy"
+    else:
+        policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
 
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(1))(value)
-    value = tf.keras.layers.Activation("tanh", name="value")(value)
+    value = tf.keras.layers.Activation("tanh", name="value")(value) # MUST NAME THIS "value"
 
     output_state, output_state_matrix = tf.keras.layers.Identity(name="output_state")(state), tf.keras.layers.Identity(name="output_state_matrix")(state_matrix)
     # Must include this as it is necessary to name the outputs
@@ -78,22 +99,22 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
-    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
+    return tf.keras.Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
 
 
 
 if __name__ == '__main__':
     import numpy as np
-    from Tictactoe import TicTacToe, build_config
+    from Tictactoe import TicTacToe, build_config, train_config
     # print(build_config)
     batch_size = 1
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = TicTacToe()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
-    tf.keras.utils.plot_model(model, "tictactoe_model_diagram.png",
-                              show_shapes=True,
-                              show_layer_names=True,
-                              expand_nested=True)
+    # tf.keras.utils.plot_model(model, "tictactoe_model_diagram.png",
+    #                           show_shapes=True,
+    #                           show_layer_names=True,
+    #                           expand_nested=True)
     model.save_weights("tictactoe_test_model.weights.h5")
     model.summary()
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, *game.get_input_state().shape))
@@ -115,10 +136,10 @@ if __name__ == '__main__':
     model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
     model_infer.load_weights("tictactoe_test_model.weights.h5")
 
-    tf.keras.utils.plot_model(model_infer, "tictactoe_model_infer_diagram.png",
-                              show_shapes=True,
-                              show_layer_names=True,
-                              expand_nested=True)
+    # tf.keras.utils.plot_model(model_infer, "tictactoe_model_infer_diagram.png",
+    #                           show_shapes=True,
+    #                           show_layer_names=True,
+    #                           expand_nested=True)
 
     state, state_matrix = create_states(build_config)
     dummy_data = np.transpose(dummy_data, [1, 0, 2, 3])

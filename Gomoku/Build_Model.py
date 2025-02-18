@@ -1,16 +1,17 @@
-import os
 import tensorflow as tf
+
 from Net.RWKV import RWKV_v6 as Train_net, RWKV_v6_Infer as Infer_net
 from Net import Batched_Net, Batched_Net_Infer
+from Net.Stablemax import Stablemax
 
-from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Grok_Fast_EMA_Model
+from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 
 # Note the imports will not be the same as these ^, but import RWKV.RWKV_v6
 
 
 # This is just a template
-def build_model(input_shape, policy_shape, build_config, train_config):
+def build_model(input_shape, policy_shape, build_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
@@ -42,8 +43,12 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)  # MUST NAME THIS "policy"
-    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
+
+    if build_config["use_stable_max"]:
+        policy = Stablemax(name="policy")(policy) # MUST NAME THIS "policy"
+    else:
+        policy = tf.keras.layers.Activation("softmax", name="policy")(policy) # MUST NAME THIS "policy"
 
 
     value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
@@ -51,10 +56,18 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
-    # Grok fast model most likey improves convergence
-    # return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value], lamb=build_config["grok_lambda"], alpha=train_config["beta_2"])
-    return Ortho_Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value], lamb=build_config["grok_lambda"], alpha=train_config["beta_2"])
+    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
+        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
+                                         lamb=build_config["grok_lambda"],
+                                         alpha=0.99)
+    elif build_config["use_grok_fast"]:
+        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
+                                   lamb=build_config["grok_lambda"], alpha=0.99)
+    elif build_config["use_orthograd"]:
+        return Ortho_Model(inputs=inputs, outputs=[policy, value],
+                           lamb=build_config["grok_lambda"], alpha=0.99)
+    else:
+        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 
 def build_model_infer(input_shape, policy_shape, build_config):
@@ -98,8 +111,8 @@ def build_model_infer(input_shape, policy_shape, build_config):
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)  # MUST NAME THIS "policy"
-    policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
-
+    # policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
+    policy = Stablemax(name="policy")(policy)
 
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     value = tf.keras.layers.Activation("relu")(value)
@@ -110,9 +123,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
         name="output_state_matrix")(state_matrix)
     # Must include this as it is necessary to name the outputs
 
-    # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
-    # Grok fast model most likey improves convergence
-    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
+    return tf.keras.Model(inputs=inputs, outputs=[policy, value, output_state, output_state_matrix])
 
 
 if __name__ == '__main__':
@@ -123,21 +134,21 @@ if __name__ == '__main__':
     batch_size = 1
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
-    model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.summary()
-    raise ValueError
+    # raise ValueError
     # raise ValueError
     # tf.keras.utils.plot_model(model, "model_diagram.png",
     #                           show_shapes=True,
     #                           show_layer_names=True,
     #                           expand_nested=True
     #                           )
-    model.save("test_model.keras")
+    model.save_weights("test_model.weights.h5")
     # raise ValueError
     # model.save_weights("test_model.weights.h5")
 
-    model = tf.keras.models.load_model("test_model.keras")
-    model.summary()
+    # model = tf.keras.models.load_model("test_model.weights.h5")
+    # model.summary()
 
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, *game.get_input_state().shape))
     # 10 is the length of the game in moves, 15, 15 is the dim of the board
@@ -157,7 +168,7 @@ if __name__ == '__main__':
 
     # This is for the infer model
     model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
-    model_infer.load_weights("test_model.keras")
+    model_infer.load_weights("test_model.weights.h5")
     # tf.keras.utils.plot_model(model_infer, "model_infer_diagram.png",
     #                           show_shapes=True,
     #                           show_layer_names=True,
@@ -180,7 +191,7 @@ if __name__ == '__main__':
     print(policy2.shape, value2.shape)
 
     print(np.allclose(policy1, policy2, rtol=1e-1, atol=1e-2))
-    print(np.sum(np.abs(policy2 - policy1)) / len(policy1))  # average deviation over the entire length of policy
+    print(np.sum(np.abs(policy2 - policy1)))  # average deviation over the entire length of policy
 
     print(np.allclose(value2, value1, rtol=1e-2))
     print(np.sum(np.abs(value2 - value1)))
