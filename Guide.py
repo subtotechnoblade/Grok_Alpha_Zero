@@ -14,20 +14,23 @@ from numba import njit
 
 # This is the default model build config and will be passed to Build_Model.py
 build_config = {"embed_size": 32, # this is the vector for RWKV
-          "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
-          "token_shift_hidden_dim": 32, # this is in the RWKV paper
-          "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
-          "num_layers": 3, # This is the total amount of RWKV layers in the model that is using
-          "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
+                "token_shift_hidden_dim": 32, # this is in the RWKV paper
+                "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
+                "num_layers": 3, # This is the total amount of RWKV layers in the model that is using
+
+                "use_stable_max": True,  # use stablemax, which will also use stablemax crossentropy
+                "use_grok_fast": True,  # from grokfast paper
+                "use_orthograd": True,  # from grokking at the edge of numerica stability
+                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
-# feel free to define your own build_config if you are using sth other than RWKV
 
 train_config = {
-    "total_generations": 100, # Total amount of generations, the training can stop and resume at any moment
-    # a generation is defined by a round of self play, and model training
+    "total_generations": 100, # Total number of generations, the training can be stopped and resume at any moment
+    # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # amount of self play games until we re train the network
+    "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9,  # maximum actions allowed in a game
     "num_explore_actions": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": True,  # Change this to false to use CPU for self play and inference
@@ -37,13 +40,12 @@ train_config = {
 
     # MCTS variables
     "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
-    # set to True
+    # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training
     # Set to True for a default of 30 seconds per move
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
-
 
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken

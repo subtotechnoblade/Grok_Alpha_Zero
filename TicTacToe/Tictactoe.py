@@ -88,11 +88,11 @@ build_config = {"embed_size": 64, # this is the vector for RWKV
           }
 
 train_config = {
-    "total_generations": 100, # Total amount of generations, the training can be stopped and resume at any moment
+    "total_generations": 100, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 10, # amount of self play games until we re train the network
+    "games_per_generation": 10, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
     "num_explore_actions": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
@@ -101,8 +101,9 @@ train_config = {
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
-    "MCTS_time_limit": None, # Not recommended to use for training
+    "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    # True defaults to iteration_limit = 3 * len(starting legal actions)
+    "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game)
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
