@@ -3,8 +3,9 @@ import numpy as np
 from glob import glob
 
 class Pad_Dataset:
-    def __init__(self, folder_path, previous_generations):
-        self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{folder_path}/*")][:previous_generations + 1]
+    def __init__(self, folder_path, num_previous_generations):
+        current_generation = max([int(path.split("/")[-1]) for path in glob(f"{folder_path}/*")])
+        self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
 
         self.max_moves = 0 # get the max moves for the previous datasets up to
         for path in self.file_paths:
@@ -25,13 +26,6 @@ class Pad_Dataset:
 
                 samples = (len(file.keys()) - 1) // 3
 
-                # use zeros for board
-                # board_padding = np.expand_dims(np.zeros_like(file[f"boards_0"][0], dtype=file[f"boards_0"][0].dtype), 0 )
-                #
-                # # use -2 as the padding value
-                # policy_padding = np.expand_dims(np.ones_like(file[f"policies_0"][0], dtype=np.float32), 0) * -2.0
-                # value_padding = np.expand_dims(np.ones_like(file[f"values_0"][0], dtype=np.float32), 0) * -2.0
-
                 for game_id in range(samples):
                     if len(file[f"values_{game_id}"]) == self.max_moves:
                         # if the game satisfies self.max_moves the don't do anything
@@ -45,12 +39,11 @@ class Pad_Dataset:
                     file[f"values_{game_id}"].resize(self.max_moves, axis=0)
 
                     if game_len < self.max_moves:
-                        # pad the boards
-                        # file[f"boards_{game_id}"][game_len:] = np.repeat(board_padding, self.max_moves - game_len, axis=0)
-                        file[f"boards_{game_id}"][game_len:] = np.array(-2, dtype=file[f"boards_0"][0].dtype)
+                        # pad the boards with -2.0
+                        file[f"boards_{game_id}"][game_len:] = np.array(-2, dtype=file[f"boards_0"][0].dtype) # Basic broadcasting
+
                         # pad the policies
-                        # file[f"policies_{game_id}"][game_len:] = np.repeat(policy_padding, self.max_moves - game_len, axis=0)
-                        file[f"policies_{game_id}"][game_len:] = -2.0
+                        file[f"policies_{game_id}"][game_len:] = -2.0 # Note that these are float because policy is of type float
 
                         # pad the values
                         file[f"values_{game_id}"][game_len:] = -2.0
