@@ -197,7 +197,6 @@ def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_opti
                     per_process_wait_time
                     )
     server.start()
-    print("Inference Server has started!\n")
 def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu_count()):
     max_length_inputs = 1
     for (input_shape, _) in inputs_feed_info.values():
