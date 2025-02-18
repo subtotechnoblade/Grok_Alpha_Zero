@@ -108,15 +108,12 @@ class Self_Play:
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/{self.generation}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
-            if file["max_moves"][0] < game_length:
-                file["max_moves"][0] = game_length
+            if file["max_actions"][0] < game_length:
+                file["max_actions"][0] = game_length
 
             dataset_name = (len(file.keys()) - 1) // 3 # starts from 0
 
-
             for inc in tqdm(range(augmented_policies.shape[0])):
-                # print((None, *augmented_board_states.shape[1:]))
-                # print(augmented_board_states[inc].shape)
                 file.create_dataset(f"boards_{dataset_name + inc}",
                                     maxshape=(None, *augmented_board_states[inc].shape[1:]),
                                     dtype=augmented_board_states[inc].dtype,
@@ -316,13 +313,13 @@ if __name__== "__main__":
         os.remove("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5")
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
-        file.create_dataset(f"max_moves", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
 
     run_self_play(Gomoku, build_config, train_config, folder_path, 0, train_config["num_workers"])
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
         print(file.keys())
-        print(file["max_moves"][0])
+        print(file["max_actions"][0])
 
 
         print(file['boards_0'].shape)
@@ -330,7 +327,7 @@ if __name__== "__main__":
         print(file['values_0'].shape)
 
         print((len(file.keys()) - 1) // 3)
-        # for i in range(file["max_moves"][0]):
+        # for i in range(file["max_actions"][0]):
         #     print(file["boards_0"][i])
         # print(len(file["boards_1"]))
 

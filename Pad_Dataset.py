@@ -7,11 +7,11 @@ class Pad_Dataset:
         current_generation = max([int(path.split("/")[-1]) for path in glob(f"{folder_path}/*")])
         self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
 
-        self.max_moves = 0 # get the max moves for the previous datasets up to
+        self.max_actions = 0 # get the max moves for the previous datasets up to
         for path in self.file_paths:
             with h5.File(path) as file:
-                if file["max_moves"][0] > self.max_moves:
-                    self.max_moves = file["max_moves"][0]
+                if file["max_actions"][0] > self.max_actions:
+                    self.max_actions = file["max_actions"][0]
 
 
 
@@ -19,26 +19,26 @@ class Pad_Dataset:
         print("Padding the datasets!")
         for file_path in self.file_paths:
             with h5.File(file_path, mode="a", libver="latest") as file:
-                max_moves = file["max_moves"][0]
+                max_actions = file["max_actions"][0]
 
-                if max_moves > self.max_moves:
+                if max_actions > self.max_actions:
                     raise ValueError("self.max moves is smaller that this dataset's max moves.")
 
                 samples = (len(file.keys()) - 1) // 3
 
                 for game_id in range(samples):
-                    if len(file[f"values_{game_id}"]) == self.max_moves:
-                        # if the game satisfies self.max_moves the don't do anything
+                    if len(file[f"values_{game_id}"]) == self.max_actions:
+                        # if the game satisfies self.max_actions the don't do anything
                         continue
                     game_len = len(file[f"values_{game_id}"])
 
                     # resize which expands
-                    # or retracts the array which deletes padding if self.max_moves is smaller and vice versa
-                    file[f"boards_{game_id}"].resize(self.max_moves, axis=0)
-                    file[f"policies_{game_id}"].resize(self.max_moves, axis=0)
-                    file[f"values_{game_id}"].resize(self.max_moves, axis=0)
+                    # or retracts the array which deletes padding if self.max_actions is smaller and vice versa
+                    file[f"boards_{game_id}"].resize(self.max_actions, axis=0)
+                    file[f"policies_{game_id}"].resize(self.max_actions, axis=0)
+                    file[f"values_{game_id}"].resize(self.max_actions, axis=0)
 
-                    if game_len < self.max_moves:
+                    if game_len < self.max_actions:
                         # pad the boards with -2.0
                         file[f"boards_{game_id}"][game_len:] = np.array(-2, dtype=file[f"boards_0"][0].dtype) # Basic broadcasting
 
