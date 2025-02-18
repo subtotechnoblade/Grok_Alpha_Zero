@@ -83,7 +83,7 @@ def get_speed(game,
     sess = rt.InferenceSession(f"{folder_path}/{generation}/TRT_cache/model_ctx.onnx",
                                providers=providers)
 
-    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape)).astype(np.float32)
+    dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
 
     input_state = np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32)
     input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
@@ -101,4 +101,4 @@ def get_speed(game,
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
     time_taken = time.time() - s
-    print(f"Took {time_taken / 100} seconds per iteration at {100 / time_taken:0.2f} it/s!")
+    print(f"Took {time_taken / 500} seconds per iteration at {500 / time_taken:0.2f} it/s!")
