@@ -18,6 +18,7 @@ build_config = {"embed_size": 32, # this is the vector for RWKV
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
           "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
           "num_layers": 3, # This is the total amount of RWKV layers in the model that is using
+          "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 # feel free to define your own build_config if you are using sth other than RWKV
 
@@ -57,7 +58,6 @@ train_config = {
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "train_epochs": 5, # The number of epochs for training a generation's network
-    "grok_lambda": 4.5, # This is for grok fast, won't be used if the model is not a Grok_Fast_EMA_Model
 }
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
