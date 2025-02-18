@@ -78,9 +78,49 @@ from numba import njit
 build_config = {"embed_size": 64, # this is the vector for RWKV
           "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
           "token_shift_hidden_dim": 32, # this is in the RWKV paper
-          "hidden_size": None, # this uses the default 3.5 * embed size
+          "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
           "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
-                }
+
+          "use_stable_max": True,
+          "use_grok_fast": True,
+          "use_orthograd": True,
+          "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+          }
+
+train_config = {
+    "total_generations": 100, # Total amount of generations, the training can be stopped and resume at any moment
+    # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
+
+    # Self Play variables
+    "games_per_generation": 10, # amount of self play games until we re train the network
+    "max_actions": 9, # Note that this should be
+    "num_explore_actions": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "use_gpu": False,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    # change this to False to use CUDAExecutionProvider
+    "num_workers": 6, # Number of multiprocessing workers used to self play
+
+    # MCTS variables
+    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_time_limit": None, # Not recommended to use for training
+    "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 1.11, # should be around (10 / average moves per game)
+    "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
+
+    "num_previous_generations": 3, # The previous generation's data that will be used in training
+    "train_percent": 1.0, # The percent used for training after the test set is taken
+    "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "test_percent": 0.1, # The percent of a dataset that will be used for validation
+    "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+
+    "train_batch_size": 64, # The number of samples in a batch for training in parallel
+    "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
+    "learning_rate": 1e-3, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "decay_lr": 0.1,  # When the generation reaches 10%, 20% ,... learning rate will be decreased linearly
+    "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
+    "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "train_epochs": 5, # The number of epochs for training
+}
 
 
 class TicTacToe:
