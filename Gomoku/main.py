@@ -10,12 +10,10 @@ import multiprocessing as mp
 from Gomoku import Gomoku, build_config, train_config
 from Game_Tester import Game_Tester
 
-from to_onnx import convert_to_onnx
+from To_onnx import convert_to_onnx
 from Build_Model import build_model, build_model_infer
 from Build_Tensorrt import cache_tensorrt, get_speed
 
-from Self_Play import run_self_play
-from Pad_Dataset import Pad_Dataset
 
 def Validate_Train_Config(train_config):
     if train_config["total_generations"] <= 0:
@@ -46,7 +44,7 @@ def Initialize_Training(game_class): # This must be ran with a mp.Process
         except:
             # Invalid device or cannot modify virtual devices once initialized.
             pass
-        train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+        train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
         train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
     print("Initializing the model\n")
     p = mp.Process(target=initialize_model, args=(game, build_config))
