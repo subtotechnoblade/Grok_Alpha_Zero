@@ -182,7 +182,7 @@ def run_self_play(game_class,
     with h5.File(f"{folder_path}/{generation}/Self_Play_Data.h5") as dataset_file:
         num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
 
-    bar = tqdm(total=num_games_left, desc="Generating self play games:")
+    bar = tqdm(total=num_games_left, desc="Generating self play games")
     if num_games_left < num_workers:
         num_workers = num_games_left
 
