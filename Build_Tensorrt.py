@@ -85,10 +85,10 @@ def get_speed(game,
 
     dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
 
-    input_state = np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32)
-    input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
+    input_state = np.zeros((num_layers, 2, train_config["num_workers"], embed_size), dtype=np.float32)
+    input_state_matrix = np.zeros((num_layers, train_config["num_workers"], num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
 
-    for _ in range(100):
+    for _ in range(10):
         policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": dummy_inputs,
                                                                 "input_state": input_state,
