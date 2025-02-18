@@ -62,7 +62,9 @@ class Dataloader(tf.keras.utils.PyDataset):
     def __init__(self,
                  folder_path,
                  indexes,
-                 batch_size):
+                 batch_size,
+                 **kwargs):
+        super().__init__(**kwargs)
         self.folder_path = folder_path
         self.indexes = indexes
         self.batch_size = batch_size
