@@ -56,7 +56,7 @@ def get_speed(game,
               train_config,
               folder_path,
               generation,
-              iterations=100):
+              iterations=500):
 
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
@@ -88,7 +88,7 @@ def get_speed(game,
     input_state = np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32)
     input_state_matrix = np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)
 
-    for _ in range(5):
+    for _ in range(100):
         policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": dummy_inputs,
                                                                 "input_state": input_state,
@@ -101,4 +101,4 @@ def get_speed(game,
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
     time_taken = time.time() - s
-    print(f"Took {time_taken / 100:0.2f} seconds per iteration at {100 / time_taken:0.2f} it/s!")
+    print(f"Took {time_taken / 100} seconds per iteration at {100 / time_taken:0.2f} it/s!")
