@@ -110,10 +110,11 @@ class Self_Play:
             game_length = len(self.game.action_history)
             if file["max_actions"][0] < game_length:
                 file["max_actions"][0] = game_length
+            file["num_unaugmented_games"][:] += 1
 
             dataset_name = (len(file.keys()) - 1) // 3 # starts from 0
 
-            for inc in tqdm(range(augmented_policies.shape[0])):
+            for inc in range(augmented_policies.shape[0]):
                 file.create_dataset(f"boards_{dataset_name + inc}",
                                     maxshape=(None, *augmented_board_states[inc].shape[1:]),
                                     dtype=augmented_board_states[inc].dtype,
@@ -181,7 +182,7 @@ def run_self_play(game_class,
     with h5.File(f"{folder_path}/{generation}/Self_Play_Data.h5") as dataset_file:
         num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
 
-    bar = tqdm(total=num_games_left)
+    bar = tqdm(total=num_games_left, desc="Generating self play games:")
     if num_games_left < num_workers:
         num_workers = num_games_left
 
@@ -228,7 +229,7 @@ def run_self_play(game_class,
                                 "output_state": [num_layers, 2, -1, embed_size],
                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
                                 }
-    print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!")
+    print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
     shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
 
     sess_options = rt.SessionOptions()
@@ -291,7 +292,7 @@ def run_self_play(game_class,
                                                              folder_path,
                                                              generation),
                                 name=f"{dead_worker_id}")
-                    # print("Worker", new_worker.name, "has restarted")
+
                     alive_jobs.append(new_worker)
                     new_worker.start()
                 jobs = alive_jobs
@@ -314,6 +315,7 @@ if __name__== "__main__":
 
     with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
 
     run_self_play(Gomoku, build_config, train_config, folder_path, 0, train_config["num_workers"])
 
