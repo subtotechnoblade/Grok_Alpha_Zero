@@ -30,6 +30,10 @@ train_config = {
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
+    "train_percent": 1.0, # The percent used for training after the test set is taken
+    "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "test_percent": 0.1, # The percent of a dataset that will be used for validation
+    "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
     "train_epochs": 5, # The number of epochs for training
     "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
 }
