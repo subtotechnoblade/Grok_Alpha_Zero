@@ -3,14 +3,14 @@ import tensorflow as tf
 from Net.RWKV import RWKV_v6 as Train_net, RWKV_v6_Infer as Infer_net
 from Net import Batched_Net, Batched_Net_Infer
 
-from Net.Grok_Model import Grok_Fast_EMA_Model
+from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Grok_Fast_EMA_Model
 
 
 # Note the imports will not be the same as these ^, but import RWKV.RWKV_v6
 
 
 # This is just a template
-def build_model(input_shape, policy_shape, build_config):
+def build_model(input_shape, policy_shape, build_config, train_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
@@ -53,7 +53,8 @@ def build_model(input_shape, policy_shape, build_config):
 
     # feel free to also use return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
     # Grok fast model most likey improves convergence
-    return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value])
+    # return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value], lamb=build_config["grok_lambda"], alpha=train_config["beta_2"])
+    return Ortho_Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value], lamb=build_config["grok_lambda"], alpha=train_config["beta_2"])
 
 
 def build_model_infer(input_shape, policy_shape, build_config):
@@ -116,13 +117,13 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
 if __name__ == '__main__':
     import numpy as np
-    from Gomoku import Gomoku, build_config
+    from Gomoku import Gomoku, build_config, train_config
 
     # print(build_config)
     batch_size = 1
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
-    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     # raise ValueError
     # tf.keras.utils.plot_model(model, "model_diagram.png",
     #                           show_shapes=True,
