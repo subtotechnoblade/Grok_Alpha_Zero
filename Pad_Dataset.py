@@ -4,6 +4,11 @@ from glob import glob
 
 class Pad_Dataset:
     def __init__(self, folder_path, num_previous_generations):
+        split_folder_path = folder_path.split("/")[:-2]
+        folder_path = ""
+        for path in split_folder_path:
+            folder_path += path + "/"
+
         current_generation = max([int(path.split("/")[-1]) for path in glob(f"{folder_path}/*")])
         self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
 
@@ -49,9 +54,10 @@ class Pad_Dataset:
                         file[f"values_{game_id}"][game_len:] = -2.0
 
 if __name__ == "__main__":
-    pad = Pad_Dataset("Gomoku/Grok_Zero_Train/", 1)
+    folder_path = "TicTacToe/Grok_Zero_Train/0/"
+    pad = Pad_Dataset(folder_path, 1)
     pad.pad_dataset()
-    with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(len(file["values_0"]))
         print(file["num_unaugmented_games"][:])
 
