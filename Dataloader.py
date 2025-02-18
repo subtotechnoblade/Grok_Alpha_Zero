@@ -105,10 +105,10 @@ class Dataloader(tf.keras.utils.PyDataset):
 
 def Create_Dataset(folder_path,
                    num_previous_generations,
-                   batch_size,
+                   train_batch_size,
                    test_batch_size=None,
                    train_percent=1.0,
-                   train_decay=0.5,
+                   train_decay=0.75,
                    test_percent=0.1,
                    test_decay=0.75):
     train_indexes, test_indexes = Create_Train_Test_Split_Indexes(folder_path,
@@ -118,8 +118,8 @@ def Create_Dataset(folder_path,
                                                                   test_percent,
                                                                   test_decay).split()
 
-    train_dataset = Dataloader(folder_path, train_indexes, batch_size)
-    test_dataset = Dataloader(folder_path, test_indexes, batch_size if test_batch_size is None else train_indexes)
+    train_dataset = Dataloader(folder_path, train_indexes, train_batch_size)
+    test_dataset = Dataloader(folder_path, test_indexes, train_batch_size if test_batch_size is None else train_indexes)
     return train_dataset, test_dataset
 
 
