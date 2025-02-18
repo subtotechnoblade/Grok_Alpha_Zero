@@ -1,5 +1,4 @@
 import tensorflow as tf
-from Gomoku.Gomoku import Gomoku, build_config, train_config
 
 from Dataloader import Create_Dataset
 from Net.Custom_Loss import Policy_Loss, Value_Loss
@@ -31,10 +30,17 @@ def train(model, learning_rate, folder_path, train_config):
     model.save_weights(f"{folder_path[:-1]}/{generation + 1}/model.weights.h5")
 
 if __name__ == "__main__":
+    folder_path = "TicTacToe/Grok_Zero_Train/0"
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
     from Gomoku.Build_Model import build_model
-    game = Gomoku()
-    model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
-    train(model, 5e-4, "Gomoku/Grok_Zero_Train/0", train_config)
+
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Build_Model import build_model
+
+    # game = Gomoku()
+    game = TicTacToe()
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+    train(model, 5e-4, folder_path, train_config)
 
 
 

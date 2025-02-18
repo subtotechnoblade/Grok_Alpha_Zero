@@ -106,7 +106,7 @@ class Self_Play:
             print(f"The 0th and 1st dim should the same got: {augmented_board_states.shape[2:]}, {augmented_values.shape[2:]}")
 
         # Assume that a .h5 file has been created and the max moves dataset is already created
-        with self.lock, h5.File(f"{self.folder_path}/{self.generation}/Self_Play_Data.h5", "r+") as file:
+        with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
             if file["max_actions"][0] < game_length:
                 file["max_actions"][0] = game_length
@@ -174,14 +174,14 @@ def run_self_play(game_class,
                   build_config,
                   train_config,
                   folder_path,
-                  generation,
                   num_workers=1):
-    if not os.path.exists(f"{folder_path}/{generation}/Self_Play_Data.h5"):
+    if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file")
 
-    with h5.File(f"{folder_path}/{generation}/Self_Play_Data.h5") as dataset_file:
+    with h5.File(f"{folder_path}/Self_Play_Data.h5") as dataset_file:
         num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
 
+    generation = int(folder_path.split("/")[-1])
     bar = tqdm(total=num_games_left, desc="Generating self play games")
     if num_games_left < num_workers:
         num_workers = num_games_left
@@ -195,11 +195,11 @@ def run_self_play(game_class,
 
     embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
         "num_layers"]
-    onnx_file_path = f"{folder_path}/{generation}/model.onnx"
+    onnx_file_path = f"{folder_path}/model.onnx"
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
             max_shape = train_config["num_workers"]
-            onnx_file_path = f"{folder_path}/{generation}/TRT_cache/model_ctx.onnx"
+            onnx_file_path = f"{folder_path}/TRT_cache/model_ctx.onnx"
             providers = [
                 ('TensorrtExecutionProvider', {
                     "trt_engine_cache_enable": True,
@@ -207,7 +207,7 @@ def run_self_play(game_class,
                     "trt_builder_optimization_level": 5,
                     "trt_auxiliary_streams": 0,
 
-                    "trt_ep_context_file_path": f"{folder_path}/{generation}/TRT_cache/",
+                    "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
                     "trt_profile_min_shapes": f"inputs:1x{str_board_shape},input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
                     "trt_profile_max_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
                     "trt_profile_opt_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
@@ -309,17 +309,18 @@ if __name__== "__main__":
     import time
     # Testing code for validation
     from Gomoku.Gomoku import Gomoku, build_config, train_config
-    folder_path = "Gomoku/Grok_Zero_Train"
-    if os.path.exists("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5"):
-        os.remove("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5")
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    folder_path = "TicTacToe/Grok_Zero_Train/0"
+    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+        os.remove(f"{folder_path}/Self_Play_Data.h5")
 
-    with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "w", libver="latest") as file:
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
         file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
 
-    run_self_play(Gomoku, build_config, train_config, folder_path, 0, train_config["num_workers"])
+    run_self_play(TicTacToe, build_config, train_config, folder_path, train_config["num_workers"])
 
-    with h5.File("Gomoku/Grok_Zero_Train/0/Self_Play_Data.h5", "r") as file:
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
         print(file["max_actions"][0])
 
