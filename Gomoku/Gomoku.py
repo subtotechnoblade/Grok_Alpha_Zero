@@ -3,16 +3,20 @@ from numba import njit
 
 # This is for building the model
 build_config = {"embed_size": 128, # this is the vector for RWKV
-          "num_heads": 8, # this must be a factor of embed_size or else an error will be raised
-          "token_shift_hidden_dim": 32, # this is in the RWKV paper
-          "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
-          "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
-          "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
+                "token_shift_hidden_dim": 32, # this is in the RWKV paper
+                "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
+                "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+
+                "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
+                "use_grok_fast": True, # from grokfast paper
+                "use_orthograd": True, # from grokking at the edge of numerica stability
+                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 
 train_config = {
-    "total_generations": 100, # Total amount of generations, the training can stop and resume at any moment
-    # a generation is defined by a round of self play, and model training
+    "total_generations": 100, # Total amount of generations, the training can be stopped and resume at any moment
+    # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
     "games_per_generation": 10, # amount of self play games until we re train the network
