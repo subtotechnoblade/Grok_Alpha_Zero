@@ -29,7 +29,8 @@ train_config = {
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
 
-    "train_epochs": 5, # The amount of epochs for training
+    "num_previous_generations": 3, # The previous generation's data that will be used in training
+    "train_epochs": 5, # The number of epochs for training
     "grok_lambda": 4.0, # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
 }
 class Gomoku:

@@ -44,8 +44,9 @@ train_config = {
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
 
     # tensorflow training variables
-    "train_epochs": 5, # The amount of epochs for training a generation's network
-    "grok_lambda": 4.0, # This is for grok fast, won't be used if the model is not a Grok_Fast_EMA_Model
+    "num_previous_generations": 3,  # The previous generation's data that will be used in training
+    "train_epochs": 5, # The number of epochs for training a generation's network
+    "grok_lambda": 4.5, # This is for grok fast, won't be used if the model is not a Grok_Fast_EMA_Model
 }
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
