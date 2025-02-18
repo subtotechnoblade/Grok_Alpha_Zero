@@ -103,7 +103,7 @@ class Dataloader(tf.keras.utils.PyDataset):
             boards[i] = file[f"boards_{index}"][:]
             policies[i] = file[f"policies_{index}"][:]
             values[i] = file[f"values_{index}"][:]
-        return np.array(boards, np.float32), (np.array(policies, np.float32), np.array(values, np.float32))
+        return np.array(boards, np.float32), (np.array(policies, np.float32), np.expand_dims(np.array(values, np.float32), -1))
 
 def Create_Dataset(folder_path,
                    num_previous_generations,
