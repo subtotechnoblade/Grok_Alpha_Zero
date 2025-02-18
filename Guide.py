@@ -43,12 +43,15 @@ train_config = {
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
     "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
 
-    # tensorflow training variables
+
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+
+    "train_batch_size": 8,  # The number of samples in a batch for training in parallel
+    "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "train_epochs": 5, # The number of epochs for training a generation's network
     "grok_lambda": 4.5, # This is for grok fast, won't be used if the model is not a Grok_Fast_EMA_Model
 }
