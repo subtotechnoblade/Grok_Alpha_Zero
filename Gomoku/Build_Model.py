@@ -124,6 +124,8 @@ if __name__ == '__main__':
     # Testing code to verify that both the train and infer version of the model result in the same outputs
     game = Gomoku()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    model.summary()
+    raise ValueError
     # raise ValueError
     # tf.keras.utils.plot_model(model, "model_diagram.png",
     #                           show_shapes=True,
