@@ -1,16 +1,13 @@
 import h5py as h5
 import numpy as np
 from glob import glob
-
+from pathlib import Path
 class Pad_Dataset:
     def __init__(self, folder_path, num_previous_generations):
-        split_folder_path = folder_path.split("/")[:-2]
-        folder_path = ""
-        for path in split_folder_path:
-            folder_path += path + "/"
+        outer_folder_path = Path(folder_path).resolve().parent
 
-        current_generation = max([int(path.split("/")[-1]) for path in glob(f"{folder_path}/*")])
-        self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
+        current_generation = max([int(path.split("/")[-1]) for path in glob(f"{outer_folder_path}/*")])
+        self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{outer_folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
 
         self.max_actions = 0 # get the max moves for the previous datasets up to
         for path in self.file_paths:
