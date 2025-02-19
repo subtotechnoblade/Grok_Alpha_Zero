@@ -1,6 +1,6 @@
 # Grok_Alpha_Zero
 Slow AlphaZero development, done the right way.
-The strongest AI in history vs worst programmer in the modern era.
+The strongest AI in history vs stongest programmer in the modern era.
 
 Partially Anti Ian repo
 Only the original Ians beyond this point
