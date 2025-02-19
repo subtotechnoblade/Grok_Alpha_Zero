@@ -15,19 +15,17 @@ class Pad_Dataset:
         self.max_actions = 0 # get the max moves for the previous datasets up to
         for path in self.file_paths:
             with h5.File(path) as file:
-                if file["max_actions"][0] > self.max_actions:
-                    self.max_actions = file["max_actions"][0]
-
-
+                if file["game_stats"][0] > self.max_actions:
+                    self.max_actions = file["game_stats"][0]
 
     def pad_dataset(self):
         print("Padding the datasets!")
         for file_path in self.file_paths:
             with h5.File(file_path, mode="a", libver="latest") as file:
-                max_actions = file["max_actions"][0]
+                max_actions = file["game_stats"][0]
 
                 if max_actions > self.max_actions:
-                    raise ValueError("self.max moves is smaller that this dataset's max moves.")
+                    raise ValueError("self.max_actions is smaller that this dataset's max moves. This shouldn't be the case!")
 
                 samples = (len(file.keys()) - 1) // 3
 
@@ -59,7 +57,7 @@ if __name__ == "__main__":
     pad.pad_dataset()
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(len(file["values_0"]))
-        print(file["num_unaugmented_games"][:])
+        print(file["game_stats"][2])
 
     # with h5.File("Gomoku/Grok_Zero_Train/1/Self_Play_Data.h5", "r") as file:
     #     print(len(file["values_0"]))
