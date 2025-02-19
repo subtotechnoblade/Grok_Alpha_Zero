@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from Dataloader import Create_Dataset
 from Net.Custom_Loss import Policy_Loss, Value_Loss
-def train(model, learning_rate, save_folder_path, train_config):
+def train(model, learning_rate, train_config, save_folder_path):
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
 
     train_dataset, test_dataset = Create_Dataset(folder_path,
