@@ -1,6 +1,5 @@
 import numpy as np
 import time
-from numba.extending import  is_jitted
 from MCTS import MCTS
 
 
