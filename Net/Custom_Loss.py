@@ -55,6 +55,17 @@ class Value_Loss(tf.keras.Loss):
         masked_loss = tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, axis=-1))
         return masked_loss
 
+class KLD(tf.keras.Loss):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.loss_fn = tf.keras.losses.KLDivergence(reduction=None)
+
+    def call(self, y_true, y_pred):
+        loss = self.loss_fn(y_true, y_pred)
+        mask = tf.cast(y_true[:, :, 0] != -2, tf.float32)
+        masked_loss = tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, -1))
+        return masked_loss
+
 if __name__ == "__main__":
     import numpy as np
     fn = Stablemax_Binary_Crossentropy(reduction=None)
