@@ -60,6 +60,7 @@ train_config = {
     "lr_decay": 0.5, # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
     "train_epochs": 5, # The number of epochs for training a generation's network
 }
 class Game:
