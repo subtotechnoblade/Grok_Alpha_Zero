@@ -2,6 +2,7 @@ import time
 
 import numpy as np
 import numba as nb
+from numba.extending import is_jitted
 from numba import njit
 from tqdm import tqdm
 from warnings import warn
@@ -83,7 +84,7 @@ class MCTS:
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
                  tau=1.0,
                  fast_find_win=False, # this is for training, when exploiting change to True
-                 use_njit=0):
+                 ):
         """
         :param game: Your game class
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
@@ -116,7 +117,7 @@ class MCTS:
             tau = 0.0
         self.tau = tau # temperature parameter in alpha zero
 
-        self.use_njit = use_njit
+        self.use_njit = is_jitted(self.game.get_legal_actions_MCTS) and is_jitted(self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
         # Note that these are functions getting assigned and jitted
         if self.use_njit:
             self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True)

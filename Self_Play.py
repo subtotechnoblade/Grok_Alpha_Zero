@@ -47,8 +47,7 @@ class Self_Play:
                                use_dirichlet=True,
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                tau=1.0,
-                               fast_find_win=False,
-                               use_njit=self.train_config["use_njit"])
+                               fast_find_win=False)
 
     def play(self):
         board_states = []
