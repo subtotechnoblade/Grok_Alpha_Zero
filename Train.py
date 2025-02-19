@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from Dataloader import Create_Dataset
-from Net.Custom_Loss import Policy_Loss, Value_Loss
+from Net.Custom_Loss import Stablemax_Binary_Crossentropy, Stablemax_Binary_Focal_Crossentropy, Policy_Loss, Value_Loss
 def train(model, learning_rate, train_config, folder_path, save_folder_path):
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     train_dataset, test_dataset = Create_Dataset(folder_path,
@@ -25,8 +25,13 @@ def train(model, learning_rate, train_config, folder_path, save_folder_path):
     elif train_config["optimizer"].lower() == "nadam":
         optimizer = tf.keras.optimizers.Nadam(**kwargs)
 
+    if not train_config["use_stable_max"]:
+        base_policy_loss_fn = tf.keras.losses.tf.keras.losses.BinaryCrossentropy(reduction=None)
+    else:
+        base_policy_loss_fn = Stablemax_Binary_Crossentropy(reduction=None)
+
     model.compile(optimizer=optimizer,
-                  loss={"policy": Policy_Loss(), "value": Value_Loss()},
+                  loss={"policy": Policy_Loss(base_policy_loss_fn), "value": Value_Loss()},
                   #Brian will probably create custom accuracies for this
                   # todo make accuracies class
                   jit_compile=train_config["use_gpu"]
