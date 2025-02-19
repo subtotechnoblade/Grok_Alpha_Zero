@@ -108,9 +108,15 @@ class Self_Play:
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
-            if file["max_actions"][0] < game_length:
-                file["max_actions"][0] = game_length
-            file["num_unaugmented_games"][:] += 1
+
+            # [max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins]
+            if file["game_stats"][0] < game_length:
+                file["game_stats"][0] = game_length
+
+            file["game_stats"][1] += board_states.shape[0] # adds to
+            file["game_stats"][2] += 1 # adds a game to num_unaugmented_games
+
+            file["game_stats"][winner + 4] += 1 # adding winners/ draws
 
             dataset_name = (len(file.keys()) - 1) // 3 # starts from 0
 
@@ -306,29 +312,36 @@ def run_self_play(game_class,
         shm.unlink()
 
 if __name__== "__main__":
+    import os
+    import shutil
     import time
     # Testing code for validation
     from Gomoku.Gomoku import Gomoku, build_config, train_config
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+
+
     folder_path = "TicTacToe/Grok_Zero_Train/0"
+
     if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         os.remove(f"{folder_path}/Self_Play_Data.h5")
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-        file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
+        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
 
     run_self_play(TicTacToe, build_config, train_config, folder_path, train_config["num_workers"])
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
-        print(file["max_actions"][0])
+        print(file["game_stats"])
 
 
         print(file['boards_0'].shape)
         print(file['policies_0'].shape)
         print(file['values_0'].shape)
 
+        print(file['boards_0'][:])
         print((len(file.keys()) - 1) // 3)
         # for i in range(file["max_actions"][0]):
         #     print(file["boards_0"][i])

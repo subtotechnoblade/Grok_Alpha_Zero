@@ -1,10 +1,12 @@
 import os
+from pathlib import Path
 import shutil
 
-from glob import glob
 import h5py as h5
 import numpy as np
+from glob import glob
 import tensorflow as tf
+import onnxruntime as rt
 import multiprocessing as mp
 
 from Gomoku import Gomoku, build_config, train_config
@@ -25,12 +27,20 @@ def Validate_Train_Config(train_config):
     if not train_config["use_gpu"] and train_config["use_tensorrt"]:
         raise ValueError("You must use the GPU for tensorrt")
 
+    available_providers = rt.get_available_providers()
+    if train_config["use_tensorrt"] and "TensorrtExecutionProvider" not in available_providers:
+        raise RuntimeError("Please install tensorrt as onnxruntime doesn't detect TensorrtExecutionProvider")
+
+    if train_config["use_gpu"] and not train_config["use_tensorrt"] and "CUDAExecutionProvider" not in available_providers:
+        raise RuntimeError("Please install CUDA as onnxruntime doesn't detect CUDAExecutionProvider")
+
+
 def Make_Generation_Folder(generation):
     os.makedirs(f"Grok_Zero_Train/{generation}/", exist_ok=False)
 def Make_Dataset_File(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-        file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
-        file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.int32, data=np.zeros(1,))
+        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+        # [max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins]
 
 def Initialize_Training(game_class): # This must be ran with a mp.Process
     # test the game class before anything is done
@@ -79,11 +89,11 @@ def Initialize_Training(game_class): # This must be ran with a mp.Process
 
 
     if train_config["use_gpu"] and train_config["use_tensorrt"]:
-        p = mp.Process(target=cache_tensorrt, args=(game, build_config, train_config, "Grok_Zero_Train/", 0))
+        p = mp.Process(target=cache_tensorrt, args=(game, build_config, train_config, "Grok_Zero_Train/0"))
         p.start()
         p.join()
 
-        p = mp.Process(target=get_speed, args=(game, build_config, train_config, "Grok_Zero_Train/", 0))
+        p = mp.Process(target=get_speed, args=(game, build_config, train_config, "Grok_Zero_Train/0"))
         p.start()
         p.join()
 
@@ -91,6 +101,11 @@ def Initialize_Training(game_class): # This must be ran with a mp.Process
 
 def Run(game_class, test=False):
     Validate_Train_Config(train_config)
+
+    parent_dir = Path(__file__).resolve().parent # delete pycache in the parent directory
+    if "__pycache__" in os.listdir(parent_dir):
+        shutil.rmtree(f"{parent_dir}/__pycache__")
+
     if test:
         Game_Tester(game_class).test()
     try:
@@ -106,7 +121,7 @@ def Run(game_class, test=False):
         (train_config["use_tensorrt"] and os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx")) or not
         os.path.exists("Grok_Zero_Train/0/model.onnx") or not
         os.path.exists("Grok_Zero_Train/Self_Play_Data.h5")):
-            print("The starting folder is initialized incorrectly!")
+            print("\n\nThe starting folder is initialized incorrectly!")
             print("Deleting and re-initiating!\n")
             shutil.rmtree("Grok_Zero_Train/")
             Make_Generation_Folder(0)
