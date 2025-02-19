@@ -1,5 +1,7 @@
 import numpy as np
 import time
+from numba.extending import  is_jitted
+from MCTS import MCTS
 
 
 class Game_Tester:
@@ -408,6 +410,22 @@ class Game_Tester:
         print("Checking augment sample: Pass\n")
         return True
 
+    def check_compatibility_with_MCTS(self):
+        self.game = self.game_class()
+
+        mcts = MCTS(self.game,
+                    [],
+                    None,
+                    fast_find_win=False)
+        try:
+            mcts.run(iteration_limit=10, use_bar=False)
+        except:
+            print("Checking if everything works with MCTS: Fail")
+            print("MCTS doesn't work, might want to test that!")
+            return False
+
+        print("Checking if everything works with MCTS: Pass")
+        return True
 
     def test(self):
         test_skipped = 0
@@ -443,11 +461,14 @@ class Game_Tester:
         if not self.check_augment_sample():
             return
 
+        if not self.check_compatibility_with_MCTS():
+            return
+
         if test_skipped == 0:
-            print("All major and minor tests passed")
+            print("All major and minor tests passed\n")
         else:
             print(f"Skipped {test_skipped} tests, scroll up to see")
-            print("Aside from that all major tests passed")
+            print("Aside from that all major tests passed\n")
 
 
 
