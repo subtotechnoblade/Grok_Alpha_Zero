@@ -179,8 +179,7 @@ def convert_shape(shape):
 def run_self_play(game_class,
                   build_config,
                   train_config,
-                  folder_path,
-                  num_workers=1):
+                  folder_path):
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file")
 
@@ -188,6 +187,8 @@ def run_self_play(game_class,
         num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
 
     generation = int(folder_path.split("/")[-1])
+    num_workers = train_config["num_workers"]
+
     bar = tqdm(total=num_games_left, desc="Generating self play games")
     if num_games_left < num_workers:
         num_workers = num_games_left
@@ -330,7 +331,7 @@ if __name__== "__main__":
         # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
 
-    run_self_play(TicTacToe, build_config, train_config, folder_path, train_config["num_workers"])
+    run_self_play(TicTacToe, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
