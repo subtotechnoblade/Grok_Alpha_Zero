@@ -5,6 +5,8 @@ import tf2onnx
 import onnx
 
 def convert_to_onnx(tf_model, input_signature, file_path): # must call this function "convert_to_onnx"
+    import os
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     # Use from_function for tf functions
     # similar to [tf.TensorSpec((None, *gf.SHAPE[1:]), TF_DTYPE, name="x")]
     onnx_model, _ = tf2onnx.convert.from_keras(tf_model, input_signature)

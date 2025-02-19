@@ -11,6 +11,8 @@ from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA
 
 # This is just a template
 def build_model(input_shape, policy_shape, build_config):
+    import os
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
@@ -58,6 +60,8 @@ def build_model(input_shape, policy_shape, build_config):
         return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 def build_model_infer(input_shape, policy_shape, build_config):
+    import os
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
