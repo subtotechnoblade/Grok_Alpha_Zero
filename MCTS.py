@@ -680,7 +680,6 @@ if __name__ == "__main__":
                 None,
                 c_puct_init=2.5,
                 tau=5e-3,
-                use_njit=1,
                 use_dirichlet=True,
                 fast_find_win=False)
 
