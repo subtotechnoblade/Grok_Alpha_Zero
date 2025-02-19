@@ -99,4 +99,5 @@ def get_speed(game,
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
     time_taken = time.time() - s
+    print(iterations)
     print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s!")
