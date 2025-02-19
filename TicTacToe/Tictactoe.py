@@ -95,8 +95,8 @@ train_config = {
     "games_per_generation": 10, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
     "num_explore_actions": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "use_gpu": False,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": True,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
