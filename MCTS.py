@@ -170,7 +170,7 @@ class MCTS:
                 return node  # note that this returns the parent, _expand will create the child node
 
 
-            # expensive call here, use only if PUCT_scores are needed and useful
+            # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
                                                          node.child_values,
                                                          node.child_visits,
@@ -185,12 +185,10 @@ class MCTS:
 
     def _compute_outputs(self, inputs, RNN_state):
         input_state, input_state_matrix = RNN_state
-        x = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+        policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
                                                                 "input_state": input_state,
                                                                 "input_state_matrix": input_state_matrix})
-
-        policy, value, state, state_matrix = x
 
         return policy[0], value[0][0], [state, state_matrix]
 
