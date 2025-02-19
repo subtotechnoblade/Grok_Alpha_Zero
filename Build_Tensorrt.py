@@ -3,11 +3,12 @@ import numpy as np
 import onnxruntime as rt
 # This assumes that use_tensorrt is True in train config
 
-def cache_tensorrt(game,
+def cache_tensorrt(game_class,
                    build_config,
                    train_config,
                    folder_path,
                    warmup_iterations=10):
+    game = game_class()
     # uses the generation number to build the generation cache
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
@@ -50,11 +51,12 @@ def cache_tensorrt(game,
                                                                 "input_state_matrix": input_state_matrix})
     print("Successfully built trt engine!")
 
-def get_speed(game,
+def get_speed(game_class,
               build_config,
               train_config,
               folder_path,
               iterations=500):
+    game = game_class()
 
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
