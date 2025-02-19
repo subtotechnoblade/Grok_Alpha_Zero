@@ -35,8 +35,13 @@ class Self_Play:
 
         self.iteration_limit = self.train_config["MCTS_iteration_limit"]
         self.time_limit = self.train_config["MCTS_time_limit"]
+
+        embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
+            "num_layers"]
+        RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
         self.mcts: MCTS = MCTS(self.game,
-                               self.build_config,
+                               RNN_state,
                                self.sess,
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,

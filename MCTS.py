@@ -74,8 +74,8 @@ class MCTS:
     # will update itself after every move assuming the methods are called in the right order
     def __init__(self,
                  game, # the annotation is for testing and debugging
-                 build_config: dict,
-                 session: rt.InferenceSession or Parallelized_Session,
+                 RNN_state: np.array,
+                 session: rt.InferenceSession or Parallelized_Session or None,
                  c_puct_init: float=2.5,
                  c_puct_base: float=19_652,
                  use_dirichlet=True,
@@ -96,7 +96,7 @@ class MCTS:
         :param use_njit: jit the method get_terminal_actions
         """
         self.game = game
-        self.build_config = build_config
+        self.RNN_state = RNN_state
         self.session = session
         self.fast_find_win = fast_find_win
 
@@ -184,15 +184,15 @@ class MCTS:
 
 
     def _compute_outputs(self, inputs, RNN_state):
-        input_state, input_state_matrix = RNN_state
-        policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
-                                                              input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
-                                                                "input_state": input_state,
-                                                                "input_state_matrix": input_state_matrix})
+        if self.session is not None:
+            input_state, input_state_matrix = RNN_state
+            policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
+                                                                  input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
+                                                                    "input_state": input_state,
+                                                                    "input_state_matrix": input_state_matrix})
 
-        return policy[0], value[0][0], [state, state_matrix]
-
-        # return self._get_dummy_outputs(inputs, RNN_state)
+            return policy[0], value[0][0], [state, state_matrix]
+        return self._get_dummy_outputs(inputs, RNN_state)
 
     def _get_dummy_outputs(self, input_state, RNN_state):
         # since I'm not using RNN_state I can just return it for the next node
@@ -304,17 +304,17 @@ class MCTS:
 
 
         else:
-            num_layers = self.build_config["num_layers"]
-            embed_size = self.build_config["embed_size"]
-            num_heads = self.build_config["num_heads"]
-
-            if num_heads != 0 or embed_size != 0:
-                RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                                        np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
-            else:
-                RNN_state = []
-            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(),
-                                                                                 RNN_state)
+            # if self.build_config is not None:
+            #     num_layers = self.build_config["num_layers"]
+            #     embed_size = self.build_config["embed_size"]
+            #     num_heads = self.build_config["num_heads"]
+            #
+            #     if num_heads != 0 or embed_size != 0:
+            #         RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+            #                                 np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+            # else:
+            #     RNN_state = []
+            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), self.RNN_state)
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history),  child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
@@ -671,11 +671,12 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/0/model.onnx", providers=providers)
-
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/0/model.onnx", providers=providers)
+    RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
     mcts = MCTS(game,
-                build_config,
-                session,
+                RNN_state,
+                None,
                 c_puct_init=2.5,
                 tau=5e-3,
                 use_njit=1,
