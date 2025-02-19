@@ -181,10 +181,14 @@ def run_self_play(game_class,
                   train_config,
                   folder_path):
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-        raise ValueError("Dataset file hasn't been created. Self play depends on that file")
+        raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5") as dataset_file:
-        num_games_left = train_config["games_per_generation"] - ((len(dataset_file.keys()) - 1) // 3)
+        num_games_left = train_config["games_per_generation"] - dataset_file["game_stats"][2]
+
+    if num_games_left <= 0:
+        print(f"Finished generating {train_config['games_per_generation']} games!")
+        return
 
     generation = int(folder_path.split("/")[-1])
     num_workers = train_config["num_workers"]
@@ -323,13 +327,13 @@ if __name__== "__main__":
 
     folder_path = "TicTacToe/Grok_Zero_Train/0"
 
-    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-        os.remove(f"{folder_path}/Self_Play_Data.h5")
-
-    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+    # if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+    #     os.remove(f"{folder_path}/Self_Play_Data.h5")
+    #
+    # with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
+    #     # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
 
     run_self_play(TicTacToe, build_config, train_config, folder_path)
 
