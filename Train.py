@@ -29,7 +29,6 @@ def train(model, learning_rate, train_config, folder_path, save_folder_path):
 
     model.compile(optimizer=optimizer,
                   loss={"policy": Policy_Loss(), "value": Value_Loss()},
-                  jit_compile=train_config["use_gpu"],
                   metrics={"policy": KLD()}
                   )
     model.fit(train_dataset,
