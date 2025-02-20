@@ -542,7 +542,6 @@ class MCTS:
         move_probs = sorted(move_probs, key=lambda x: x[4], reverse=True)
 
         return move, move_probs
-        # return move, list(map(lambda x: x[:2], move_probs))
 
 
     def _set_root(self, child: Node):
