@@ -191,7 +191,6 @@ class MCTS:
                                                                   input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
                                                                     "input_state": input_state,
                                                                     "input_state_matrix": input_state_matrix})
-
             return policy[0], value[0][0], [state, state_matrix]
         return self._get_dummy_outputs(inputs, RNN_state)
 
