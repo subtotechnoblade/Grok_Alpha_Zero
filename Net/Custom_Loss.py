@@ -1,16 +1,16 @@
 import tensorflow as tf
 
-class Stablemax_Binary_Crossentropy(tf.keras.Loss):
+class Stable_Categorical_Crossentropy(tf.keras.Loss):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def call(self, y_true, y_pred):
         # batch, timesteps, distribution
-        loss = -y_true * tf.math.log(y_pred) - (1.0 - y_true) * tf.math.log(1.0 - y_pred)
+        loss = -y_true * tf.math.log(y_pred)
         return loss
 
-class Stablemax_Binary_Focal_Crossentropy(tf.keras.Loss):
-    def __init__(self, alpha=1.0, gamma=2.0, **kwargs):
+class Stable_Categorical_Focal_Crossentropy(tf.keras.Loss):
+    def __init__(self, alpha=0.25, gamma=2.0, **kwargs):
         super().__init__(**kwargs)
 
         self.alpha = alpha
@@ -18,15 +18,11 @@ class Stablemax_Binary_Focal_Crossentropy(tf.keras.Loss):
 
     def call(self, y_true, y_pred):
         # batch, timesteps, distribution
-        y_pred_converse= 1.0 - y_pred
-
-        positives = -self.alpha * y_true * (y_pred_converse ** self.gamma) * tf.math.log(y_pred)
-        negatives = -(1.0 - y_true) * (y_pred ** self.gamma) * tf.math.log(y_pred_converse)
-        loss = positives + negatives
+        loss = -self.alpha * ((1.0 - y_pred) ** self.gamma) * y_true * tf.math.log(y_pred)
         return loss
 class Policy_Loss(tf.keras.Loss):
     # Note that reduction MUST be None
-    def __init__(self, loss_fn=tf.keras.losses.BinaryCrossentropy(reduction=None),**kwargs):
+    def __init__(self, loss_fn=tf.keras.losses.CategoricalFocalCrossentropy(reduction=None),**kwargs):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
     def call(self, y_true, y_pred):
@@ -67,11 +63,17 @@ class KLD(tf.keras.Loss):
         return masked_loss
 
 if __name__ == "__main__":
+    from Stablemax import Stablemax
     import numpy as np
-    fn = Stablemax_Binary_Crossentropy(reduction=None)
+    fn1 = Stable_Categorical_Focal_Crossentropy(alpha=0.25, reduction=None)
+    # fn1 = Stablemax_Categorical_Focal_Crossentropy(reduction=None)
+    # fn2 = tf.keras.losses.CategoricalCrossentropy(reduction=None)
+    fn2 = tf.keras.losses.CategoricalFocalCrossentropy(reduction=None)
 
+    stable_max = Stablemax()
+    target = stable_max(np.random.random((1, 2, 9)))
+    pred = stable_max(np.random.random((1, 2, 9)))
 
-    target = np.ones((2, 3, 3)) * 1
-    pred = np.random.random((2, 3, 3))
-
-    print(fn(target, pred))
+    print(fn1(target, pred))
+    print(tf.reduce_sum(fn1(target, pred), -1))
+    print(fn2(target, pred))
