@@ -19,6 +19,7 @@ class Parallelized_Session:
         self.outputs_feed_info = {name: [arr_shape, np.prod(arr_shape)] for name, arr_shape in self.outputs_feed_info.items()}
 
         self.worker_id = worker_id
+        self.shm = shm
         self.shared_arr = np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf)
 
     def run(self, output_names:list, input_feed:dict):
@@ -31,25 +32,24 @@ class Parallelized_Session:
                 # Send the request to the server
 
                 data = np.concatenate([arr.flatten() for arr in input_feed.values()], dtype=np.float32)
-
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
                 break
 
-        # check if we have received a response
         while True:
+            # check if we have received a response
             if self.shared_arr[0] == 0.0:
+                raw_outputs = self.shared_arr[:]
                 # Get the outputs from the shared memory
 
-                outputs = [0] * len(self.outputs_feed_info)
+                outputs = [None] * len(self.outputs_feed_info)
                 start_index = 1
                 for i, (arr_shape, arr_len) in enumerate(self.outputs_feed_info.values()):
-                    outputs[i] = np.copy(self.shared_arr[start_index: start_index + arr_len]).reshape(arr_shape)
                     # Only need a reshape because batch dim = 1
+                    outputs[i] = np.copy(raw_outputs[start_index: start_index + arr_len]).reshape(arr_shape)
                     # Must copy as without doing so, any changes to shared memory will reflect in the outputs
                     start_index += arr_len
-                # self.shared_arr[:] = 0.0 # Can do this because the outputs are copied
-                # ^ probably not needed
+
                 return outputs
 
 class Server:
@@ -148,21 +148,21 @@ class Server:
         self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
         while True:
             active_connections = []
-            inactivate_connections = []
+            active_indexes = set()
             batched_input_feed = {name:[] for name in self.inputs_feed_info.keys()}
 
             start_time = time.time()
             while len(active_connections) == 0 or (len(active_connections) < len(self.shared_arrs) and time.time() - start_time <= self.wait_time):
-                for shared_array in self.shared_arrs:
+                for i, shared_array in enumerate(self.shared_arrs):
+                    if i in active_indexes:
+                        continue
                     if shared_array[0] == 1.0 and len(active_connections) < len(self.shared_arrs): # wait until the client has sent some data
                         active_connections.append(shared_array)
+                        active_indexes.add(i)
                         start_index = 1
                         for input_name, (arr_len, _, arr_shape, _) in self.inputs_feed_config.items():
                             batched_input_feed[input_name].append(shared_array[start_index: start_index + arr_len].reshape(arr_shape))
                             start_index += arr_len
-
-                    elif len(active_connections) >= 1:
-                        inactivate_connections.append(shared_array)
 
             if len(active_connections) > len(self.shared_arrs):
                 raise ValueError("Too many samples in 1 batch sth went wrong")
@@ -182,10 +182,13 @@ class Server:
                 if transposition is not None:
                     batched_outputs[i] = batched_outputs[i].transpose(transposition)
 
+            # assert set(list(map(tuple, active_connections))) == list(map(tuple, active_connections))
             for i, shared_array in enumerate(active_connections):
                 flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
-                shared_array[0] = 0.0 # reset it so that the session can pick it up
+                shared_array[0] = 0.0
+                # reset it so that the session can pick it up
+
 def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_options, file_path, per_process_wait_time=0.001):
 
     server = Server(inputs_feed_info,
