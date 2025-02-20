@@ -335,15 +335,15 @@ if __name__== "__main__":
 
     folder_path = "TicTacToe/Grok_Zero_Train/0"
 
-    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-        os.remove(f"{folder_path}/Self_Play_Data.h5")
-
-    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
-
-    run_self_play(TicTacToe, build_config, train_config, folder_path)
+    # if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+    #     os.remove(f"{folder_path}/Self_Play_Data.h5")
+    #
+    # with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
+    #     # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+    #
+    # run_self_play(TicTacToe, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
@@ -355,7 +355,7 @@ if __name__== "__main__":
         print(file['values_0'].shape)
 
         print(file['boards_0'][:])
-        print(file['policies_0'][:])
+        print(file['policies_0'][:].reshape((-1, 3, 3)))
         print((len(file.keys()) - 1) // 3)
         # for i in range(file["max_actions"][0]):
         #     print(file["boards_0"][i])
