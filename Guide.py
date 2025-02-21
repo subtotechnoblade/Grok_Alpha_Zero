@@ -261,7 +261,7 @@ class Game:
 
         # If that is too hard, inform Brian and he can implement for you
         # Or
-        return np.expand_dims(boards, 1), np.expand_dims(policies, 1) # just return [board], [policy] if you don't want to implement this
+        return np.expand_dims(boards, 0), np.expand_dims(policies, 0) # just return [board], [policy] if you don't want to implement this
         # don't be lazy, this will help convergence very much
 
 
