@@ -38,16 +38,26 @@ class Self_Play:
 
         embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
             "num_layers"]
-        RNN_state = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
                                             np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
-        self.mcts: MCTS = MCTS(self.game,
-                               RNN_state,
+        self.mcts1: MCTS = MCTS(self.game,
+                               RNN_state1,
                                self.sess,
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                tau=1.0,
                                fast_find_win=False)
+        # RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+        #                                     np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+        # self.mcts2: MCTS = MCTS(self.game,
+        #                        RNN_state2,
+        #                        self.sess,
+        #                        c_puct_init=self.train_config["c_puct_init"],
+        #                        use_dirichlet=True,
+        #                        dirichlet_alpha=self.train_config["dirichlet_alpha"],
+        #                        tau=1.0,
+        #                        fast_find_win=False)
 
     def play(self):
         board_states = []
@@ -60,15 +70,27 @@ class Self_Play:
             board_states.append(self.game.get_input_state().copy())
 
             current_move_num = len(self.game.action_history)
-            if current_move_num < self.train_config["num_explore_actions"]:
-                tau = 1.0 - (0.5 * (current_move_num / self.train_config["num_explore_actions"]))
-                self.mcts.update_hyperparams(self.mcts.c_puct_init, tau)
-            else:
-                self.mcts.update_hyperparams(self.mcts.c_puct_init, 5e-3)
+            if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
+                tau = 0.7 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
-            action, move_probs = self.mcts.run(iteration_limit=self.iteration_limit,
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
+            else:
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 1e-2)
+
+            # if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]:
+            #     tau = 1.1 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
+            #     self.mcts2.update_hyperparams(self.mcts2.c_puct_init, tau)
+            # else:
+            #     self.mcts2.update_hyperparams(self.mcts2.c_puct_init, 1e-2)
+
+            # if self.game.get_current_player() == -1:
+            action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
                                                use_bar=False)
+            # else:
+            #     action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
+            #                                        time_limit=self.time_limit,
+            #                                        use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -83,7 +105,9 @@ class Self_Play:
             winner = self.game.check_win()
 
             if winner == -2:
-                self.mcts.prune_tree(action) # or else there will be an error because you are pruning a winning move
+                self.mcts1.prune_tree(action) # or else there will be an error because you are pruning a winning move
+                # self.mcts2.prune_tree(action) # or else there will be an error because you are pruning a winning move
+
                 # there are no more moves after a winning move
             # else:
             # print(f"Player: {winner} won")
@@ -101,7 +125,11 @@ class Self_Play:
         elif winner == 0: # if it a draw or
             target_values[:] = 0.0
         # else the player that played was 1, and won which is 1, thus no need to invert
-
+        # print(winner)
+        # print(board_states)
+        # print(target_values)
+        # print(improved_policies)
+        # raise ValueError
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
@@ -161,10 +189,11 @@ def self_play_task(worker_id,
                                                 input_feed_info,
                                                 output_feed_info,)
 
-
+    session = rt.InferenceSession(f"{folder_path}/model.onnx", providers=['CPUExecutionProvider'])
 
     task = Self_Play(game_class(),
-                     parallelized_session,
+                     # parallelized_session,
+                     session,
                      build_config,
                      train_config,
                      lock,
@@ -335,15 +364,15 @@ if __name__== "__main__":
 
     folder_path = "TicTacToe/Grok_Zero_Train/0"
 
-    # if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-    #     os.remove(f"{folder_path}/Self_Play_Data.h5")
-    #
-    # with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-    #     # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-    #     # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-    #     file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
-    #
-    # run_self_play(TicTacToe, build_config, train_config, folder_path)
+    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+        os.remove(f"{folder_path}/Self_Play_Data.h5")
+
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
+        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+
+    run_self_play(TicTacToe, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
@@ -365,7 +394,16 @@ if __name__== "__main__":
         #     print(file[f'boards_{i}'][1])
 
 
-
+    def Print_Stats(folder_path):
+        with h5.File(f"{folder_path}/Self_Play_Data.h5", "r", libver="latest") as file:
+            max_actions, total_actions, num_unaugmented_games, player1_wins, draws, player2_wins = file["game_stats"][:]
+            print("---------Game Statistics---------")
+            print(f"Longest game is: {max_actions} actions long!")
+            print(f"Average moves: {round(total_actions / num_unaugmented_games, 4)}")
+            print(f"Player -1 winrate: {round(player1_wins / num_unaugmented_games, 4)}")
+            print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
+            print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
+    Print_Stats("TicTacToe/Grok_Zero_Train/0")
 
 
 
