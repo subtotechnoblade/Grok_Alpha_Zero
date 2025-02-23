@@ -33,17 +33,21 @@ def convert_to_onnx(tf_model, input_signature, file_path): # must call this func
 if __name__ == "__main__":
     import time
     import numpy as np
-    from Gomoku.Build_Model import build_model, build_model_infer
-    from Gomoku.Gomoku import Gomoku, build_config
+    # from Gomoku.Build_Model import build_model, build_model_infer
+    # from Gomoku.Gomoku import Gomoku, build_config
+
+    from TicTacToe.Build_Model import build_model, build_model_infer
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # Test and validation code for gomoku
 
     batch_size = 12
     embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config["num_layers"]
-    game = Gomoku()
+    game = TicTacToe()
 
-    # model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
-    # # model.load_weights("test_model.weights.h5")
+    model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
+    generation = 11
+    model.load_weights(f"TicTacToe/Grok_Zero_Train/{generation}/model.weights.h5")
     # input_signature = [tf.TensorSpec((None, 15, 15), tf.float32, name="inputs"),
     #                    tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
     #                    tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
@@ -53,35 +57,35 @@ if __name__ == "__main__":
     import onnxruntime as rt
     min_shape, max_shape, opt_shape = 1, 12, batch_size
     providers = [
-        ('TensorrtExecutionProvider', {
-        "trt_engine_cache_enable": True,
-        "trt_dump_ep_context_model": True,
-        "trt_builder_optimization_level": 5,
-        "trt_auxiliary_streams": 0,
-        "trt_ep_context_file_path": "Cache/",
-
-        "trt_profile_min_shapes": f"inputs:{min_shape}x15x15,input_state:{num_layers}x2x{min_shape}x{embed_size},input_state_matrix:{num_layers}x{min_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        }),
-        'CUDAExecutionProvider',
+        # ('TensorrtExecutionProvider', {
+        # "trt_engine_cache_enable": True,
+        # "trt_dump_ep_context_model": True,
+        # "trt_builder_optimization_level": 5,
+        # "trt_auxiliary_streams": 0,
+        # "trt_ep_context_file_path": "Cache/",
+        #
+        # "trt_profile_min_shapes": f"inputs:{min_shape}x15x15,input_state:{num_layers}x2x{min_shape}x{embed_size},input_state_matrix:{num_layers}x{min_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # }),
+        # 'CUDAExecutionProvider',
         'CPUExecutionProvider']
 
     sess_options = rt.SessionOptions()
     sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
-    s = time.time()
+
     # sess = rt.InferenceSession("test_test.onnx", sess_options=sess_options, providers=providers)
-    # sess = rt.InferenceSession("model.onnx", sess_options=sess_options, providers=providers)
-    sess = rt.InferenceSession("Cache/model_ctx.onnx", sess_options=sess_options, providers=providers)
+    sess = rt.InferenceSession(f"TicTacToe/Grok_Zero_Train/{generation}/model.onnx", sess_options=sess_options, providers=providers)
+    # sess = rt.InferenceSession("Cache/model_ctx.onnx", sess_options=sess_options, providers=providers)
     # sess = rt.InferenceSession("cache/test_model_ctx.onnx", sess_options=sess_options, providers=providers)
-    print(time.time() - s)
+
     def create_states():
         return np.zeros((num_layers, 2, batch_size, embed_size), dtype=np.float32), np.zeros(
             (num_layers, batch_size, num_heads, embed_size // num_heads, embed_size // num_heads), np.float32)
     input_state, input_state_matrix = create_states()
     input_state_onnx, input_state_matrix_onnx = create_states()
 
-    dummy_data = np.random.uniform(low=-1, high=2, size=(1000, batch_size, 15, 15)).astype(np.float32)
+    dummy_data = np.random.uniform(low=-1, high=2, size=(9, batch_size, *game.get_input_state().shape)).astype(np.float32)
 
     # for mini_size in range(1, batch_size + 1):
     #     print(mini_size)
@@ -99,13 +103,13 @@ if __name__ == "__main__":
     output2_v = []
     for data_point in dummy_data:
 
-        # p, v, input_state, input_state_matrix = model([data_point, input_state, input_state_matrix])
-        # # note that RWKV_infer gives a dictionary which is necessary for onnxruntime
-        #
-        # input_state = input_state.numpy()
-        # input_state_matrix = input_state_matrix.numpy()
-        # output1_p.append(p)
-        # output1_v.append(v)
+        p, v, input_state, input_state_matrix = model([data_point, input_state, input_state_matrix])
+        # note that RWKV_infer gives a dictionary which is necessary for onnxruntime
+
+        input_state = input_state.numpy()
+        input_state_matrix = input_state_matrix.numpy()
+        output1_p.append(p)
+        output1_v.append(v)
 
         s = time.time()
         policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
@@ -129,7 +133,7 @@ if __name__ == "__main__":
     print("Took",t_total,"seconds for", dummy_data.shape[0] * dummy_data.shape[1], "iterations")
     print((dummy_data.shape[1] * dummy_data.shape[0]) / t_total, "iterations per second")
 
-    # print(np.allclose(output1_p, output2_p, atol=1e-3))
+    print(np.allclose(output1_p, output2_p, atol=1e-3))
     print(np.sum(np.abs(output1_p - output2_p)))
     #
     # output1_v = np.array(output1_v)
