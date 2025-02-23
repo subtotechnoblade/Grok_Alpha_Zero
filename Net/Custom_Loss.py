@@ -33,8 +33,7 @@ class Policy_Loss(tf.keras.Loss):
         mask = tf.cast(y_true[:, :, 0] != -2, tf.float32) # if the first number of a policy is -2
         # we mask out that sample of loss, this is because games have difference number of moves
         # thus we have to pad some samples to fit the maximum length of a game
-        masked_loss = tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, axis=-1))
-        return masked_loss
+        return tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, axis=-1))
 
 class Value_Loss(tf.keras.Loss):
     # Note that reduction MUST be None
@@ -48,8 +47,8 @@ class Value_Loss(tf.keras.Loss):
         mask = tf.cast(y_true[:, :, 0] != -2, tf.float32) # if the first number of a policy is -1
         # we mask out that sample of loss, this is because games have difference number of moves
         # thus we have to pad some samples to fit the maximum length of a game
-        masked_loss = tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, axis=-1))
-        return masked_loss
+        return tf.reduce_mean(tf.reduce_sum(mask * loss, axis=-1) / tf.reduce_sum(mask, axis=-1))
+
 
 class KLD(tf.keras.Loss):
     def __init__(self, **kwargs):
