@@ -189,11 +189,11 @@ def self_play_task(worker_id,
                                                 input_feed_info,
                                                 output_feed_info,)
 
-    session = rt.InferenceSession(f"{folder_path}/model.onnx", providers=['CPUExecutionProvider'])
+    # session = rt.InferenceSession(f"{folder_path}/model.onnx", providers=['CPUExecutionProvider'])
 
     task = Self_Play(game_class(),
-                     # parallelized_session,
-                     session,
+                     parallelized_session,
+                     # session,
                      build_config,
                      train_config,
                      lock,
