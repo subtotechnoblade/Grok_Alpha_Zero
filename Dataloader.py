@@ -7,17 +7,18 @@ import tensorflow as tf
 
 class Create_Train_Test_Split_Indexes:
     def __init__(self,
-                 folder_path,
+                 parent_path,
                  num_previous_generations,
                  train_percent=1.0,
-                 train_decay=0.5,
-                 test_percent=0.5,
+                 train_decay=0.75,
+                 test_percent=0.1,
                  test_decay=0.75):
-        self.folder_path = folder_path
+        self.parent_path = parent_path
         np.random.seed()
-        self.generation = max([int(path.split("/")[-1]) for path in glob(self.folder_path + "*")])
 
-        self.files = [path + "/Self_Play_Data.h5" for path in glob(self.folder_path + "*")][-num_previous_generations - 1:]
+        self.generation = max([int(path.split("/")[-1]) for path in glob(self.parent_path + "/*")])
+
+        self.files = [path + "/Self_Play_Data.h5" for path in glob(self.parent_path + "/*")][-num_previous_generations - 1:]
         self.files.reverse()
 
         # files are from latest to first generation, [n, ..., 0]
@@ -55,8 +56,8 @@ class Create_Train_Test_Split_Indexes:
             test_percent *= self.test_decay
             train_percent *= self.train_decay
 
-        return np.array(train_indexes, dtype=np.int32).reshape((-1, 2)), np.array(test_indexes, dtype=np.int32).reshape((-1, 2))
         #returns the latest generation to the earliest
+        return np.concatenate((*train_indexes,), dtype=np.int32), np.concatenate((*test_indexes,), dtype=np.int32)
 
 class Dataloader(tf.keras.utils.PyDataset):
     def __init__(self,
@@ -68,9 +69,9 @@ class Dataloader(tf.keras.utils.PyDataset):
         self.folder_path = folder_path
         self.indexes = indexes
         self.batch_size = batch_size
-
         num_previous_generations = self.indexes[:, 0].max()
-        self.files = [path + "/Self_Play_Data.h5" for path in glob(self.folder_path + "*")][-num_previous_generations - 1:]
+        self.files = [path + "/Self_Play_Data.h5" for path in glob(self.folder_path + "/*")][-num_previous_generations - 1:]
+
         self.datasets = [None] * len(self.files)
         for i, path in enumerate(self.files):
             self.datasets[i] = h5.File(path, mode="r")
