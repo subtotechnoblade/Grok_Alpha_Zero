@@ -28,7 +28,7 @@ class Pad_Dataset:
 
                 for game_id in range(samples):
                     if len(file[f"values_{game_id}"]) == self.max_actions:
-                        # if the game satisfies self.max_actions the don't do anything
+                        # if the game satisfies self.max_actions then don't do anything
                         continue
                     game_len = len(file[f"values_{game_id}"])
 
