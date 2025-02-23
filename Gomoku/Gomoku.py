@@ -133,7 +133,7 @@ class Gomoku:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board: np.array) -> np.array:
+    def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         return board
 
     def check_win(self, ) -> int:

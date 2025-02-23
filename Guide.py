@@ -201,9 +201,9 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board) -> np.array:
+    def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         # Used for retrieving the state for any child nodes (not the root)
-        # just return the board from the inputs because board is alo an np.array
+        # just return the board from the inputs because board is also an np.array
         return board
 
     def check_win(self) -> int:
@@ -348,7 +348,7 @@ class Gomoku:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board: np.array) -> np.array:
+    def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         return board
 
     def check_win(self, ) -> int:

@@ -75,7 +75,7 @@ from numba import njit
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
 
-build_config = {"embed_size": 128, # this is the vector for RWKV
+build_config = {"embed_size": 256, # this is the vector for RWKV
                 "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
@@ -94,19 +94,18 @@ train_config = {
     # Self Play variables
     "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
-    "num_explore_actions": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "num_explore_actions": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game)
-    "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
     "train_percent": 1.0, # The percent used for training after the test set is taken
@@ -114,15 +113,15 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 64, # The number of samples in a batch for training in parallel
+    "train_batch_size": 32, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
-    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 6e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased linearly
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 50, # The number of epochs for training
+    "train_epochs": 15, # The number of epochs for training
 }
 
 
@@ -196,7 +195,7 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def do_action_MCTS(board, action, current_player):
+    def do_action_MCTS(board: np.array, action: np.array, current_player: int) -> np.array:
         x, y = action
         board[y][x] = current_player
         return board
@@ -206,7 +205,7 @@ class TicTacToe:
 
     @staticmethod
     # @njit(cache=True)
-    def get_input_state_MCTS(board):
+    def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array):
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
         return board
@@ -329,6 +328,7 @@ class TicTacToe:
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
         return np.array(augmented_boards, dtype=boards[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
+        # return np.expand_dims(boards, 0).astype(boards[0].dtype), np.expand_dims(policies, 0).astype(np.float32)
 
 
 
