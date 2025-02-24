@@ -55,11 +55,8 @@ class Grok_Fast_EMA_Model(tf.keras.Model):
         return self.compute_metrics(x, y, y_pred, loss)
 
 class Ortho_Model(tf.keras.Model):
-    def __init__(self, alpha=0.99, lamb=5.0, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.alpha = alpha
-        self.lamb = lamb
 
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
