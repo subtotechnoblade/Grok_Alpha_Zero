@@ -1,6 +1,8 @@
 import tensorflow as tf
 
 from Net.RWKV import RWKV_v6 as Train_net, RWKV_v6_Infer as Infer_net
+from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
+
 from Net import Batched_Net, Batched_Net_Infer
 from Net.Stablemax import Stablemax
 
@@ -20,29 +22,30 @@ def build_model(input_shape, policy_shape, build_config):
     num_layers = build_config["num_layers"]
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
+    num_filters = build_config["num_filters"]
+    assert num_layers > 0
 
-    # input shape should be (3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
 
     reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
-    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1)))(reshaped_inputs)
-    eyes = tf.keras.layers.BatchNormalization()(eyes)
+    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding="same"))(reshaped_inputs)
+    eyes = tf.keras.layers.LayerNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
+    x = eyes
 
-    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=4, kernel_size=(3, 3), strides=(1, 1)))(eyes)
-    eyes = tf.keras.layers.BatchNormalization()(eyes)
-    eyes = Batched_Net.Batch(tf.keras.layers.AveragePooling2D((2, 2)))(eyes)
+    for _ in range(num_layers):
+        x =  Batched_Net.Batch(ResNet_Conv2D(128, (3, 3)))(x)
+        x =  Batched_Net.Batch(ResNet_Identity2D(128, (3, 3)))(x)
 
-    x = tf.keras.layers.Reshape((-1, eyes.shape[2] * eyes.shape[3] * eyes.shape[4]))(eyes)
-    x = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(x)
-    x = tf.keras.layers.Activation("gelu")(x)
-
-    for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
-        x = Train_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
+    # for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
+    #     x = Train_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
 
-    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    policy = Batched_Net.Batch(tf.keras.layers.Conv2D(2, (1, 1), padding="same"))(x)
+    policy = tf.keras.layers.Reshape((-1, 15 * 15 * 2))(policy)
+
     policy = tf.keras.layers.Activation("relu")(policy)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(policy)
     policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
 
     if build_config["use_stable_max"]:
@@ -51,7 +54,11 @@ def build_model(input_shape, policy_shape, build_config):
         policy = tf.keras.layers.Activation("softmax", name="policy")(policy) # MUST NAME THIS "policy"
 
 
-    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    value = Batched_Net.Batch(tf.keras.layers.Conv2D(512, (2, 2), padding="same"))(x)
+
+    value = Batched_Net.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
+
+    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(value)
     value = tf.keras.layers.Activation("relu")(value)
     value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
@@ -79,7 +86,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
     num_layers = build_config["num_layers"]
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
-
+    num_filters = build_config["num_filters"]
     # input shape should be (3, 3)
     inputs = [tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs"),  # the name must be "inputs"
               tf.keras.layers.Input(batch_shape=(num_layers, 2, None, embed_size), name="input_state"),
@@ -92,29 +99,36 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=4, kernel_size=(5, 5), strides=(1, 1)))(reshaped_inputs)
-    eyes = tf.keras.layers.BatchNormalization()(eyes)
+    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding="same"))(reshaped_inputs)
+    eyes = tf.keras.layers.LayerNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=4, kernel_size=(3, 3), strides=(1, 1)))(eyes)
-    eyes = tf.keras.layers.BatchNormalization()(eyes)
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.AveragePooling2D((2, 2)))(eyes)
+    x = eyes
+    for _ in range(num_layers):
+        x =  Batched_Net_Infer.Batch(ResNet_Conv2D(num_filters, (3, 3)))(x)
+        x =  Batched_Net_Infer.Batch(ResNet_Identity2D(num_filters, (3, 3)))(x)
 
-    x = tf.keras.layers.Reshape((eyes.shape[1] * eyes.shape[2] * eyes.shape[3],))(eyes)
-    x = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(x)
-    x = tf.keras.layers.Activation("gelu")(x)
+    # for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
+    #     x, state, state_matrix = Infer_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim,
+    #                                                       hidden_size)(x, state, state_matrix)
 
-    for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
-        x, state, state_matrix = Infer_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim,
-                                                          hidden_size)(x, state, state_matrix)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(2, (1, 1), padding="same"))(x)
+    policy = tf.keras.layers.Reshape((15 * 15 * 2,))(policy)
 
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)  # MUST NAME THIS "policy"
-    # policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
-    policy = Stablemax(name="policy")(policy)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(policy)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
 
-    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    if build_config["use_stable_max"]:
+        policy = Stablemax(name="policy")(policy) # MUST NAME THIS "policy"
+    else:
+        policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
+
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(512, (2, 2), padding="same"))(x)
+
+    value = Batched_Net_Infer.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
+
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(value)
     value = tf.keras.layers.Activation("relu")(value)
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(1))(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
