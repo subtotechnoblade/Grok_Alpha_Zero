@@ -62,7 +62,10 @@ def Print_Stats(folder_path):
 
 
 def Train_NN(game_class, build_config, train_config, generation, folder_path, save_folder_path):
-
+    gpu_devices = tf.config.list_physical_devices("GPU")
+    for device in gpu_devices:
+        tf.config.experimental.set_virtual_device_configuration(device, [
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5600)])
     game = game_class()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -237,5 +240,5 @@ def Run(game_class, build_config, train_config, test=False):
 
 
 if __name__ == "__main__":
-    from Tictactoe import TicTacToe, build_config, train_config
-    Run(TicTacToe, build_config, train_config, test=True)
+    from Gomoku import Gomoku, build_config, train_config
+    Run(Gomoku, build_config, train_config, test=True)
