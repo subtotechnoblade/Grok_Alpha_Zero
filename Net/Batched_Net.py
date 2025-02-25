@@ -14,7 +14,7 @@ class Batch(tf.keras.layers.Layer):
         self.operation = operation
 
     def call(self, inputs):
-        # return tf.map_fn(self.operation, inputs, parallel_iterations=1)
-        combined = tf.reshape(inputs, tf.concat([[-1], tf.shape(inputs)[2:]], 0))
-        y = self.operation(combined)
-        return tf.reshape(y, tf.concat([tf.shape(inputs)[:2], tf.shape(y)[1:]], 0))
+        return tf.map_fn(self.operation, inputs, parallel_iterations=64)
+        # combined = tf.reshape(inputs, tf.concat([[-1], tf.shape(inputs)[2:]], 0))
+        # y = self.operation(combined)
+        # return tf.reshape(y, tf.concat([tf.shape(inputs)[:2], tf.shape(y)[1:]], 0))
