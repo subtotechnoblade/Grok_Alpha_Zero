@@ -333,16 +333,16 @@ class MCTS:
         if 1 in terminal_mask: # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
             num_winning_actions = len(terminal_mask == 1) # get the length of thr array that is equal to 1
-            terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
-            # terminal_parent_value = 1 # debug
-            terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
-            # terminal_parent_visits = 1 # debug
+            # terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
+            terminal_parent_value = 1 # debug
+            # terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
+            terminal_parent_visits = 1 # debug
             terminal_parent_prob_prior = terminal_mask / num_winning_actions
         else: # there are only draws
             len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0
-            # terminal_parent_visits = 1 # debug
-            terminal_parent_visits = len_terminal_moves
+            terminal_parent_visits = 1 # debug
+            # terminal_parent_visits = len_terminal_moves
             terminal_parent_prob_prior = np.ones(len_terminal_moves) / len_terminal_moves # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
             # it's nice to see the some numbers that state that there is a win or loss
@@ -350,7 +350,7 @@ class MCTS:
 
         terminal_parent = Node(len(node.children),
                                terminal_parent_board,
-                               node.action_history + [terminal_parent_action],
+                               node.action_history.copy() + [terminal_parent_action],
                                terminal_parent_current_player,
                                child_legal_actions=terminal_actions,
                                RNN_state=None,
@@ -439,7 +439,7 @@ class MCTS:
 
             child = Node(len(node.children),
                          child_board,
-                         node.action_history + [child_action],
+                         node.action_history.copy() + [child_action],
                          node.current_player * -1,
                          list(child_legal_actions),
                          next_RNN_state,
@@ -490,13 +490,13 @@ class MCTS:
         returns the top action and action distribution for the storage buffer
         """
 
-        if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
-            warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())}"
-                 f"because all depth 1 actions must be visited to produce a valid policy"
-                 f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
+        # if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
+        #     warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())} "
+        #          f"because all depth 1 actions must be visited to produce a valid policy"
+        #          f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
 
         if (iteration_limit is not None and (iteration_limit is True or iteration_limit < len(self.game.get_legal_actions()))) and time_limit is None:
-            iteration_limit = 3 * len(self.game.get_legal_actions())
+            iteration_limit = len(self.game.get_legal_actions()) + 1
 
         if iteration_limit is None and time_limit is True:
             time_limit = 30.0 # 30 seconds by default
@@ -535,7 +535,7 @@ class MCTS:
 
         move_probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                                         self.root.child_visits / np.sum(self.root.child_visits),# new probability value
+                                                                                         self.root.child_visits / np.sum(self.root.child_visits),   # new probability value
                                                                                          self.root.child_values / self.root.child_visits, # winrate
                                                                                          self.root.child_values,
                                                                                          self.root.child_visits,
@@ -606,9 +606,10 @@ class MCTS:
     def prune_tree(self, action):
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node
+        # print(self.RNN_state)
         if self.session is not None:
             _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), self.RNN_state)
-
+        # print(self.RNN_state)
         for child in self.root.children:
             if np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
@@ -626,6 +627,7 @@ class MCTS:
 
 
 if __name__ == "__main__":
+
     from tqdm import tqdm
     # import multiprocessing as mp
     from Gomoku.Gomoku import Gomoku, build_config, train_config
@@ -656,7 +658,7 @@ if __name__ == "__main__":
     # game.do_action((7, 6))
     # game.do_action((6, 6))
     # game.do_action((7, 5))
-    # #
+
     # game.do_action((6, 5))
 
     # game.do_action((7, 4))
@@ -712,10 +714,10 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/4/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/8/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
-    for game_id in tqdm(range(1)):
+    for game_id in range(1):
         game = TicTacToe()
 
         RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
@@ -731,8 +733,7 @@ if __name__ == "__main__":
                      c_puct_init=2.5,
                      tau=0.0,
                      use_dirichlet=False,
-                     fast_find_win=True)
-
+                     fast_find_win=False)
         # mcts2 = MCTS(game,
         #              RNN_state2,
         #              session,
@@ -747,8 +748,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_current_player() == 1:
-                move, probs = mcts1.run(1, use_bar=False)
+            if game.get_current_player() == -1:
+                move, probs = mcts1.run(11, use_bar=False)
             else:
             #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
