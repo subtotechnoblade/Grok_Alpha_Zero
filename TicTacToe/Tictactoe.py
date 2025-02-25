@@ -75,36 +75,37 @@ from numba import njit
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
 
-build_config = {"embed_size": 256, # this is the vector for RWKV
+build_config = {"embed_size": 128, # this is the vector for RWKV
                 "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
-                "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+                "num_layers": 0, # This is the total amount of RWKV layers in the model that are used
 
                 "use_stable_max": True,
                 "use_grok_fast": True,
                 "use_orthograd": True,
-                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "grok_lambda": 5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 
 train_config = {
-    "total_generations": 5, # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 10, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # number of self play games until we re train the network
+    "games_per_generation": 500, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
-    "num_explore_actions_first": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "num_explore_actions_second": 1,  # 0 because it is improbable to win,
+    "num_explore_actions_first": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
-    "use_gpu": False,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": True,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
     # change this to False to use CUDAExecutionProvider
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 300, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -116,15 +117,15 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 64, # The number of samples in a batch for training in parallel
+    "train_batch_size": 256, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
-    "learning_rate": 6e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
-    "decay_lr_after": 2,  # When the n generations pass,... learning rate will be decreased by lr decay
+    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15, # The number of epochs for training
+    "train_epochs": 10, # The number of epochs for training
 }
 
 
@@ -145,15 +146,15 @@ class TicTacToe:
             try:
                 coords = input("Move:").split(" ")
                 coords[0], coords[1] = int(coords[0]), int(coords[1])
-                return np.array(coords)
+                x, y = coords
+                if (0 > x > 2 or 0 < y > 2) or self.board[coords[1]][coords[0]] != 0:
+                    print("Illegal move given")
+                    continue
+                return coords
             except:
                 print("Invalid Move")
                 continue
 
-            x, y = coords
-            if (0 > x > 2 or 0 < y > 2) or self.board[coords[1]][coords[0]] != 0:
-                print("Illegal move given")
-                continue
 
 
 
@@ -284,11 +285,17 @@ class TicTacToe:
         # example for tic tac toe statistics=[[[0, 0], 0.1], [[1, 0], 0.2], ...]
         # return [0.1, 0.2, ...]
         # this should map the action and probability to a probability distribution
-        new_policy = np.zeros(self.policy_shape, np.float32)
+        new_policy = np.zeros((3, 3), np.float32)
+        # new_policy1 = np.zeros(self.policy_shape, np.float32)
         for (x, y), prob in statistics:
-            new_policy[x + 3 * y] = prob
+            # new_policy1[x + 3 * y] = prob
+            new_policy[y][x] = prob
 
-        return new_policy
+        # if not np.array_equal(new_policy1, new_policy.flatten()):
+        #     print(new_policy1)
+        #     print(new_policy.flatten())
+        #     raise ValueError("Policy is incorrect")
+        return new_policy.flatten()
 
     @staticmethod
     @njit(cache=True)

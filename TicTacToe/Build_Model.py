@@ -2,6 +2,7 @@ import tensorflow as tf
 # pip install tensorflow
 
 from Net.RWKV import RWKV_v6, RWKV_v6_Infer
+from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
 from Net import Batched_Net, Batched_Net_Infer
 from Net.Stablemax import Stablemax
 
@@ -25,14 +26,30 @@ def build_model(input_shape, policy_shape, build_config):
     # input shape should be (batch, game length, 3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs") # (batch_size, game length, 3, 3)
 
-    x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1]))(inputs) # (batch, game_length, 9)
+    x = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
+    x = Batched_Net.Batch(tf.keras.layers.Conv2D(64, (5, 5), padding="same"))(x)
+    # x = Batched_Net.Batch(tf.keras.layers.Conv2D(256, (3, 3), padding="same"))(x)
+    # x = tf.keras.layers.Activation("relu")(x)
+    # x = Batched_Net.Batch(tf.keras.layers.Conv2D(256, (3, 3), padding="same"))(x)
+    # x = Batched_Net.Batch(tf.keras.layers.Conv2D(64, (3, 3), padding="same"))(x)
+    # x = Batched_Net.Batch(tf.keras.layers.Conv2D(64, (3, 3), padding="same"))(x)
+    x = Batched_Net.Batch(ResNet_Conv2D(64, (3, 3), activation="relu"))(x)
+    x = Batched_Net.Batch(ResNet_Identity2D(64, (3, 3), activation="relu"))(x)
+    # x = Batched_Net.Batch(tf.keras.layers.Conv2D(32, (3, 3), padding="same"))(x)
+    x = tf.keras.layers.Reshape((-1, input_shape[0] * input_shape[1] * 64))(x) # (batch, game_length, 9)
 
+    # x = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x) # (batch, game_length, 32)
+    # x = tf.keras.layers.Activation("relu")(x)
     x = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(x) # (batch, game_length, 32)
 
     for layer_id in range(num_layers):
         x = RWKV_v6.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x) # (batch, game_length, 32)
 
-    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x) # (batch, game_length, 16)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(policy) # (batch, game_length, 16)
+    policy = tf.keras.layers.Activation("relu")(policy)
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(policy) # (batch, game_length, 16)
+    # policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy) # (batch, game_length, 9)
 
     if build_config["use_stable_max"]:
@@ -40,7 +57,9 @@ def build_model(input_shape, policy_shape, build_config):
     else:
         policy = tf.keras.layers.Activation("softmax", name="policy")(policy)
 
-    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(x) # (batch, game_length, 16)
+    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size * 2))(x) # (batch, game_length, 16)
+    value = tf.keras.layers.Activation("relu")(value)
+    value = Batched_Net.Batch(tf.keras.layers.Dense(embed_size // 2))(value) # (batch, game_length, 16)
     value = Batched_Net.Batch(tf.keras.layers.Dense(1))(value) # (batch, game_length, 1)
     value = tf.keras.layers.Activation("tanh", name="value")(value) # MUST NAME THIS "value"
 
@@ -54,8 +73,7 @@ def build_model(input_shape, policy_shape, build_config):
         return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
                                    lamb=build_config["grok_lambda"], alpha=0.99)
     elif build_config["use_orthograd"]:
-        return Ortho_Model(inputs=inputs, outputs=[policy, value],
-                           lamb=build_config["grok_lambda"], alpha=0.99)
+        return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:
         return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
@@ -78,14 +96,31 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
 
-    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1],))(x)
+    x = tf.keras.layers.Reshape((*input_shape, 1))(x)
+    x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(64, (5, 5), padding="same"))(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(256, (3, 3), padding="same"))(x)
+    # x = tf.keras.layers.Activation("relu")(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(256, (3, 3), padding="same"))(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(64, (3, 3), padding="same"))(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(64, (3, 3), padding="same"))(x)
+    x = Batched_Net_Infer.Batch(ResNet_Conv2D(64, (3, 3), activation="relu"))(x)
+    x = Batched_Net_Infer.Batch(ResNet_Identity2D(64, (3, 3), activation="relu"))(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(32, (3, 3), padding="same"))(x)
+    x = tf.keras.layers.Reshape((input_shape[0] * input_shape[1] * 64,))(x)
+    # x = tf.keras.layers.Reshape((-1,))(x)
 
-    x = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(x)
+    # x = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    # x = tf.keras.layers.Activation("relu")(x)
+    x = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(x) # (batch, game_length, 32)
 
     for layer_id in range(num_layers):
         x, state, state_matrix = RWKV_v6_Infer.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x, state, state_matrix)
 
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(policy)
+    policy = tf.keras.layers.Activation("relu")(policy)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(policy)
+    # policy = tf.keras.layers.Activation("relu")(policy)
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
 
     if build_config["use_stable_max"]:
@@ -93,7 +128,9 @@ def build_model_infer(input_shape, policy_shape, build_config):
     else:
         policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(x)
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size * 2))(x)
+    value = tf.keras.layers.Activation("relu")(value)
+    value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size // 2))(value)
     value = Batched_Net_Infer.Batch(tf.keras.layers.Dense(1))(value)
     value = tf.keras.layers.Activation("tanh", name="value")(value) # MUST NAME THIS "value"
 
@@ -119,6 +156,7 @@ if __name__ == '__main__':
     #                           show_shapes=True,
     #                           show_layer_names=True,
     #                           expand_nested=True)
+    # model.load_weights("Grok_Zero_Train/2/model.weights.h5")
     model.save_weights("tictactoe_test_model.weights.h5")
     model.summary()
     dummy_data = np.random.randint(low=-1, high=2, size=(batch_size, 2, *game.get_input_state().shape))
@@ -138,8 +176,8 @@ if __name__ == '__main__':
 
     # This is for the infer model
     model_infer = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
+    # model_infer.load_weights("Grok_Zero_Train/2/model.weights.h5")
     model_infer.load_weights("tictactoe_test_model.weights.h5")
-
     # tf.keras.utils.plot_model(model_infer, "tictactoe_model_infer_diagram.png",
     #                           show_shapes=True,
     #                           show_layer_names=True,
