@@ -16,7 +16,7 @@ def train(model, learning_rate, train_config, parent_path):
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],
               "beta_2": train_config["beta_2"],
-              # "weight_decay": 1e-4
+              # "weight_decay": 1e-3
               }
     if train_config["optimizer"].lower() == "adam":
         optimizer = tf.keras.optimizers.Adam(**kwargs)

@@ -46,7 +46,7 @@ if __name__ == "__main__":
     game = TicTacToe()
 
     model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
-    generation = 11
+    generation = 0
     model.load_weights(f"TicTacToe/Grok_Zero_Train/{generation}/model.weights.h5")
     # input_signature = [tf.TensorSpec((None, 15, 15), tf.float32, name="inputs"),
     #                    tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     print("Took",t_total,"seconds for", dummy_data.shape[0] * dummy_data.shape[1], "iterations")
     print((dummy_data.shape[1] * dummy_data.shape[0]) / t_total, "iterations per second")
 
-    print(np.allclose(output1_p, output2_p, atol=1e-3))
+    print(np.allclose(output1_p, output2_p, atol=1e-5))
     print(np.sum(np.abs(output1_p - output2_p)))
     #
     # output1_v = np.array(output1_v)

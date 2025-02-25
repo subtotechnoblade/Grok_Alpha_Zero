@@ -48,16 +48,16 @@ class Self_Play:
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                tau=1.0,
                                fast_find_win=False)
-        # RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-        #                                     np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
-        # self.mcts2: MCTS = MCTS(self.game,
-        #                        RNN_state2,
-        #                        self.sess,
-        #                        c_puct_init=self.train_config["c_puct_init"],
-        #                        use_dirichlet=True,
-        #                        dirichlet_alpha=self.train_config["dirichlet_alpha"],
-        #                        tau=1.0,
-        #                        fast_find_win=False)
+        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+        self.mcts2: MCTS = MCTS(self.game,
+                               RNN_state2,
+                               self.sess,
+                               c_puct_init=self.train_config["c_puct_init"],
+                               use_dirichlet=True,
+                               dirichlet_alpha=self.train_config["dirichlet_alpha"],
+                               tau=1.0,
+                               fast_find_win=False)
 
     def play(self):
         board_states = []
@@ -71,26 +71,26 @@ class Self_Play:
 
             current_move_num = len(self.game.action_history)
             if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                tau = 0.7 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
+                tau = 1.0 - (0.75 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
                 self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
             else:
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 1e-2)
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
 
-            # if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]:
-            #     tau = 1.1 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
-            #     self.mcts2.update_hyperparams(self.mcts2.c_puct_init, tau)
-            # else:
-            #     self.mcts2.update_hyperparams(self.mcts2.c_puct_init, 1e-2)
+            if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]:
+                tau = 1.0 - (0.75 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
+                self.mcts2.update_hyperparams(self.mcts1.c_puct_init, tau)
+            else:
+                self.mcts2.update_hyperparams(self.mcts1.c_puct_init, 0)
 
-            # if self.game.get_current_player() == -1:
-            action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
-                                               time_limit=self.time_limit,
-                                               use_bar=False)
-            # else:
-            #     action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
-            #                                        time_limit=self.time_limit,
-            #                                        use_bar=False)
+            if self.game.get_current_player() == -1:
+                action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
+                                                   time_limit=self.time_limit,
+                                                   use_bar=False)
+            else:
+                action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
+                                                   time_limit=self.time_limit,
+                                                   use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -106,7 +106,7 @@ class Self_Play:
 
             if winner == -2:
                 self.mcts1.prune_tree(action) # or else there will be an error because you are pruning a winning move
-                # self.mcts2.prune_tree(action) # or else there will be an error because you are pruning a winning move
+                self.mcts2.prune_tree(action) # or else there will be an error because you are pruning a winning move
 
                 # there are no more moves after a winning move
             # else:
@@ -173,7 +173,7 @@ class Self_Play:
 
 
 def self_play_task(worker_id,
-                   shm,
+                   info,
                    game_class,
                    input_feed_info: dict,
                    output_feed_info: dict,
@@ -184,16 +184,17 @@ def self_play_task(worker_id,
                    generation:int):
     np.random.seed()
 
-    parallelized_session = Parallelized_Session(worker_id,
-                                                shm,
-                                                input_feed_info,
-                                                output_feed_info,)
-
-    # session = rt.InferenceSession(f"{folder_path}/model.onnx", providers=['CPUExecutionProvider'])
+    if train_config["use_inference_server"]:
+        session = Parallelized_Session(worker_id,
+                                       info,
+                                       input_feed_info,
+                                       output_feed_info,)
+    else:
+        providers, onnx_path = info
+        session = rt.InferenceSession(onnx_path, providers=providers)
 
     task = Self_Play(game_class(),
-                     parallelized_session,
-                     # session,
+                     session,
                      build_config,
                      train_config,
                      lock,
@@ -201,7 +202,8 @@ def self_play_task(worker_id,
                      generation)
 
     task.play()
-    shm.close()
+    if train_config["use_inference_server"]:
+        info.close()
 
 def convert_shape(shape):
     assert len(shape) > 0
@@ -274,21 +276,23 @@ def run_self_play(game_class,
                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
                                 }
     print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
-    shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
 
     sess_options = rt.SessionOptions()
     if not train_config["use_gpu"]: # we are using the CPU for self play
         sess_options.intra_op_num_threads = 2
         sess_options.inter_op_num_threads = 1
 
-    server = mp.Process(target=start_server, args=(batched_input_feed_info,
-                                                   batched_output_feed_info,
-                                                   shms,
-                                                   providers,
-                                                   sess_options,
-                                                   onnx_file_path,
-                                                   0.01))
-    server.start()
+    shms = []
+    if train_config["use_inference_server"]:
+        shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
+        server = mp.Process(target=start_server, args=(batched_input_feed_info,
+                                                       batched_output_feed_info,
+                                                       shms,
+                                                       providers,
+                                                       sess_options,
+                                                       onnx_file_path,
+                                                       0.01))
+        server.start()
 
     lock = mp.Lock()
     jobs = []
@@ -298,7 +302,7 @@ def run_self_play(game_class,
             worker_id = len(jobs)
             worker = mp.Process(target=self_play_task,
                                 args=(worker_id,
-                                      shms[worker_id],
+                                      shms[worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
                                       game_class,
                                       convert_to_single_info(batched_input_feed_info),
                                       convert_to_single_info(batched_output_feed_info),
@@ -327,16 +331,16 @@ def run_self_play(game_class,
             if len(alive_jobs) != len(jobs) and num_games_left - len(alive_jobs) > 0:
                 for dead_worker_id in dead_worker_ids:
                     new_worker = mp.Process(target=self_play_task, args=(dead_worker_id,
-                                                             shms[dead_worker_id],
-                                                             game_class,
-                                                             convert_to_single_info(batched_input_feed_info),
-                                                             convert_to_single_info(batched_output_feed_info),
-                                                             build_config,
-                                                             train_config,
-                                                             lock,
-                                                             folder_path,
-                                                             generation),
-                                name=f"{dead_worker_id}")
+                                                                         shms[dead_worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
+                                                                         game_class,
+                                                                         convert_to_single_info(batched_input_feed_info),
+                                                                         convert_to_single_info(batched_output_feed_info),
+                                                                         build_config,
+                                                                         train_config,
+                                                                         lock,
+                                                                         folder_path,
+                                                                         generation),
+                                            name=f"{dead_worker_id}")
 
                     alive_jobs.append(new_worker)
                     new_worker.start()
@@ -345,10 +349,10 @@ def run_self_play(game_class,
     for worker in jobs:
         worker.join()
 
-
-    server.terminate()
-    for shm in shms:
-        shm.unlink()
+    if train_config["use_inference_server"]:
+        server.terminate()
+        for shm in shms:
+            shm.unlink()
 
 if __name__== "__main__":
     import os
@@ -359,20 +363,21 @@ if __name__== "__main__":
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     from Game_Tester import Game_Tester
 
-    Game_Tester(TicTacToe).test()
+    folder_path = "TicTacToe/Grok_Zero_Train/1"
 
-
-    folder_path = "TicTacToe/Grok_Zero_Train/0"
-
-    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-        os.remove(f"{folder_path}/Self_Play_Data.h5")
-
-    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
-
-    run_self_play(TicTacToe, build_config, train_config, folder_path)
+    # Game_Tester(TicTacToe).test()
+    #
+    #
+    #
+    # if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+    #     os.remove(f"{folder_path}/Self_Play_Data.h5")
+    #
+    # with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
+    #     # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+    #     file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+    #
+    # run_self_play(TicTacToe, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         print(file.keys())
@@ -403,7 +408,7 @@ if __name__== "__main__":
             print(f"Player -1 winrate: {round(player1_wins / num_unaugmented_games, 4)}")
             print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
             print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
-    Print_Stats("TicTacToe/Grok_Zero_Train/0")
+    Print_Stats(folder_path)
 
 
 
