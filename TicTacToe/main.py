@@ -5,19 +5,21 @@ import shutil
 import h5py as h5
 import numpy as np
 from glob import glob
+
 import tensorflow as tf
 import onnxruntime as rt
 import multiprocessing as mp
 
 from Build_Model import build_model, build_model_infer
-from Build_Tensorrt import cache_tensorrt, get_speed
-
 from Game_Tester import Game_Tester
 
 from Self_Play import run_self_play
 from Pad_Dataset import Pad_Dataset
+# would create a folder for the new generation
 from Train import train
-from To_onnx import convert_to_onnx
+from To_Onnx import convert_to_onnx
+from Build_Tensorrt import cache_tensorrt
+from Compute_Speed import compute_speed
 
 
 def Validate_Train_Config(train_config):
@@ -47,7 +49,20 @@ def Make_Dataset_File(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
         # max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins
+
+def Print_Stats(folder_path):
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "r", libver="latest") as file:
+        max_actions, total_actions, num_unaugmented_games, player1_wins, draws, player2_wins = file["game_stats"][:]
+        print("---------Game Statistics---------")
+        print(f"Longest game is: {max_actions} actions long!")
+        print(f"Average moves: {round(total_actions / num_unaugmented_games, 4)}")
+        print(f"Player -1 winrate: {round(player1_wins / num_unaugmented_games, 4)}")
+        print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
+        print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
+
+
 def Train_NN(game_class, build_config, train_config, generation, folder_path, save_folder_path):
+
     game = game_class()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -56,8 +71,11 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
     learning_rate = train_config["learning_rate"] * lr_decay
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
-    train(model, learning_rate, train_config, folder_path, save_folder_path)
+    model = train(model, learning_rate, train_config, str(Path(folder_path).parent))
+    Make_Generation_Folder(generation + 1)
+    model.save_weights(f"{save_folder_path}/model.weights.h5")
 def Create_onnx(game_class, build_config, folder_path):
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     game = game_class()
     physical_devices = tf.config.list_physical_devices('GPU')
     try:
@@ -77,6 +95,8 @@ def Create_onnx(game_class, build_config, folder_path):
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
+
+
 def Initialize(game_class, build_config, train_config): # This must be ran with a mp.Process
     # test the game class before anything is done
     print("\n*************Initiating*************\n")
@@ -90,6 +110,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
             # Invalid device or cannot modify virtual devices once initialized.
             pass
         train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+        train_model.summary()
         train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
     print("Initializing the model\n")
     p = mp.Process(target=initialize_model, args=(game, build_config))
@@ -107,9 +128,9 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
         p.start()
         p.join()
 
-        p = mp.Process(target=get_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
-        p.start()
-        p.join()
+    p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+    p.start()
+    p.join()
 
     Make_Dataset_File("Grok_Zero_Train/0/")
 
@@ -120,23 +141,23 @@ def Run(game_class, build_config, train_config, test=False):
     if "__pycache__" in os.listdir(parent_dir):
         shutil.rmtree(f"{parent_dir}/__pycache__")
 
-    if test:
-        Game_Tester(game_class).test()
+    Game_Tester(game_class).test()
+
     try:
         current_generation = max([int(path.split("/")[-1]) for path in glob("Grok_Zero_Train/*")])
     except:
         current_generation = 0
+
 
     if current_generation == 0:
 
         os.makedirs("Grok_Zero_Train/0/", exist_ok=True)
 
         if (not os.path.exists("Grok_Zero_Train/0/model.weights.h5") or not
-        (train_config["use_tensorrt"] and os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx")) or not
+        (os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
         os.path.exists("Grok_Zero_Train/0/model.onnx") or not
-        os.path.exists("Grok_Zero_Train/Self_Play_Data.h5")):
-            print("The starting folder is initialized incorrectly!")
-            print("Deleting and re-initiating!\n")
+        os.path.exists("Grok_Zero_Train/0/Self_Play_Data.h5")):
+            print("Creating necessary files and models!")
             shutil.rmtree("Grok_Zero_Train/")
             Make_Generation_Folder(0)
 
@@ -152,38 +173,69 @@ def Run(game_class, build_config, train_config, test=False):
     # finish the generation before loop training
 
     # we can continue on if we are still at the self play stage as none below will be True
-    if len(os.listdir(f"Grok_Zero_Train/{current_generation}")) == 0: # on the training step
-        p = mp.Process(target=Train_NN, args=(game_class, build_config, train_config, current_generation,
-                                              f"Grok_Zero_Train/{current_generation - 1}",
-                                              f"Grok_Zero_Train/{current_generation}"))
-        p.start()
-        p.join()
+    print("\n*************Starting*************\n")
 
+    print(f"Generation: {current_generation} / {train_config['total_generations'] - 1}")
+
+
+    calculate_speed = False
     if "model.onnx" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         p = mp.Process(target=Create_onnx, args=(game_class, build_config,
                                                  f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
+        calculate_speed = True
 
-    if train_config["use_tensorrt"]:
-        if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
-            p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
-            p.start()
-            p.join()
+    if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
+        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+        p.start()
+        p.join()
+        calculate_speed = True
 
-            p = mp.Process(target=get_speed, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
-            p.start()
-            p.join()
+    if calculate_speed:
+        p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+        p.start()
+        p.join()
 
     if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
+        current_generation += 1
+
+    for generation in range(current_generation, train_config["total_generations"]):
+        run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
+        Print_Stats(f"Grok_Zero_Train/{generation}")
+        Pad_Dataset(f"Grok_Zero_Train/{generation}", train_config["num_previous_generations"]).pad_dataset()
+
+
+        p = mp.Process(target=Train_NN, args=(game_class, build_config, train_config, generation,
+                                              f"Grok_Zero_Train/{generation}", f"Grok_Zero_Train/{generation + 1}"))
+        p.start()
+        p.join()
+
+
+        p = mp.Process(target=Create_onnx, args=(game_class, build_config, f"Grok_Zero_Train/{generation + 1}"))
+        p.start()
+        p.join()
+
+        if train_config["use_tensorrt"]:
+            p = mp.Process(target=cache_tensorrt,
+                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+            p.start()
+            p.join()
+
+            p = mp.Process(target=compute_speed,
+                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+            p.start()
+            p.join()
+        if generation < train_config["total_generations"] - 1:
+            Make_Dataset_File(f"Grok_Zero_Train/{generation + 1}")
+            print(f"Generation: {generation + 1} / {train_config['total_generations'] - 1}")
+    print("-----------Training Done!-----------")
 
 
 
-    # for generation in range(current_generation, train_config["total_generations"]):
-    #     run_self_play(game_class, build_config, train_config, "Grok_Zero_Train/")
 
 
 if __name__ == "__main__":
     from Tictactoe import TicTacToe, build_config, train_config
-    Run(TicTacToe, build_config, train_config, test=False)
+    Run(TicTacToe, build_config, train_config, test=True)
