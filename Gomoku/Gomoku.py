@@ -2,10 +2,11 @@ import numpy as np
 from numba import njit
 
 # This is for building the model
-build_config = {"embed_size": 128, # this is the vector for RWKV
+build_config = {"embed_size": 256, # this is the vector for RWKV
                 "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
+                "num_filters": 128,
                 "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
 
                 "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
@@ -27,6 +28,7 @@ train_config = {
     "use_gpu": False,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
+    "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
@@ -43,7 +45,7 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 8, # The number of samples in a batch for training in parallel
+    "train_batch_size": 64, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
     "learning_rate": 1e-3, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
