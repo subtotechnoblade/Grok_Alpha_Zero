@@ -20,6 +20,7 @@ def build_model(input_shape, policy_shape, build_config):
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
     num_layers = build_config["num_layers"]
+    num_resnet_layers = build_config["num_resnet_layers"]
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
     num_filters = build_config["num_filters"]
@@ -33,7 +34,7 @@ def build_model(input_shape, policy_shape, build_config):
     eyes = tf.keras.layers.Activation("relu")(eyes)
     x = eyes
 
-    for _ in range(num_layers):
+    for _ in range(num_resnet_layers):
         x =  Batched_Net.Batch(ResNet_Conv2D(128, (3, 3)))(x)
         x =  Batched_Net.Batch(ResNet_Identity2D(128, (3, 3)))(x)
 
@@ -84,6 +85,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
     embed_size = build_config["embed_size"]
     num_heads = build_config["num_heads"]
     num_layers = build_config["num_layers"]
+    num_resnet_layers = build_config["num_resnet_layers"]
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
     num_filters = build_config["num_filters"]
@@ -104,7 +106,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
     x = eyes
-    for _ in range(num_layers):
+    for _ in range(num_resnet_layers):
         x =  Batched_Net_Infer.Batch(ResNet_Conv2D(num_filters, (3, 3)))(x)
         x =  Batched_Net_Infer.Batch(ResNet_Identity2D(num_filters, (3, 3)))(x)
 

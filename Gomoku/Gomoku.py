@@ -7,7 +7,8 @@ build_config = {"embed_size": 256, # this is the vector for RWKV
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
                 "num_filters": 128,
-                "num_layers": 3, # This is the total amount of RWKV layers in the model that are used
+                "num_layers": 0, # This is the total amount of RWKV layers in the model that are used
+                "num_resnet_layers": 3, # This is the total amount of RWKV layers in the model that are used
 
                 "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True, # from grokfast paper
@@ -25,14 +26,14 @@ train_config = {
     "num_explore_actions_first": 4,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
-    "use_gpu": False,  # Change this to False to use CPU for self play and inference
-    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": True,  # Change this to False to use CPU for self play and inference
+    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
-    "num_workers": 6, # Number of multiprocessing workers used to self play
+    "num_workers": 1, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 226, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 600, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
