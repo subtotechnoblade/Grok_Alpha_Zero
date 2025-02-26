@@ -137,7 +137,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
 
     Make_Dataset_File("Grok_Zero_Train/0/")
 
-def Run(game_class, build_config, train_config, test=False):
+def Run(game_class, build_config, train_config):
     Validate_Train_Config(train_config)
 
     parent_dir = Path(__file__).resolve().parent # delete pycache in the parent directory
@@ -241,4 +241,4 @@ def Run(game_class, build_config, train_config, test=False):
 
 if __name__ == "__main__":
     from Tictactoe import TicTacToe, build_config, train_config
-    Run(TicTacToe, build_config, train_config, test=True)
+    Run(TicTacToe, build_config, train_config)

@@ -65,7 +65,7 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5600)])
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
     game = game_class()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -137,7 +137,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
 
     Make_Dataset_File("Grok_Zero_Train/0/")
 
-def Run(game_class, build_config, train_config, test=False):
+def Run(game_class, build_config, train_config):
     Validate_Train_Config(train_config)
 
     parent_dir = Path(__file__).resolve().parent # delete pycache in the parent directory
@@ -241,4 +241,4 @@ def Run(game_class, build_config, train_config, test=False):
 
 if __name__ == "__main__":
     from Gomoku import Gomoku, build_config, train_config
-    Run(Gomoku, build_config, train_config, test=True)
+    Run(Gomoku, build_config, train_config)
