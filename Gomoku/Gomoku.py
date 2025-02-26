@@ -6,7 +6,7 @@ build_config = {"embed_size": 256, # this is the vector for RWKV
                 "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
-                "num_filters": 128,
+                "num_filters": 96,
                 "num_layers": 0, # This is the total amount of RWKV layers in the model that are used
                 "num_resnet_layers": 3, # This is the total amount of RWKV layers in the model that are used
 
@@ -21,24 +21,26 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 10, # amount of self play games until we re train the network
-    "max_actions": 225, # Note that this should be
-    "num_explore_actions_first": 4,  # A good rule of thumb is how long the opening should be for player -1
+    "games_per_generation": 100, # amount of self play games until we re train the network
+    "max_actions": 100, # Note that this should be
+    "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
-    "num_workers": 1, # Number of multiprocessing workers used to self play
+    "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
+    "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 600, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 700, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
-    "use_njit": True, # This assumes that your check_win_MCTS uses  @njit(cache=True) or else setting this to true will cause an error
+
+    "opening_actions": [], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
     "train_percent": 1.0, # The percent used for training after the test set is taken
@@ -46,7 +48,7 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 64, # The number of samples in a batch for training in parallel
+    "train_batch_size": 4, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
     "learning_rate": 1e-3, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
@@ -54,7 +56,7 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 5, # The number of epochs for training
+    "train_epochs": 25, # The number of epochs for training
 }
 class Gomoku:
     def __init__(self, width=15, height=15):
