@@ -11,6 +11,7 @@ from MCTS import MCTS
 
 from Gomoku import Gomoku
 
+from Session_Cache import Cache_Wrapper
 from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
 
 
@@ -87,7 +88,7 @@ class Self_Play:
             # if self.game.get_current_player() == -1:
             action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
                                                time_limit=self.time_limit,
-                                               use_bar=False)
+                                               use_bar=True)
             # else:
             #     action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
             #                                        time_limit=self.time_limit,
@@ -100,7 +101,8 @@ class Self_Play:
             target_values.append(self.game.get_current_player()) # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
             if current_move_num == 0 and self.train_config.get("opening_actions"):
-                sample_actions, weights = list(zip(*self.train_config["opening_actions"]))
+                sample_actions, weights = zip(*self.train_config["opening_actions"])
+                sample_actions, weights = list(sample_actions), list(weights)
                 sum_weights = sum(weights)
                 if sum_weights < 1.0:
                     sample_actions.append(action)
@@ -202,7 +204,7 @@ def self_play_task(worker_id,
     else:
         providers, onnx_path = info
         session = rt.InferenceSession(onnx_path, providers=providers)
-
+    session = Cache_Wrapper(session, folder_path + "/Cache")
     task = Self_Play(game_class(),
                      session,
                      build_config,
@@ -365,41 +367,45 @@ def run_self_play(game_class,
             shm.unlink()
 
 if __name__== "__main__":
+    from diskcache import Cache
     import os
     import shutil
     import time
     # Testing code for validation
     from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     from Game_Tester import Game_Tester
 
-    folder_path = "TicTacToe/Grok_Zero_Train/1"
+    folder_path = "Gomoku/Grok_Zero_Train/1"
+    cache = Cache(folder_path + "/Cache")
+    cache.close()
+    Game_Tester(Gomoku).test()
 
-    # Game_Tester(TicTacToe).test()
-    #
-    #
-    #
-    # if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
-    #     os.remove(f"{folder_path}/Self_Play_Data.h5")
-    #
-    # with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
-    #     # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-    #     # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
-    #     file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
-    #
-    # run_self_play(TicTacToe, build_config, train_config, folder_path)
+
+    if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
+        os.remove(f"{folder_path}/Self_Play_Data.h5")
+
+    # if os.path.exists(f"{folder_path}/Cache"):
+    #     shutil.rmtree(f"{folder_path}/Cache")
+
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
+        # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
+        file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
+
+    run_self_play(Gomoku, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
-        print(file.keys())
-        print(file["game_stats"][:])
-
-
-        print(file['boards_0'].shape)
-        print(file['policies_0'].shape)
-        print(file['values_0'].shape)
-
-        print(file['boards_0'][:])
-        print(file['policies_0'][:].reshape((-1, 3, 3)))
+        # print(file.keys())
+        # print(file["game_stats"][:])
+        #
+        #
+        # print(file['boards_0'].shape)
+        # print(file['policies_0'].shape)
+        # print(file['values_0'].shape)
+        #
+        # print(file['boards_0'][:])
+        # print(file['policies_0'][:].reshape((-1, 3, 3)))
         print((len(file.keys()) - 1) // 3)
         # for i in range(file["max_actions"][0]):
         #     print(file["boards_0"][i])
