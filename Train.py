@@ -23,7 +23,7 @@ def train(model, learning_rate, train_config, parent_path):
     elif train_config["optimizer"].lower() == "adamw":
         optimizer = tf.keras.optimizers.AdamW(**kwargs)
     elif train_config["optimizer"].lower() == "nadam":
-        optimizer = tf.keras.optimizers.Nadam(**kwargs)
+        optimizer = tf.keras.optimizers.Nadam(gradient_accumulation_steps=16, **kwargs)
 
 
 

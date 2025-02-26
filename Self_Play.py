@@ -1,9 +1,8 @@
-import os
 import h5py as h5
 import numpy as np
-import time
+
 from tqdm import tqdm
-from numba import njit
+
 import onnxruntime as rt
 import multiprocessing as mp
 
@@ -48,16 +47,16 @@ class Self_Play:
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                tau=1.0,
                                fast_find_win=False)
-        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
-        self.mcts2: MCTS = MCTS(self.game,
-                               RNN_state2,
-                               self.sess,
-                               c_puct_init=self.train_config["c_puct_init"],
-                               use_dirichlet=True,
-                               dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                               tau=1.0,
-                               fast_find_win=False)
+        # RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+        #                                     np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+        # self.mcts2: MCTS = MCTS(self.game,
+        #                        RNN_state2,
+        #                        self.sess,
+        #                        c_puct_init=self.train_config["c_puct_init"],
+        #                        use_dirichlet=True,
+        #                        dirichlet_alpha=self.train_config["dirichlet_alpha"],
+        #                        tau=1.0,
+        #                        fast_find_win=False)
 
     def play(self):
         board_states = []
@@ -70,6 +69,7 @@ class Self_Play:
             board_states.append(self.game.get_input_state().copy())
 
             current_move_num = len(self.game.action_history)
+
             if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
                 tau = 1.0 - (0.75 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
@@ -79,18 +79,18 @@ class Self_Play:
 
             if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]:
                 tau = 1.0 - (0.75 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
-                self.mcts2.update_hyperparams(self.mcts1.c_puct_init, tau)
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
             else:
-                self.mcts2.update_hyperparams(self.mcts1.c_puct_init, 0)
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
 
-            if self.game.get_current_player() == -1:
-                action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
-                                                   time_limit=self.time_limit,
-                                                   use_bar=False)
-            else:
-                action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
-                                                   time_limit=self.time_limit,
-                                                   use_bar=False)
+            # if self.game.get_current_player() == -1:
+            action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
+                                               time_limit=self.time_limit,
+                                               use_bar=False)
+            # else:
+            #     action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
+            #                                        time_limit=self.time_limit,
+            #                                        use_bar=False)
 
             move_probs = map(lambda x: x[:2], move_probs) # This takes the first and seconds element of which is the [action, prob]
             improved_policy = self.game.compute_policy_improvement(move_probs)
@@ -98,15 +98,24 @@ class Self_Play:
 
             target_values.append(self.game.get_current_player()) # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
+            if current_move_num == 0 and self.train_config.get("opening_actions"):
+                sample_actions, weights = list(zip(*self.train_config["opening_actions"]))
+                sum_weights = sum(weights)
+                if sum_weights < 1.0:
+                    sample_actions.append(action)
+                    weights.append(1.0 - sum_weights)
+                sample_actions = np.array(sample_actions)
 
+                idx = np.random.choice(len(sample_actions), size=1, p=weights, replace=False)[0]
+                action = sample_actions[idx]
             self.game.do_action(action)
-            # print(self.game.board)
+
 
             winner = self.game.check_win()
 
             if winner == -2:
                 self.mcts1.prune_tree(action) # or else there will be an error because you are pruning a winning move
-                self.mcts2.prune_tree(action) # or else there will be an error because you are pruning a winning move
+                # self.mcts2.prune_tree(action) # or else there will be an error because you are pruning a winning move
 
                 # there are no more moves after a winning move
             # else:

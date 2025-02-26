@@ -39,7 +39,7 @@ train_config = {
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
 
-    "opening_actions": [], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.4]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training

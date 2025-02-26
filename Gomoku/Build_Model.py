@@ -24,19 +24,18 @@ def build_model(input_shape, policy_shape, build_config):
     token_shift_hidden_dim = build_config["token_shift_hidden_dim"]
     hidden_size = build_config["hidden_size"]
     num_filters = build_config["num_filters"]
-    assert num_layers > 0
 
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
 
     reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
-    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding="same"))(reshaped_inputs)
-    eyes = tf.keras.layers.LayerNormalization()(eyes)
-    eyes = tf.keras.layers.Activation("relu")(eyes)
+    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(reshaped_inputs)
+    # eyes = tf.keras.layers.LayerNormalization()(eyes)
+    # eyes = tf.keras.layers.Activation("relu")(eyes)
     x = eyes
 
     for _ in range(num_resnet_layers):
-        x =  Batched_Net.Batch(ResNet_Conv2D(128, (3, 3)))(x)
-        x =  Batched_Net.Batch(ResNet_Identity2D(128, (3, 3)))(x)
+        x =  Batched_Net.Batch(ResNet_Conv2D(num_filters, (3, 3)))(x)
+        x =  Batched_Net.Batch(ResNet_Identity2D(num_filters, (3, 3)))(x)
 
     # for layer_id in range(num_layers):  # -2 because later we use two layers for the policy and value
     #     x = Train_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
@@ -101,12 +100,12 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding="same"))(reshaped_inputs)
-    eyes = tf.keras.layers.LayerNormalization()(eyes)
-    eyes = tf.keras.layers.Activation("relu")(eyes)
+    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(reshaped_inputs)
+    # eyes = tf.keras.layers.LayerNormalization()(eyes)
+    # eyes = tf.keras.layers.Activation("relu")(eyes)
 
     x = eyes
-    for _ in range(num_resnet_layers):
+    for layer_id in range(num_resnet_layers):
         x =  Batched_Net_Infer.Batch(ResNet_Conv2D(num_filters, (3, 3)))(x)
         x =  Batched_Net_Infer.Batch(ResNet_Identity2D(num_filters, (3, 3)))(x)
 
