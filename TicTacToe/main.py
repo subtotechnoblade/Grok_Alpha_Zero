@@ -50,9 +50,7 @@ def Make_Dataset_File(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
         # max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins
-def Make_Cache_File(folder_path):
-    cache = Cache(folder_path + "/Cache")
-    cache.close()
+
 def Print_Stats(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r", libver="latest") as file:
         max_actions, total_actions, num_unaugmented_games, player1_wins, draws, player2_wins = file["game_stats"][:]
@@ -139,7 +137,6 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     p.join()
 
     Make_Dataset_File("Grok_Zero_Train/0")
-    Make_Cache_File("Grok_Zero_Train/0")
 
 def Run(game_class, build_config, train_config):
     Validate_Train_Config(train_config)
@@ -207,12 +204,11 @@ def Run(game_class, build_config, train_config):
     if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
 
-        if os.path.exists(f"Grok_Zero_Train/{current_generation}/Cache"):
-            shutil.rmtree(f"Grok_Zero_Train/{current_generation}/Cache")
-            Make_Cache_File(f"Grok_Zero_Train/{current_generation}")
         current_generation += 1
 
     for generation in range(current_generation, train_config["total_generations"]):
+        if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
+            shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
         Print_Stats(f"Grok_Zero_Train/{generation}")
         Pad_Dataset(f"Grok_Zero_Train/{generation}", train_config["num_previous_generations"]).pad_dataset()
@@ -240,7 +236,6 @@ def Run(game_class, build_config, train_config):
             p.join()
         if generation < train_config["total_generations"] - 1:
             Make_Dataset_File(f"Grok_Zero_Train/{generation + 1}")
-            Make_Cache_File(f"Grok_Zero_Train/{generation + 1}")
             print(f"Generation: {generation + 1} / {train_config['total_generations'] - 1}")
     print("-----------Training Done!-----------")
 
