@@ -30,7 +30,8 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
-    "num_workers": 8, # Number of multiprocessing workers used to self play
+    "max_cache_action": 20, # maximum number of actions of the neural networks outputs we should cache
+    "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 700, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
@@ -48,9 +49,9 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 4, # The number of samples in a batch for training in parallel
+    "train_batch_size": 8, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
-    "learning_rate": 1e-3, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing

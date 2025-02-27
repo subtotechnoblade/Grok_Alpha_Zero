@@ -39,6 +39,7 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
+    "max_cache_action": 9,  # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 4, # Number of multiprocessing workers used to self play
 
     # MCTS variables
