@@ -134,8 +134,8 @@ class MCTS:
         self.c_puct_init = new_c_puct_init
 
         if new_tau != 0 and new_tau < 5e-3:
-            warn(f"Tau can't be less than 5e-3. Invalidating update and returning")
-            return
+            warn(f"Tau can't be less than 5e-3.Changing tau = 0.0")
+            new_tau = 0.0
         self.tau = new_tau
 
     @staticmethod
@@ -157,6 +157,7 @@ class MCTS:
 
         # heavily optimized code
         while True:
+
             if node.children and node.children[0].is_terminal is not None: # terminal parent
                 if np.sum(node.child_values) != 0: # meaning we have winning moves, if it was 0 then all the moves were a draw
                     terminal_nodes = [terminal_child for terminal_child in node.children if terminal_child.is_terminal != 0]
@@ -169,8 +170,6 @@ class MCTS:
                 # and return as it is a new unvisited node
                 # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
                 return node  # note that this returns the parent, _expand will create the child node
-
-
             # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
                                                          node.child_values,
@@ -292,7 +291,6 @@ class MCTS:
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              self.game.get_current_player(),
-                             # self.game.get_current_player(),
                              terminal_actions,
                              [],
                              child_policy)
@@ -429,6 +427,7 @@ class MCTS:
 
         else:
             child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, node.current_player, np.array(node.action_history + [child_action])), node.RNN_state)
+            # print("compute", time.time() - s)
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, node.current_player, np.array(node.action_history),  child_policy)
@@ -460,9 +459,7 @@ class MCTS:
                 del node.board
                 del node.current_player
                 del node.RNN_state  # we no longer need RNN state
-
             # negated child_child_values is the child value
-
         return child, -child_value, 1 # contact Brian if you don't understand why it is -value
 
     def _back_propagate(self, node: Node, value: float, visits=1) -> None:
@@ -520,7 +517,6 @@ class MCTS:
                 visits = 1
             else:
                 node, value, visits = self._expand(node)
-
 
             self._back_propagate(node, value, visits)
 
