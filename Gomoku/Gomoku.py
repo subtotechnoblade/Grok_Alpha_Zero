@@ -22,7 +22,7 @@ train_config = {
 
     # Self Play variables
     "games_per_generation": 200, # amount of self play games until we re train the network
-    "max_actions": 10, # Note that this should be
+    "max_actions": 100, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
@@ -30,7 +30,7 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 3, # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_actions": 2, # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
@@ -50,7 +50,8 @@ train_config = {
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "train_batch_size": 8, # The number of samples in a batch for training in parallel
-    "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
+    "test_batch_size": 4, # If none, then train_batch_size will be used for the test batch size
+    "gradient_accumulation_steps": 32,
     "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after

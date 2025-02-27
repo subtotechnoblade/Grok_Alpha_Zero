@@ -123,6 +123,7 @@ train_config = {
 
     "train_batch_size": 256, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
+    "gradient_accumulation_steps": None,
     "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
