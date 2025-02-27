@@ -86,9 +86,9 @@ class Self_Play:
                 self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
 
             # if self.game.get_current_player() == -1:
-            action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit,
+            action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit * (2 if current_move_num <= 1 else 1),
                                                time_limit=self.time_limit,
-                                               use_bar=True)
+                                               use_bar=False)
             # else:
             #     action, move_probs = self.mcts2.run(iteration_limit=self.iteration_limit,
             #                                        time_limit=self.time_limit,
@@ -204,7 +204,7 @@ def self_play_task(worker_id,
     else:
         providers, onnx_path = info
         session = rt.InferenceSession(onnx_path, providers=providers)
-    session = Cache_Wrapper(session, folder_path + "/Cache")
+    session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_actions"])
     task = Self_Play(game_class(),
                      session,
                      build_config,
@@ -296,6 +296,7 @@ def run_self_play(game_class,
 
     shms = []
     if train_config["use_inference_server"]:
+
         shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
         server = mp.Process(target=start_server, args=(batched_input_feed_info,
                                                        batched_output_feed_info,
@@ -303,7 +304,7 @@ def run_self_play(game_class,
                                                        providers,
                                                        sess_options,
                                                        onnx_file_path,
-                                                       0.01))
+                                                       0.001 * (train_config["num_workers"] - 1)))
         server.start()
 
     lock = mp.Lock()
@@ -376,7 +377,7 @@ if __name__== "__main__":
     # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     from Game_Tester import Game_Tester
 
-    folder_path = "Gomoku/Grok_Zero_Train/1"
+    folder_path = "Gomoku/Grok_Zero_Train/0"
     cache = Cache(folder_path + "/Cache")
     cache.close()
     Game_Tester(Gomoku).test()
