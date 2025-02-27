@@ -1,10 +1,11 @@
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import h5py as h5
 import numpy as np
 from glob import glob
+from diskcache import Cache
 
 import tensorflow as tf
 import onnxruntime as rt
@@ -49,7 +50,9 @@ def Make_Dataset_File(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
         # max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins
-
+def Make_Cache_File(folder_path):
+    cache = Cache(folder_path + "/Cache")
+    cache.close()
 def Print_Stats(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r", libver="latest") as file:
         max_actions, total_actions, num_unaugmented_games, player1_wins, draws, player2_wins = file["game_stats"][:]
@@ -65,7 +68,7 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5600)])
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
     game = game_class()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -135,7 +138,8 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     p.start()
     p.join()
 
-    Make_Dataset_File("Grok_Zero_Train/0/")
+    Make_Dataset_File("Grok_Zero_Train/0")
+    Make_Cache_File("Grok_Zero_Train/0")
 
 def Run(game_class, build_config, train_config):
     Validate_Train_Config(train_config)
@@ -202,6 +206,10 @@ def Run(game_class, build_config, train_config):
 
     if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
+
+        if os.path.exists(f"Grok_Zero_Train/{current_generation}/Cache"):
+            shutil.rmtree(f"Grok_Zero_Train/{current_generation}/Cache")
+            Make_Cache_File(f"Grok_Zero_Train/{current_generation}")
         current_generation += 1
 
     for generation in range(current_generation, train_config["total_generations"]):
@@ -232,6 +240,7 @@ def Run(game_class, build_config, train_config):
             p.join()
         if generation < train_config["total_generations"] - 1:
             Make_Dataset_File(f"Grok_Zero_Train/{generation + 1}")
+            Make_Cache_File(f"Grok_Zero_Train/{generation + 1}")
             print(f"Generation: {generation + 1} / {train_config['total_generations'] - 1}")
     print("-----------Training Done!-----------")
 
