@@ -21,7 +21,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # amount of self play games until we re train the network
+    "games_per_generation": 45, # amount of self play games until we re train the network
     "max_actions": 100, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -154,7 +154,7 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return self.check_win_MCTS(self.board, np.array(self.action_history, dtype=np.int32), -self.current_player)
+        return self.check_win_MCTS(self.board, -self.current_player, np.array(self.action_history, dtype=np.int32),)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
