@@ -16,14 +16,15 @@ def train(model, learning_rate, train_config, parent_path):
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],
               "beta_2": train_config["beta_2"],
-              # "weight_decay": 1e-3
+              "weight_decay": 1e-4,
+              "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
               }
     if train_config["optimizer"].lower() == "adam":
         optimizer = tf.keras.optimizers.Adam(**kwargs)
     elif train_config["optimizer"].lower() == "adamw":
         optimizer = tf.keras.optimizers.AdamW(**kwargs)
     elif train_config["optimizer"].lower() == "nadam":
-        optimizer = tf.keras.optimizers.Nadam(gradient_accumulation_steps=16, **kwargs)
+        optimizer = tf.keras.optimizers.Nadam(**kwargs)
 
 
 
