@@ -14,7 +14,7 @@ class Cache_Wrapper:
     def run(self, output_names, input_feed:dict):
         if not self.finished_lookup:
             key = np.ascontiguousarray(input_feed["inputs"].flatten()).newbyteorder("little").tobytes()
-            outputs, expire_time = self.cache.get(key, expire_time=True)
+            outputs= self.cache.get(key)
             if outputs is not None:
                 self.action_count += 1
                 return outputs
