@@ -30,7 +30,6 @@ class Parallelized_Session:
         while True:
             if self.shared_arr[0] == 0.0:
                 # Send the request to the server
-
                 data = np.concatenate([arr.flatten() for arr in input_feed.values()], dtype=np.float32)
                 self.shared_arr[1:1 + len(data)] = data
                 self.shared_arr[0] = 1.0
@@ -46,10 +45,9 @@ class Parallelized_Session:
                 start_index = 1
                 for i, (arr_shape, arr_len) in enumerate(self.outputs_feed_info.values()):
                     # Only need a reshape because batch dim = 1
-                    outputs[i] = np.copy(raw_outputs[start_index: start_index + arr_len]).reshape(arr_shape)
+                    outputs[i] = np.array(raw_outputs[start_index: start_index + arr_len], copy=True).reshape(arr_shape)
                     # Must copy as without doing so, any changes to shared memory will reflect in the outputs
                     start_index += arr_len
-
                 return outputs
 
 class Server:
@@ -113,6 +111,9 @@ class Server:
                                         sess_options=sess_options,
                                         providers=providers)
 
+        self.total_its = 0
+        self.cousnt = 0
+
 
 
     def compute_transposition_to_standard(self, new_shape: list):
@@ -151,6 +152,7 @@ class Server:
             active_indexes = set()
             batched_input_feed = {name:[] for name in self.inputs_feed_info.keys()}
 
+            t = time.time()
             start_time = time.time()
             while len(active_connections) == 0 or (len(active_connections) < len(self.shared_arrs) and time.time() - start_time <= self.wait_time):
                 for i, shared_array in enumerate(self.shared_arrs):
@@ -174,20 +176,24 @@ class Server:
                 else:
                     batched_input_feed[input_name] = np.array(batched_input_feed[input_name], dtype=infer_dtype).transpose(transposition)
 
-
             batched_outputs = self.sess.run(list(self.outputs_feed_info.keys()), input_feed=batched_input_feed)
-
             # Must transpose if possible to (batch, ...) to iterate through it
+
             for i, (_, transposition, _) in enumerate(self.outputs_feed_config.values()):
                 if transposition is not None:
                     batched_outputs[i] = batched_outputs[i].transpose(transposition)
 
-            # assert set(list(map(tuple, active_connections))) == list(map(tuple, active_connections))
+
             for i, shared_array in enumerate(active_connections):
                 flattened_outputs = np.concatenate([output[i].reshape((-1,)) for output in batched_outputs], dtype=np.float32)
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
                 shared_array[0] = 0.0
                 # reset it so that the session can pick it up
+            its = len(active_connections) / (time.time() - t)
+            self.total_its += its
+            self.cousnt += 1
+            # print("Avg its:", self.total_its / self.cousnt)
+
 
 def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_options, file_path, per_process_wait_time=0.001):
 
