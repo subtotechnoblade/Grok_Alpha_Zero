@@ -256,7 +256,7 @@ class Game_Tester:
             return False
 
         try:
-            self.game.check_win_MCTS(self.game.board, np.array(self.game.action_history), -self.game.get_current_player()) # also counts as a warmup
+            self.game.check_win_MCTS(self.game.board, -self.game.get_current_player(), np.array(self.game.action_history)) # also counts as a warmup
             MCTS_check_win_implemented = True
         except AttributeError:
             print("Checking check_win_MCTS: Fail")
@@ -290,7 +290,7 @@ class Game_Tester:
             total_check_win_time += time.time() - s
 
             s = time.time()
-            MCTS_winner = self.game.check_win_MCTS(self.game.board, np.array(self.game.action_history), -self.game.current_player)
+            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.current_player, np.array(self.game.action_history))
             total_check_win_MCTS_time += time.time() - s
 
             if MCTS_check_win_implemented and winner != MCTS_winner:
