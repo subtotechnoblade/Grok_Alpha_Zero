@@ -223,7 +223,7 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def check_win_MCTS(board, action_history, current_player) -> int:
+    def check_win_MCTS(board, current_player, action_history) -> int:
         # Used to check if MCTS has reached a terminal node
         # return the player (-1 or 1) if that player won, 0 if draw, and -2 if game hasn't ended
         # use the previous actions if necessary

@@ -247,7 +247,7 @@ class MCTS:
             legal_action = action_histories[action_id][-1]
             check_win_board = do_action_fn(board.copy(), legal_action, current_player)
 
-            result = check_win_fn(check_win_board, action_histories[action_id], current_player)
+            result = check_win_fn(check_win_board, current_player, action_histories[action_id])
 
             if result != -2:  # this limits the checks by a lot
                 terminal_actions.append(legal_action)  # in any case as long as the result != -2, we have a terminal action

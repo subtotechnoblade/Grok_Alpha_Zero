@@ -257,7 +257,7 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def check_win_MCTS(board, action_history, current_player):
+    def check_win_MCTS(board, current_player, action_history):
         for row in board:
             if row[0] != 0 and row[0] == row[1] == row[2]:
                 return current_player

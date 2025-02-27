@@ -158,7 +158,7 @@ class Gomoku:
 
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def check_win_MCTS(board: np.array, action_history: np.array, current_player: int) -> int:
+    def check_win_MCTS(board: np.array, current_player: int, action_history: np.array) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
