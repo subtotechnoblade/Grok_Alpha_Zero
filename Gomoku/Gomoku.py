@@ -21,8 +21,8 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 45, # amount of self play games until we re train the network
-    "max_actions": 100, # Note that this should be
+    "games_per_generation": 200, # amount of self play games until we re train the network
+    "max_actions": 10, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
@@ -30,17 +30,17 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 15, # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_actions": 3, # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 700, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
 
-    "opening_actions": [[[7, 7], 0.6]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.65]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
