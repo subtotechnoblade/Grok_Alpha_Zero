@@ -111,8 +111,6 @@ class Server:
                                         sess_options=sess_options,
                                         providers=providers)
 
-        self.total_its = 0
-        self.cousnt = 0
 
 
 
@@ -189,10 +187,6 @@ class Server:
                 shared_array[1:1 + len(flattened_outputs)] = flattened_outputs
                 shared_array[0] = 0.0
                 # reset it so that the session can pick it up
-            its = len(active_connections) / (time.time() - t)
-            self.total_its += its
-            self.cousnt += 1
-            # print("Avg its:", self.total_its / self.cousnt)
 
 
 def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_options, file_path, per_process_wait_time=0.001):
