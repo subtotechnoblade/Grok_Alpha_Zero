@@ -4,6 +4,8 @@ import numpy as np
 import numba as nb
 from numba.extending import is_jitted
 from numba import njit
+
+from Session_Cache import Cache_Wrapper
 from tqdm import tqdm
 from warnings import warn
 
@@ -75,7 +77,7 @@ class MCTS:
     def __init__(self,
                  game, # the annotation is for testing and debugging
                  RNN_state: np.array,
-                 session: rt.InferenceSession or Parallelized_Session or None,
+                 session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None,
                  c_puct_init: float=2.5,
                  c_puct_base: float=19_652,
                  use_dirichlet=True,
@@ -98,6 +100,7 @@ class MCTS:
         self.game = game
         self.RNN_state = RNN_state
         self.session = session
+        self.cache_session = isinstance(self.session, Cache_Wrapper)
         self.fast_find_win = fast_find_win
 
         self.c_puct_init = c_puct_init # determined experimentally
@@ -183,13 +186,19 @@ class MCTS:
             node: Node = node.children[best_index]
 
 
-    def _compute_outputs(self, inputs, RNN_state):
+    def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
             input_state, input_state_matrix = RNN_state
-            policy, value, state, state_matrix = self.session.run(["policy", "value", "output_state", "output_state_matrix"],
-                                                                  input_feed={"inputs": np.expand_dims(np.array(inputs, dtype=np.float32), 0),
-                                                                    "input_state": input_state,
-                                                                    "input_state_matrix": input_state_matrix})
+            kwargs = {"output_names": ["policy", "value", "output_state", "output_state_matrix"],
+                      "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0),
+                                     "input_state": input_state,
+                                     "input_state_matrix": input_state_matrix}}
+
+            if self.cache_session:
+                kwargs["depth"] = depth
+
+
+            policy, value, state, state_matrix = self.session.run(**kwargs)
             return policy[0], value[0][0], [state, state_matrix]
         return self._get_dummy_outputs(inputs, RNN_state)
 
@@ -315,7 +324,7 @@ class MCTS:
 
 
         else:
-            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), self.RNN_state)
+            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), self.RNN_state, len(self.game.action_history))
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history),  child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior)
@@ -426,7 +435,8 @@ class MCTS:
             return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
         else:
-            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, node.current_player, np.array(node.action_history + [child_action])), node.RNN_state)
+            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, node.current_player, np.array(node.action_history + [child_action])),
+                                                                              node.RNN_state, len(node.action_history))
             # print("compute", time.time() - s)
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
@@ -604,7 +614,7 @@ class MCTS:
         # then call set root as root is technically a different class from Node
         # print(self.RNN_state)
         if self.session is not None:
-            _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), self.RNN_state)
+            _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), self.RNN_state, len(self.game.action_history))
         # print(self.RNN_state)
         for child in self.root.children:
             if np.array_equal(child.action_history[-1], action):
