@@ -29,6 +29,7 @@ class Chopsticks:
         #
         #
         # ]
+        pass
 
     @staticmethod
     # @njit(cache=True)
