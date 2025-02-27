@@ -1,36 +1,31 @@
-import time
 import numpy as np
 from diskcache import Cache
 
 class Cache_Wrapper:
-    def __init__(self, session, path, save_moves=10):
+    def __init__(self, session, path, max_cache_actions=20):
         self.session = session
         self.path = path
 
-        self.finished_lookup = False
+        self.finished_lookup = False if max_cache_actions > 0 else 0
         self.cache = Cache(path, timeout=100000)
-        self.save_moves = save_moves
-        self.move_count = 0
+        self.max_cache_actions = max_cache_actions
+        self.action_count = 0
 
     def run(self, output_names, input_feed:dict):
-        key = hash(tuple(input_feed["inputs"].flatten()))
         if not self.finished_lookup:
+            key = np.ascontiguousarray(input_feed["inputs"].flatten()).newbyteorder("little").tobytes()
             outputs, expire_time = self.cache.get(key, expire_time=True)
             if outputs is not None:
-                if self.move_count > self.save_moves:
-                    self.cache.touch(key, time.time() + 2 * 60)
-                self.move_count += 1
+                self.action_count += 1
                 return outputs
 
             self.finished_lookup = True
         outputs = self.session.run(output_names, input_feed)
 
-        if self.move_count <= self.save_moves:
-            expire = None
-        else:
-            expire = 5 * 60.0
-        self.cache.set(key, outputs, expire=expire, retry=True)
-        self.move_count += 1
+        if self.action_count < self.max_cache_actions:
+            key = np.ascontiguousarray(input_feed["inputs"].flatten()).newbyteorder("little").tobytes()
+            self.cache.set(key, outputs)
+            self.action_count += 1
         return outputs
     def __del__(self):
         self.cache.close()
