@@ -126,7 +126,6 @@ class Self_Play:
             actions_count += 1
             if actions_count == self.train_config["max_actions"]:
                 winner = 0
-
         # there is a winner
         board_states = np.array(board_states, dtype=board_states[0].dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
@@ -137,11 +136,6 @@ class Self_Play:
         elif winner == 0: # if it a draw or
             target_values[:] = 0.0
         # else the player that played was 1, and won which is 1, thus no need to invert
-        # print(winner)
-        # print(board_states)
-        # print(target_values)
-        # print(improved_policies)
-        # raise ValueError
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
@@ -304,7 +298,7 @@ def run_self_play(game_class,
                                                        providers,
                                                        sess_options,
                                                        onnx_file_path,
-                                                       0.001 * (train_config["num_workers"] - 1)))
+                                                       1e-4))
         server.start()
 
     lock = mp.Lock()
@@ -377,7 +371,7 @@ if __name__== "__main__":
     # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     from Game_Tester import Game_Tester
 
-    folder_path = "Gomoku/Grok_Zero_Train/0"
+    folder_path = "Gomoku/Grok_Zero_Train/2"
     cache = Cache(folder_path + "/Cache")
     cache.close()
     Game_Tester(Gomoku).test()
@@ -386,8 +380,8 @@ if __name__== "__main__":
     if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         os.remove(f"{folder_path}/Self_Play_Data.h5")
 
-    # if os.path.exists(f"{folder_path}/Cache"):
-    #     shutil.rmtree(f"{folder_path}/Cache")
+    if os.path.exists(f"{folder_path}/Cache"):
+        shutil.rmtree(f"{folder_path}/Cache")
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
