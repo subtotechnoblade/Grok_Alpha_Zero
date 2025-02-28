@@ -384,10 +384,11 @@ class Game_Tester:
     def check_augment_sample(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[np.random.randint(0, len(legal_actions), size=1)[0]])
-        dummy_boards = np.array([self.game.board for _ in range(2)])
+        dummy_states = np.array([self.game.get_input_state() for _ in range(2)])
         dummy_policy = np.random.uniform(low=0, high=1.0, size=(2, *self.game.policy_shape))
         try:
-            augmented_boards, augmented_policies = self.game.augment_sample(dummy_boards, dummy_policy)
+            augmented_boards, augmented_policies = self.game.augment_sample(dummy_states, dummy_policy)
+
         except:
             print("Checking augment sample: Fail")
             print("augment_sample isn't implemented")
@@ -410,9 +411,9 @@ class Game_Tester:
             print("Checking augment sample: Fail")
             print("The timestep dimension should be the same and should be 2 (testing on 2 boards)")
             return False
-        if augmented_boards.shape[2:] != self.game.board.shape:
+        if augmented_boards.shape[2:] != self.game.get_input_state().shape:
             print("Checking augment sample: Fail")
-            print("The dimensions after the first axis should be equal to board shape")
+            print("The dimensions after the first axis should be equal to input_state shape")
             return False
 
         if augmented_policies.shape[2:] != self.game.policy_shape:
@@ -457,13 +458,14 @@ class Game_Tester:
         test_skipped = 0
         if not self.check_attributes():
             print("Tests cannot continue unless all class attributes are created")
-            return
+            return False
+
         if not self.check_legal_actions():
             print("Tests cannot continue unless the tester can get the legal_actions from get_legal_actions")
-            return
+            return False
 
         if not self.check_legal_actions_MCTS():
-            return
+            return False
 
         if not self.check_legal_actions_policy_MCTS():
             print("Skipped checking legal_actions_policy_MCTS because it failed for reason above^")
@@ -471,27 +473,25 @@ class Game_Tester:
             test_skipped += 1
 
         if not self.check_get_input_state():
-            return
+             return False
 
         if not self.check_do_action():
-            return
+            return False
 
         if not self.check_do_action_MCTS():
-            print("Skipped checking do_action_MCTS because it failed for the reason above^")
-            print("Tests will continue\n")
-            test_skipped += 1
+            return False
 
         if not self.check_check_win():
-            return
+            return False
 
         if not self.check_compute_policy_improvement():
-            return
+            return False
 
         if not self.check_augment_sample():
-            return
+            return False
 
         if not self.check_compatibility_with_MCTS():
-            return
+            return False
 
         if test_skipped == 0:
             print("All major and minor tests passed\n")
@@ -499,7 +499,7 @@ class Game_Tester:
             print(f"Skipped {test_skipped} tests, scroll up to see")
             print("Aside from that all major tests passed\n")
 
-
+        return True
 
 
 if __name__ =="__main__":

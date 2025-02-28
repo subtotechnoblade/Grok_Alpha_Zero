@@ -145,7 +145,8 @@ def Run(game_class, build_config, train_config):
     if "__pycache__" in os.listdir(parent_dir):
         shutil.rmtree(f"{parent_dir}/__pycache__")
 
-    Game_Tester(game_class).test()
+    if not Game_Tester(game_class).test():
+        raise ValueError("Tests failed, training cannot continue!")
 
     try:
         current_generation = max([int(path.split("/")[-1]) for path in glob("Grok_Zero_Train/*")])
