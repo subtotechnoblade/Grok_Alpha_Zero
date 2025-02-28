@@ -181,6 +181,33 @@ class Game_Tester:
         print("Checking get_legal_actions_policy_MCTS: Pass\n")
         return True
 
+    def check_get_input_state(self):
+        try:
+            NN_state = self.game.get_input_state()
+        except:
+            print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
+            print("get_input_state isn't implemented")
+            return False
+
+        try:
+            NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history))
+        except:
+            print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
+            print("get_input_state_MCTS isn't implemented")
+            return False
+
+        if not np.array_equal(NN_state, NN_state_MCTS):
+            print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
+            print("Outputs are different")
+            return False
+
+        if NN_state.dtype != NN_state_MCTS.dtype != np.float32:
+            print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
+            print("Dtypes are different")
+            return False
+
+        print("Checking if get_input_state and get_input_state_MCTS return the same array: Pass\n")
+        return True
     def check_do_action(self):
         legal_actions = self.game.get_legal_actions()
         try:
@@ -442,6 +469,9 @@ class Game_Tester:
             print("Skipped checking legal_actions_policy_MCTS because it failed for reason above^")
             print("Tests will continue\n")
             test_skipped += 1
+
+        if not self.check_get_input_state():
+            return
 
         if not self.check_do_action():
             return
