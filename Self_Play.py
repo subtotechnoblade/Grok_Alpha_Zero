@@ -9,8 +9,6 @@ import multiprocessing as mp
 
 from MCTS import MCTS
 
-from Gomoku import Gomoku
-
 from Session_Cache import Cache_Wrapper
 from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
 
@@ -24,7 +22,7 @@ class Self_Play:
                  lock: mp.Lock,
                  folder_path:str,
                  generation:int):
-        self.game: Gomoku = game
+        self.game = game
         self.sess = sess
         self.build_config = build_config
         self.train_config = train_config
