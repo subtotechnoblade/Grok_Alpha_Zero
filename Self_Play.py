@@ -39,6 +39,9 @@ class Self_Play:
 
         embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
             "num_layers"]
+
+        dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
+
         RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
                                             np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
         self.mcts1: MCTS = MCTS(self.game,
@@ -47,6 +50,7 @@ class Self_Play:
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
+                               dirichlet_epsilon=dirichlet_epsilon,
                                tau=1.0,
                                fast_find_win=False)
         # RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
@@ -57,6 +61,7 @@ class Self_Play:
         #                        c_puct_init=self.train_config["c_puct_init"],
         #                        use_dirichlet=True,
         #                        dirichlet_alpha=self.train_config["dirichlet_alpha"],
+        #                        dirichlet_epsilon = dirichlet_epsilon,
         #                        tau=1.0,
         #                        fast_find_win=False)
 
@@ -100,7 +105,8 @@ class Self_Play:
 
             target_values.append(self.game.get_current_player()) # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
-            if current_move_num == 0 and self.train_config.get("opening_actions"):
+
+            if current_move_num == 0 and self.train_config.get("opening_actions", False):
                 sample_actions, weights = zip(*self.train_config["opening_actions"])
                 sample_actions, weights = list(sample_actions), list(weights)
                 sum_weights = sum(weights)
@@ -111,6 +117,7 @@ class Self_Play:
 
                 idx = np.random.choice(len(sample_actions), size=1, p=weights, replace=False)[0]
                 action = sample_actions[idx]
+
             self.game.do_action(action)
 
 
