@@ -130,7 +130,7 @@ class MCTS:
         self.create_expand_root()
 
 
-    def update_hyperparams(self, new_c_puct_init, new_tau, dirichlet_epsilon=0.25) -> None:
+    def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
         if new_c_puct_init < 0.0:
             warn(f"Cpuct value is invalid, {new_c_puct_init} cannot be negative. Invalidating update and returning")
             return
@@ -141,10 +141,6 @@ class MCTS:
             new_tau = 0.0
         self.tau = new_tau
 
-        if dirichlet_epsilon < 0:
-            warn("Dirichlet_epsilon cannot be negative")
-            dirichlet_epsilon = 0.0
-        self.dirichlet_epsilon = dirichlet_epsilon
 
     @staticmethod
     @njit(cache=True, fastmath=True)
