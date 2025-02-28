@@ -92,27 +92,27 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 500, # number of self play games until we re train the network
+    "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
-    "num_explore_actions_first": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "num_explore_actions_second": 1,
+    "num_explore_actions_first": 3,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "num_explore_actions_second": 3,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
-    "use_gpu": True,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": False,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 9,  # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_actions": 0,  # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 150, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
-    "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 1.11, # should be around (10 / average moves per game)
+    "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 1.1, # should be around (10 / average moves per game)
 
-    "opening_actions": [],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
@@ -130,7 +130,7 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 10, # The number of epochs for training
+    "train_epochs":5, # The number of epochs for training
 }
 
 
@@ -197,6 +197,8 @@ class TicTacToe:
 
     def do_action(self, action): # must conform to this format - Brian
         x, y = action
+        if self.board[y][x] != 0:
+            raise ValueError("Illegal move")
         self.board[y][x] = self.current_player
         self.current_player = self.current_player * -1
         self.action_history.append(action)
@@ -210,14 +212,16 @@ class TicTacToe:
         return board
 
     def get_input_state(self):
-        return self.board
+        return self.get_input_state_MCTS(self.board, self.current_player, np.array(self.action_history))
+
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array):
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
-        return board
+        current_player_board = np.expand_dims(np.ones_like(board, dtype=board.dtype) * current_player, -1)
+        return np.concatenate((current_player_board, np.expand_dims(board, -1)), axis=-1).astype(np.float32)
 
     def _check_row(self, row): #A function for checking if there's a win on each row.
         if row[0] != 0 and row[0] == row[1] == row[2]:
@@ -339,10 +343,10 @@ class TicTacToe:
             augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
 
-    def augment_sample(self, boards, policies):
+    def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
-        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
-        return np.array(augmented_boards, dtype=boards[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
+        augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
+        return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
         # return np.expand_dims(boards, 0).astype(boards[0].dtype), np.expand_dims(policies, 0).astype(np.float32)
 
 

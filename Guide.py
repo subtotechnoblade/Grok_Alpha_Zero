@@ -240,7 +240,7 @@ class Game:
         pass
     @staticmethod
     #@njit(cache=True)
-    def augment_sample(boards, policies):
+    def augment_sample(input_states, policies):
         # optional method to improve convergence
         # rotate the board and flip it using numpy and return those as a list along with the original
         # remember to rotate the flip the policy in the same way as board
@@ -268,7 +268,7 @@ class Game:
 
         # If that is too hard, inform Brian and he can implement for you
         # Or
-        return np.expand_dims(boards, 0), np.expand_dims(policies, 0) # just return [board], [policy] if you don't want to implement this
+        return np.expand_dims(input_states, 0), np.expand_dims(policies, 0) # just return [board], [policy] if you don't want to implement this
         # don't be lazy, this will help convergence very much
 
 
@@ -443,15 +443,15 @@ class Gomoku:
 
     @staticmethod
     @njit(cache=True)
-    def augment_sample_fn(boards: np.array, policies: np.array):
+    def augment_sample_fn(states: np.array, policies: np.array):
         policies = policies.reshape((-1, 15, 15))# we need
         # to reshape this because we can only rotate a matrix, not a vector
 
         augmented_boards = []
         augmented_policies = []
 
-        for action_id in range(boards.shape[0]):
-            board = boards[action_id]
+        for action_id in range(state.shape[0]):
+            board = state[action_id]
             # augmented_board = np.zeros((8, board_shape))
             augmented_board = [board, np.flipud(board), np.fliplr(board)]
 
@@ -478,10 +478,10 @@ class Gomoku:
             augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
 
-    def augment_sample(self, boards, policies):
+    def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
-        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
-        return np.array(augmented_boards, dtype=boards[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
+        augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
+        return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
 
 

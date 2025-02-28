@@ -21,7 +21,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 200, # amount of self play games until we re train the network
+    "games_per_generation": 500, # amount of self play games until we re train the network
     "max_actions": 100, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -30,17 +30,17 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 2, # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_actions": 3, # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 1000, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
-    "c_puct_init": 2.5, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
 
-    "opening_actions": [[[7, 7], 0.65]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.35], [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
@@ -58,7 +58,7 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 25, # The number of epochs for training
+    "train_epochs": 10, # The number of epochs for training
 }
 class Gomoku:
     def __init__(self, width=15, height=15):
@@ -230,15 +230,15 @@ class Gomoku:
 
     @staticmethod
     @njit(cache=True)
-    def augment_sample_fn(boards: np.array, policies: np.array):
+    def augment_sample_fn(states: np.array, policies: np.array):
         policies = policies.reshape((-1, 15, 15))# we need
         # to reshape this because we can only rotate a matrix, not a vector
 
         augmented_boards = []
         augmented_policies = []
 
-        for action_id in range(boards.shape[0]):
-            board = boards[action_id]
+        for action_id in range(states.shape[0]):
+            board = states[action_id]
             # augmented_board = np.zeros((8, board_shape))
             augmented_board = [board, np.flipud(board), np.fliplr(board)]
 
@@ -265,10 +265,10 @@ class Gomoku:
             augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
 
-    def augment_sample(self, boards, policies):
+    def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
-        augmented_boards, augmented_policies = self.augment_sample_fn(boards, policies)
-        return np.array(augmented_boards, dtype=boards[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
+        augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
+        return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
 if __name__ == "__main__":
     import time
