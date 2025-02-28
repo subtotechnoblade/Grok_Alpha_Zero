@@ -130,7 +130,7 @@ class MCTS:
         self.create_expand_root()
 
 
-    def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
+    def update_hyperparams(self, new_c_puct_init, new_tau, dirichlet_epsilon=0.25) -> None:
         if new_c_puct_init < 0.0:
             warn(f"Cpuct value is invalid, {new_c_puct_init} cannot be negative. Invalidating update and returning")
             return
@@ -140,6 +140,11 @@ class MCTS:
             warn(f"Tau can't be less than 5e-3.Changing tau = 0.0")
             new_tau = 0.0
         self.tau = new_tau
+
+        if dirichlet_epsilon < 0:
+            warn("Dirichlet_epsilon cannot be negative")
+            dirichlet_epsilon = 0.0
+        self.dirichlet_epsilon = dirichlet_epsilon
 
     @staticmethod
     @njit(cache=True, fastmath=True)
@@ -210,8 +215,8 @@ class MCTS:
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0, RNN_state
         return np.random.uniform(low=0, high=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
-    def _apply_dirichlet(self, legal_policy):
-        return (1 - self.dirichlet_epsilon) * legal_policy + self.dirichlet_epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
+    def _apply_dirichlet(self, legal_policy, epsilon):
+        return (1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
     @staticmethod
     def get_terminal_actions_fn(action_histories,
@@ -327,7 +332,7 @@ class MCTS:
             child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), self.RNN_state, len(self.game.action_history))
             legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history),  child_policy)
             if self.use_dirichlet:
-                child_prob_prior = self._apply_dirichlet(child_prob_prior)
+                child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              self.game.get_current_player() * -1, #player for no moves placed
@@ -443,7 +448,8 @@ class MCTS:
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, node.current_player, np.array(node.action_history),  child_policy)
 
             if self.use_dirichlet:
-                child_prob_prior = self._apply_dirichlet(child_prob_prior)
+                epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
+                child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
             # gets the legal actions and associated probabilities
 
             child = Node(len(node.children),
@@ -637,7 +643,7 @@ if __name__ == "__main__":
     from tqdm import tqdm
     # import multiprocessing as mp
     from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
     # game = TicTacToe()
@@ -720,11 +726,11 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/8/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/6/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = TicTacToe()
+        game = Gomoku()
 
         RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
                       np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
@@ -755,7 +761,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_current_player() == -1:
-                move, probs = mcts1.run(11, use_bar=False)
+                move, probs = mcts1.run(2000, use_bar=True)
             else:
             #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
