@@ -78,7 +78,7 @@ class Game_Tester:
             legal_actions = self.game.get_legal_actions()
         except:
             print("Check get_legal_actions: Fail\n")
-            print("get_legal_actions isn't implemented check method name spelling if it is implemented")
+            print("get_legal_actions isn't implemented correctly, check method name spelling if it is implemented")
             return False
         if legal_actions is None:
             print("Check get_legal_actions: Fail\n")
@@ -106,7 +106,7 @@ class Game_Tester:
                                                                   np.array(self.game.action_history))
         except:
             print("Check get_legal_actions_MCTS: Fail\n")
-            print("get_legal_actions_MCTS isn't implemented, check method name if it is implemented")
+            print("get_legal_actions_MCTS isn't implemented correctly, check method name if it is implemented")
             return False
 
         if len(legal_actions) != len(MCTS_legal_actions):
@@ -135,7 +135,7 @@ class Game_Tester:
                                                                                        dummy_policy, shuffle=False)
         except AttributeError:
             print("Checking get_legal_actions_policy_MCTS: Fail")
-            print("get_legal_actions_policy_MCTS isn't implemented")
+            print("get_legal_actions_policy_MCTS isn't implemented correctly")
             return False
         except TypeError:
             print("Checking get_legal_actions_policy_MCTS: Fail")
@@ -186,14 +186,14 @@ class Game_Tester:
             NN_state = self.game.get_input_state()
         except:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
-            print("get_input_state isn't implemented")
+            print("get_input_state isn't implemented correctly")
             return False
 
         try:
             NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, -self.game.get_next_player(), np.array(self.game.action_history))
         except:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
-            print("get_input_state_MCTS isn't implemented")
+            print("get_input_state_MCTS isn't implemented correctly")
             return False
 
         if not np.array_equal(NN_state, NN_state_MCTS):
@@ -215,7 +215,7 @@ class Game_Tester:
                 self.game.do_action(action)
         except AttributeError:
             print("Checking if do_action exists: Fail")
-            print("do_action isn't implemented\n")
+            print("do_action isn't implemented correctly\n")
             return False
 
         if isinstance(self.game.action_history[0], list):
@@ -237,7 +237,7 @@ class Game_Tester:
                 board = self.game.do_action_MCTS(self.game.board.copy(), action, self.game.next_player)
         except AttributeError:
             print("Checking if do_action_MCTS exists: Fail")
-            print("do_action_MCTS isn't implemented\n")
+            print("do_action_MCTS isn't implemented correctly\n")
             return False
 
         self.reset()
@@ -371,7 +371,7 @@ class Game_Tester:
             improved_policy = self.game.compute_policy_improvement(dummy_stat)
             if np.sum(improved_policy) != 1.0:
                 print("Checking compute_policy_improvement: Fail")
-                print("It isn't implemented correctly")
+                print("Isn't implemented correctly")
                 return False
         except:
             print("Checking compute_policy_improvement: Fail")
@@ -391,7 +391,7 @@ class Game_Tester:
 
         except:
             print("Checking augment sample: Fail")
-            print("augment_sample isn't implemented")
+            print("augment_sample isn't implemented correctly")
             return False
 
         if not (isinstance(augmented_boards, np.ndarray) and isinstance(augmented_policies, np.ndarray)):
