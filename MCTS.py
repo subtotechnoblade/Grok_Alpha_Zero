@@ -215,10 +215,9 @@ class MCTS:
         return (1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
 
     @staticmethod
-    def get_terminal_actions_fn(action_histories,
-                                # legal_actions,
-                                do_action_fn,
+    def get_terminal_actions_fn(do_action_fn,
                                 check_win_fn,
+                                action_histories,
                                 board,
                                 current_player,
                                 fast_find_win=False) -> (np.array, np.array):
@@ -255,7 +254,7 @@ class MCTS:
             # for simplicity this will be the example
 
             legal_action = action_histories[action_id][-1]
-            check_win_board = do_action_fn(board.copy(), legal_action, current_player)
+            check_win_board = do_action_fn(board.copy(), legal_action, -current_player)
 
             result = check_win_fn(check_win_board, current_player, action_histories[action_id])
 
@@ -272,7 +271,7 @@ class MCTS:
     def create_expand_root(self):
         action_history = np.array(self.game.action_history)
         legal_actions = self.game.get_legal_actions_MCTS(self.game.board,
-                                                         self.game.get_current_player(),
+                                                         -self.game.get_next_player(),
                                                          action_history)
         if self.game.action_history:
             repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
@@ -282,13 +281,13 @@ class MCTS:
         else:
             action_histories = np.expand_dims(legal_actions, 1)
 
-        terminal_actions, terminal_mask = self.get_terminal_actions(action_histories,
-                                                                    # self.game.get_legal_actions_MCTS,
-                                                                    self.game.do_action_MCTS,
+        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
+                                                                    action_histories,
                                                                     self.game.board,
-                                                                    self.game.get_current_player(),
+                                                                    -self.game.get_next_player(),
                                                                     fast_find_win=self.fast_find_win)
+
 
         if terminal_actions:
             if 1 in terminal_mask:
@@ -300,7 +299,7 @@ class MCTS:
 
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
-                             self.game.get_current_player(),
+                             -self.game.get_next_player(),
                              terminal_actions,
                              [],
                              child_policy)
@@ -308,15 +307,15 @@ class MCTS:
             del self.root.board
             del self.root.child_legal_actions
             for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
-                terminal_player = self.game.get_current_player()
+                terminal_player = self.game.get_next_player()
                 terminal_node = Node(len(self.root.children),
-                self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
-                                    self.game.action_history + [terminal_action],
-                                    self.game.get_current_player() * -1,
-                                    [],
-                                    [],
-                                    [],
-                                    terminal_player if mask_value == 1 else 0,
+                                     self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
+                                     self.game.action_history + [terminal_action],
+                                     -self.game.get_next_player(),
+                                     [],
+                                     [],
+                                     [],
+                                     terminal_player if mask_value == 1 else 0,
                                      parent=self.root)
                 del terminal_node.child_legal_actions, terminal_node.RNN_state, terminal_node.child_prob_priors
                 self.root.children.append(terminal_node)
@@ -325,13 +324,19 @@ class MCTS:
 
 
         else:
-            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.board.copy(), self.RNN_state, len(self.game.action_history))
-            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history),  child_policy)
+            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.get_input_state(),
+                                                                                 self.RNN_state,
+                                                                                 len(self.game.action_history))
+
+            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board,
+                                                                                      -self.game.get_next_player(),
+                                                                                      np.array(self.game.action_history),
+                                                                                      child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
-                             self.game.get_current_player() * -1, #player for no moves placed
+                             self.game.get_next_player() * -1, #current player for no moves placed
                              list(legal_actions),
                              initial_RNN_state,
                              child_prob_prior)
@@ -410,12 +415,13 @@ class MCTS:
         child_action = node.child_legal_actions.pop(-1) # this must be -1 because list pop is O(1),
         # only when popping from the right
 
+        # Note that from now on, -current_player is the current_player for child_board
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
         action_history = np.array(self.game.action_history)
         legal_actions = self.game.get_legal_actions_MCTS(child_board,
-                                                         node.current_player,
+                                                         -node.current_player,
                                                          action_history)
         if self.game.action_history:
             repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
@@ -425,27 +431,27 @@ class MCTS:
         else:
             action_histories = np.expand_dims(legal_actions, 1)
 
-        terminal_actions, terminal_mask = self.get_terminal_actions(action_histories,
-                                                                    self.game.do_action_MCTS,
+        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
+                                                                    action_histories,
                                                                     child_board,
-                                                                    node.current_player,
+                                                                    -node.current_player, # the current_player for child_board
                                                                     fast_find_win=self.fast_find_win)
 
         if terminal_actions:
             return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
 
         else:
-            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, node.current_player, np.array(node.action_history + [child_action])),
+            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, -node.current_player, np.array(node.action_history + [child_action])),
                                                                               node.RNN_state, len(node.action_history))
             # print("compute", time.time() - s)
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
-            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, node.current_player, np.array(node.action_history),  child_policy)
+            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, -node.current_player, np.array(node.action_history),  child_policy)
 
-            if self.use_dirichlet:
-                epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
-                child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
+            # if self.use_dirichlet:
+            #     epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
+            #     child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
             # gets the legal actions and associated probabilities
 
             child = Node(len(node.children),
@@ -636,10 +642,10 @@ class MCTS:
 
 if __name__ == "__main__":
 
-    from tqdm import tqdm
+    # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
     # game = TicTacToe()
@@ -722,11 +728,11 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/6/model.onnx", providers=providers)
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
+        game = TicTacToe()
 
         RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
                       np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
@@ -736,9 +742,9 @@ if __name__ == "__main__":
                                dtype=np.float32)]
         mcts1 = MCTS(game,
                      RNN_state1,
-                     session,
-                     # None,
-                     c_puct_init=2.5,
+                     # session,
+                     None,
+                     c_puct_init=1.25,
                      tau=0.0,
                      use_dirichlet=False,
                      fast_find_win=False)
@@ -756,8 +762,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_current_player() == -1:
-                move, probs = mcts1.run(2000, use_bar=True)
+            if game.get_next_player() == -1:
+                move, probs = mcts1.run(10, use_bar=True)
             else:
             #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
@@ -813,7 +819,7 @@ if __name__ == "__main__":
     #     print(game.board)
     #     winner = -2
     #     while winner == -2:
-    #         # if game.get_current_player() == -1:
+    #         # if game.get_next_player() == -1:
     #         move, probs = mcts1.run(iteration_limit=1000, time_limit=None, use_bar=False)
     #         # else:
     #         #     move, probs = mcts2.run(iteration_limit=1000, time_limit=None, use_bar=False)
@@ -823,7 +829,7 @@ if __name__ == "__main__":
     #         print()
     #         # print(probs)
     #         winner = game.check_win()
-    #         assert winner == game.check_win_MCTS(game.board, np.array(game.action_history), -game.get_current_player())
+    #         assert winner == game.check_win_MCTS(game.board, np.array(game.action_history), -game.get_next_player())
     #         if winner == -2:
     #             mcts1.prune_tree(move)
     #             # mcts2.prune_tree(move)
@@ -836,7 +842,7 @@ if __name__ == "__main__":
     # print(game.board)
     # winner = -2
     # while winner == -2:
-    #     if game.get_current_player() == -1:
+    #     if game.get_next_player() == -1:
     #         move = game.input_action()
     #         print("You played", move)
     #         # mcts = MCTS(game,
