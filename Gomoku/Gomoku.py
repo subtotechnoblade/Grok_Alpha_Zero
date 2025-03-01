@@ -51,12 +51,12 @@ train_config = {
 
     "train_batch_size": 8, # The number of samples in a batch for training in parallel
     "test_batch_size": 4, # If none, then train_batch_size will be used for the test batch size
-    "gradient_accumulation_steps": 32,
-    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 4e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "beta_2": 0.985, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
     "train_epochs": 15, # The number of epochs for training
 }
@@ -86,7 +86,7 @@ class Gomoku:
     def get_legal_actions(self) -> np.array:
         return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
         """
         np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
