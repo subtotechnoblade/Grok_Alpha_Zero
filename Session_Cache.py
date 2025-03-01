@@ -2,7 +2,7 @@ import numpy as np
 from diskcache import Cache
 
 class Cache_Wrapper:
-    def __init__(self, session, path, max_cache_depth=20):
+    def __init__(self, session, path, max_cache_depth=2):
         self.session = session
         self.path = path
 
@@ -13,7 +13,7 @@ class Cache_Wrapper:
         self.max_cache_depth = max_cache_depth
 
     def run(self, output_names, input_feed:dict, depth):
-        if not self.finished_lookup:
+        if not self.finished_lookup and self.max_cache_depth > 0:
             key = np.ascontiguousarray(input_feed["inputs"].flatten()).newbyteorder("little").tobytes()
             outputs = self.cache.get(key)
             if outputs is not None:
