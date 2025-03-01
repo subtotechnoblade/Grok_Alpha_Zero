@@ -121,6 +121,7 @@ class MCTS:
 
         self.use_njit = is_jitted(self.game.get_legal_actions_MCTS) and is_jitted(self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
         # Note that these are functions getting assigned and jitted
+        # if self.use_njit:
         if self.use_njit:
             self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True)
         else:
@@ -231,41 +232,28 @@ class MCTS:
         with more than 1 terminal move
         :return:
         """
-
-        # legal_actions = legal_actions_fn(board, current_player, action_history)
-        #
-        # repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
-        # # for i in range(len(legal_actions)):
-        # #     repeated_action_history[i] = action_history
-        # repeated_action_history[:] = action_history
-        # action_histories = np.concatenate((repeated_action_history,
-        #                                np.expand_dims(legal_actions, 1)), axis=1)
-        # ^ complicated stuff
-
-        # reverse the order of each element from [y, x] -> [x, y]
-
         terminal_actions = []  # includes winning and drawing actions
         terminal_mask = []  # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
-
+        # print(board)
+        next_player = -current_player
         for action_id in range(len(action_histories)):
-            # Try every legal action anc check if the current player won
+            # Try every legal action and check if the current player won
             # Very inefficient. There is a better implementation
-            # for simplicity this will be the example
 
             legal_action = action_histories[action_id][-1]
-            check_win_board = do_action_fn(board.copy(), legal_action, -current_player)
+            check_win_board = do_action_fn(board.copy(), legal_action, next_player)
 
-            result = check_win_fn(check_win_board, current_player, action_histories[action_id])
-
+            result = check_win_fn(check_win_board, next_player, action_histories[action_id])
             if result != -2:  # this limits the checks by a lot
                 terminal_actions.append(legal_action)  # in any case as long as the result != -2, we have a terminal action
-                if result == current_player:  # found a winning move
+                if result == next_player:  # found a winning move
                     terminal_mask.append(1)
                     if fast_find_win:
                         break
                 elif result == 0:  # a drawing move
                     terminal_mask.append(0)
+        # raise ValueError
         return terminal_actions, np.array(terminal_mask)
 
     def create_expand_root(self):
@@ -340,22 +328,23 @@ class MCTS:
                              list(legal_actions),
                              initial_RNN_state,
                              child_prob_prior)
+
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
         # winning actions must have at least 1 winning action
 
         if 1 in terminal_mask: # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
             num_winning_actions = len(terminal_mask == 1) # get the length of thr array that is equal to 1
-            # terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
-            terminal_parent_value = 1 # debug
-            # terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
-            terminal_parent_visits = 1 # debug
+            terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
+            # terminal_parent_value = 1 # debug
+            terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
+            # terminal_parent_visits = 1 # debug
             terminal_parent_prob_prior = terminal_mask / num_winning_actions
         else: # there are only draws
             len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0
-            terminal_parent_visits = 1 # debug
-            # terminal_parent_visits = len_terminal_moves
+            # terminal_parent_visits = 1 # debug
+            terminal_parent_visits = len_terminal_moves
             terminal_parent_prob_prior = np.ones(len_terminal_moves) / len_terminal_moves # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
             # it's nice to see the some numbers that state that there is a win or loss
@@ -644,9 +633,36 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
+
+
+    game = Gomoku()
+
+
+    game.do_action((7, 7))
+    game.do_action((6, 7))
+    game.do_action((7, 6))
+    game.do_action((6, 6))
+    game.do_action((7, 5))
+
+    game.do_action((6, 5))
+    print(game.board)
+    mcts1 = MCTS(game,
+                 [],
+                 None,
+                 c_puct_init=1.25,
+                 tau=0,
+                 use_dirichlet=False,
+                 fast_find_win=False)
+    move, probs = mcts1.run(iteration_limit=100000)
+    print(move, probs)
+    # game.do_action((6, 5))
+
+    # game.do_action((7, 4))
+    # game.do_action((6, 4))
+
 
     # game = TicTacToe()
     # game.do_action((0, 0))
@@ -664,19 +680,6 @@ if __name__ == "__main__":
     # print(move, probs)
     #
 
-
-
-    # game = Gomoku()
-    # game.do_action((7, 7))
-    # game.do_action((6, 7))
-    # game.do_action((7, 6))
-    # game.do_action((6, 6))
-    # game.do_action((7, 5))
-
-    # game.do_action((6, 5))
-
-    # game.do_action((7, 4))
-    # game.do_action((6, 4))
 
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
@@ -730,63 +733,63 @@ if __name__ == "__main__":
     # sess_options.inter_op_num_threads = 1
     # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
 
-    winners = [0, 0, 0]
-    for game_id in range(1):
-        game = TicTacToe()
-
-        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
-        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
-        mcts1 = MCTS(game,
-                     RNN_state1,
-                     # session,
-                     None,
-                     c_puct_init=1.25,
-                     tau=0.0,
-                     use_dirichlet=False,
-                     fast_find_win=False)
-        # mcts2 = MCTS(game,
-        #              RNN_state2,
-        #              session,
-        #              # None,
-        #              c_puct_init=2.5,
-        #              tau=0.0,
-        #              use_dirichlet=True,
-        #              fast_find_win=False)
-        # print(f"Game: {game_id}")
-        current_move_num = 0
-        winner = -2
-        print(game.board)
-        while winner == -2:
-
-            if game.get_next_player() == -1:
-                move, probs = mcts1.run(10, use_bar=True)
-            else:
-            #     move, probs = mcts2.run(350, use_bar=False)
-                move = game.input_action()
-                probs = []
-            # legal_actions = game.get_legal_actions()
-            # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
-            # move = legal_actions[index]
-
-
-
-            game.do_action(move)
-            print(game.board)
-            print(move, probs)
-            current_move_num += 1
-            winner = game.check_win()
-            if winner != -2:
-                # print(winner)
-                winners[winner + 1] += 1
-            if winner == -2:
-                mcts1.prune_tree(move)
-                # mcts2.prune_tree(move)
-        # raise ValueError
-    print(winners)
+    # winners = [0, 0, 0]
+    # for game_id in range(1):
+    #     game = TicTacToe()
+    #
+    #     RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+    #                   np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
+    #                            dtype=np.float32)]
+    #     RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+    #                   np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
+    #                            dtype=np.float32)]
+    #     mcts1 = MCTS(game,
+    #                  RNN_state1,
+    #                  # session,
+    #                  None,
+    #                  c_puct_init=1.25,
+    #                  tau=0.0,
+    #                  use_dirichlet=False,
+    #                  fast_find_win=False)
+    #     # mcts2 = MCTS(game,
+    #     #              RNN_state2,
+    #     #              session,
+    #     #              # None,
+    #     #              c_puct_init=2.5,
+    #     #              tau=0.0,
+    #     #              use_dirichlet=True,
+    #     #              fast_find_win=False)
+    #     # print(f"Game: {game_id}")
+    #     current_move_num = 0
+    #     winner = -2
+    #     print(game.board)
+    #     while winner == -2:
+    #
+    #         if game.get_next_player() == -1:
+    #             move, probs = mcts1.run(10, use_bar=True)
+    #         else:
+    #         #     move, probs = mcts2.run(350, use_bar=False)
+    #             move = game.input_action()
+    #             probs = []
+    #         # legal_actions = game.get_legal_actions()
+    #         # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
+    #         # move = legal_actions[index]
+    #
+    #
+    #
+    #         game.do_action(move)
+    #         print(game.board)
+    #         print(move, probs)
+    #         current_move_num += 1
+    #         winner = game.check_win()
+    #         if winner != -2:
+    #             # print(winner)
+    #             winners[winner + 1] += 1
+    #         if winner == -2:
+    #             mcts1.prune_tree(move)
+    #             # mcts2.prune_tree(move)
+    #     # raise ValueError
+    # print(winners)
 
 
     # print(game.board)
