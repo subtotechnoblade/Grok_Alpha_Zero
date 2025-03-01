@@ -191,11 +191,11 @@ class MCTS:
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
             input_state, input_state_matrix = RNN_state
-            kwargs = {"output_names": ["policy", "value", "output_state", "output_state_matrix"],
+            kwargs = {
+                "output_names": ["policy", "value", "output_state", "output_state_matrix"],
                       "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0),
                                      "input_state": input_state,
                                      "input_state_matrix": input_state_matrix}}
-
             if self.cache_session:
                 kwargs["depth"] = depth
 
@@ -484,7 +484,14 @@ class MCTS:
             value *= -1 # negate for the opponent's move
         self.root.visits += visits
 
+    def stable_max(self, logits):
+        with np.errstate(divide="ignore"):
+            s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
+        return s_x / np.sum(s_x)
 
+    def softmax(self, logits):
+        exp = np.exp(logits)
+        return exp / np.sum(exp)
     def run(self, iteration_limit: int or bool=None, time_limit: int or float=None, use_bar=True):
         """
         :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
@@ -537,8 +544,10 @@ class MCTS:
             bar.close()
 
         move_probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
+
+        prob_distribution = self.stable_max(self.root.child_visits)
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                                         self.root.child_visits / np.sum(self.root.child_visits),   # new probability value
+                                                                                         prob_distribution,
                                                                                          self.root.child_values / self.root.child_visits, # winrate
                                                                                          self.root.child_values,
                                                                                          self.root.child_visits,
@@ -634,30 +643,30 @@ if __name__ == "__main__":
     # from tqdm import tqdm
     # import multiprocessing as mp
     from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
 
-    game = Gomoku()
+    # game = Gomoku()
 
 
-    game.do_action((7, 7))
-    game.do_action((6, 7))
-    game.do_action((7, 6))
-    game.do_action((6, 6))
-    game.do_action((7, 5))
-
-    game.do_action((6, 5))
-    print(game.board)
-    mcts1 = MCTS(game,
-                 [],
-                 None,
-                 c_puct_init=1.25,
-                 tau=0,
-                 use_dirichlet=False,
-                 fast_find_win=False)
-    move, probs = mcts1.run(iteration_limit=100000)
-    print(move, probs)
+    # game.do_action((7, 7))
+    # game.do_action((6, 7))
+    # game.do_action((7, 6))
+    # game.do_action((6, 6))
+    # game.do_action((7, 5))
+    #
+    # game.do_action((6, 5))
+    # print(game.board)
+    # mcts1 = MCTS(game,
+    #              [],
+    #              None,
+    #              c_puct_init=1.25,
+    #              tau=0,
+    #              use_dirichlet=False,
+    #              fast_find_win=False)
+    # move, probs = mcts1.run(iteration_limit=100000)
+    # print(move, probs)
     # game.do_action((6, 5))
 
     # game.do_action((7, 4))
@@ -684,7 +693,7 @@ if __name__ == "__main__":
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [
-        # ('TensorrtExecutionProvider', {
+        ('TensorrtExecutionProvider', {
         # "trt_engine_cache_enable": True,
         # "trt_dump_ep_context_model": True,
         # "trt_builder_optimization_level": 5,
@@ -694,9 +703,10 @@ if __name__ == "__main__":
         # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
         # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
         # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # }),
+        }),
         # 'CUDAExecutionProvider',
-        'CPUExecutionProvider']
+        'CPUExecutionProvider'
+    ]
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
 
@@ -731,65 +741,66 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/9/model.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
-    # winners = [0, 0, 0]
-    # for game_id in range(1):
-    #     game = TicTacToe()
-    #
-    #     RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-    #                   np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-    #                            dtype=np.float32)]
-    #     RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-    #                   np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-    #                            dtype=np.float32)]
-    #     mcts1 = MCTS(game,
-    #                  RNN_state1,
-    #                  # session,
-    #                  None,
-    #                  c_puct_init=1.25,
-    #                  tau=0.0,
-    #                  use_dirichlet=False,
-    #                  fast_find_win=False)
-    #     # mcts2 = MCTS(game,
-    #     #              RNN_state2,
-    #     #              session,
-    #     #              # None,
-    #     #              c_puct_init=2.5,
-    #     #              tau=0.0,
-    #     #              use_dirichlet=True,
-    #     #              fast_find_win=False)
-    #     # print(f"Game: {game_id}")
-    #     current_move_num = 0
-    #     winner = -2
-    #     print(game.board)
-    #     while winner == -2:
-    #
-    #         if game.get_next_player() == -1:
-    #             move, probs = mcts1.run(10, use_bar=True)
-    #         else:
-    #         #     move, probs = mcts2.run(350, use_bar=False)
-    #             move = game.input_action()
-    #             probs = []
-    #         # legal_actions = game.get_legal_actions()
-    #         # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
-    #         # move = legal_actions[index]
-    #
-    #
-    #
-    #         game.do_action(move)
-    #         print(game.board)
-    #         print(move, probs)
-    #         current_move_num += 1
-    #         winner = game.check_win()
-    #         if winner != -2:
-    #             # print(winner)
-    #             winners[winner + 1] += 1
-    #         if winner == -2:
-    #             mcts1.prune_tree(move)
-    #             # mcts2.prune_tree(move)
-    #     # raise ValueError
-    # print(winners)
+    winners = [0, 0, 0]
+    for game_id in range(1):
+        game = Gomoku()
+
+        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
+                               dtype=np.float32)]
+        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
+                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
+                               dtype=np.float32)]
+        mcts1 = MCTS(game,
+                     RNN_state1,
+                     session,
+                     # None,
+                     c_puct_init=1.25,
+                     tau=0.0,
+                     use_dirichlet=False,
+                     fast_find_win=False)
+        # mcts2 = MCTS(game,
+        #              RNN_state2,
+        #              session,
+        #              # None,
+        #              c_puct_init=2.5,
+        #              tau=0.0,
+        #              use_dirichlet=True,
+        #              fast_find_win=False)
+        # print(f"Game: {game_id}")
+        current_move_num = 0
+        winner = -2
+        print(game.board)
+        while winner == -2:
+
+            if game.get_next_player() == 1:
+                move, probs = mcts1.run(1000, use_bar=True)
+            else:
+            #     move, probs = mcts2.run(350, use_bar=False)
+                move = game.input_action()
+                probs = []
+            # legal_actions = game.get_legal_actions()
+            # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
+            # move = legal_actions[index]
+
+
+
+            game.do_action(move)
+            print(game.board)
+            print(move, probs)
+            current_move_num += 1
+            winner = game.check_win()
+            if winner != -2:
+                # print(winner)
+                winners[winner + 1] += 1
+            if winner == -2:
+                mcts1.prune_tree(move)
+                # mcts2.prune_tree(move)
+        # raise ValueError
+    print(winners)
 
 
     # print(game.board)
