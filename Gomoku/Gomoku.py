@@ -21,7 +21,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 500, # amount of self play games until we re train the network
+    "games_per_generation": 10, # amount of self play games until we re train the network
     "max_actions": 100, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -40,7 +40,7 @@ train_config = {
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.3, # should be around (10 / average moves per game)
 
-    "opening_actions": [[[7, 7], 0.35], [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.6], [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3, # The previous generation's data that will be used in training
@@ -58,19 +58,19 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 10, # The number of epochs for training
+    "train_epochs": 15, # The number of epochs for training
 }
 class Gomoku:
     def __init__(self, width=15, height=15):
         self.board = np.zeros((height, width),
                               dtype=np.int8)  # note the dtype. Because I'm only using -1, 0, 1 int8 is best
         # if the board takes too much memory, Brian is not going to be happy
-        self.current_player = -1
+        self.next_player = -1
         self.action_history = []
         self.policy_shape = (225,)
 
-    def get_current_player(self):
-        return self.current_player
+    def get_next_player(self):
+        return self.next_player
 
     def input_action(self):
         while True:
@@ -84,9 +84,9 @@ class Gomoku:
 
 
     def get_legal_actions(self) -> np.array:
-        return self.get_legal_actions_MCTS(self.board, self.current_player, np.array(self.action_history))
+        return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
         """
         np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
@@ -124,24 +124,24 @@ class Gomoku:
 
         assert self.board[y][x] == 0  # make sure that it is not an illegal move
 
-        self.board[y][x] = self.current_player  # put the move onto the board
-        self.current_player *= -1  # change players to the next player to play
+        self.board[y][x] = self.next_player  # put the move onto the board
+        self.next_player *= -1  # change players to the next player to play
 
         self.action_history.append(action)
 
     @staticmethod
     @njit(cache=True)
-    def do_action_MCTS(board: np.array, action: tuple, current_player: int) -> np.array:
+    def do_action_MCTS(board: np.array, action: tuple, next_player: int) -> np.array:
         x, y = action
-        board[y][x] = current_player
+        board[y][x] = next_player
         return board
 
 
     def get_input_state(self) -> np.array:
-        return self.board
+        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         return board
 
@@ -155,7 +155,7 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return self.check_win_MCTS(self.board, -self.current_player, np.array(self.action_history, dtype=np.int32),)
+        return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.int32),)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
@@ -234,13 +234,13 @@ class Gomoku:
         policies = policies.reshape((-1, 15, 15))# we need
         # to reshape this because we can only rotate a matrix, not a vector
 
-        augmented_boards = []
+        augmented_states = []
         augmented_policies = []
 
         for action_id in range(states.shape[0]):
-            board = states[action_id]
+            state = states[action_id]
             # augmented_board = np.zeros((8, board_shape))
-            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+            augmented_state = [state, np.flipud(state), np.fliplr(state)]
 
 
             policy = policies[action_id]
@@ -248,22 +248,22 @@ class Gomoku:
 
 
             for k in range(1, 4):
-                rot_board = np.rot90(board, k)
-                augmented_board.append(rot_board)
+                rot_state = np.rot90(state, k)
+                augmented_state.append(rot_state)
 
                 rot_policy = np.rot90(policy, k)
                 augmented_policy.append(rot_policy)
 
                 if k == 1:
-                    augmented_board.append(np.flipud(rot_board))
-                    augmented_board.append(np.fliplr(rot_board))
+                    augmented_state.append(np.flipud(rot_state))
+                    augmented_state.append(np.fliplr(rot_state))
 
                     augmented_policy.append(np.flipud(rot_policy))
                     augmented_policy.append(np.fliplr(rot_policy))
-            augmented_boards.append(augmented_board)
+            augmented_states.append(augmented_state)
 
             augmented_policies.append(augmented_policy)
-        return augmented_boards, augmented_policies
+        return augmented_states, augmented_policies
 
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
@@ -271,9 +271,13 @@ class Gomoku:
         return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
 if __name__ == "__main__":
+    from Game_Tester import Game_Tester
     import time
+
+    tester = Game_Tester(Gomoku)
+    tester.test()
     game = Gomoku()
-    print(game.get_legal_actions())
+    # print(game.get_legal_actions())
     # boards = []
     # game.do_action((0, 0))
     # for _ in range(1):

@@ -107,7 +107,7 @@ class Game:
         # define your board as a numpy array
         self.board = np.array([])
         # current player as an int, first player will be -1 second player is 1
-        self.current_player = -1
+        self.next_player = -1
         # to swap the current the player -> current_player *= -1 (very handy)
         # action history as a list [action0, action1, ...]
         self.action_history = []
@@ -124,7 +124,7 @@ class Game:
         # just know that the illegal moves are removed in get_legal_actions_policy_MCTS() and the policy which is a probability distribution
         # is re normalized
 
-    def get_current_player(self) -> int:
+    def get_next_player(self) -> int:
         # returns the current player
         pass
 
@@ -193,7 +193,7 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def do_action_MCTS(board, action, current_player) -> np.array:
+    def do_action_MCTS(board, action, next_player) -> np.array:
         # this is for the monte carlo tree search's
         pass
 
@@ -278,12 +278,12 @@ class Gomoku:
         self.board = np.zeros((height, width),
                               dtype=np.int8)  # note the dtype. Because I'm only using -1, 0, 1 int8 is best
         # if the board takes too much memory, Brian is not going to be happy
-        self.current_player = -1
+        self.next_player = -1
         self.action_history = []
         self.policy_shape = (225,)
 
-    def get_current_player(self):
-        return self.current_player
+    def get_next_player(self):
+        return self.next_player
 
     def input_action(self):
         while True:
@@ -297,9 +297,9 @@ class Gomoku:
 
 
     def get_legal_actions(self) -> np.array:
-        return self.get_legal_actions_MCTS(self.board, self.current_player, np.array(self.action_history))
+        return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
         """
         np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
@@ -337,24 +337,24 @@ class Gomoku:
 
         assert self.board[y][x] == 0  # make sure that it is not an illegal move
 
-        self.board[y][x] = self.current_player  # put the move onto the board
-        self.current_player *= -1  # change players to the next player to play
+        self.board[y][x] = self.next_player  # put the move onto the board
+        self.next_player *= -1  # change players to the next player to play
 
         self.action_history.append(action)
 
     @staticmethod
     @njit(cache=True)
-    def do_action_MCTS(board: np.array, action: tuple, current_player: int) -> np.array:
+    def do_action_MCTS(board: np.array, action: tuple, next_player: int) -> np.array:
         x, y = action
-        board[y][x] = current_player
+        board[y][x] = next_player
         return board
 
 
     def get_input_state(self) -> np.array:
-        return self.board
+        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         return board
 
@@ -368,11 +368,11 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return self.check_win_MCTS(self.board, np.array(self.action_history, dtype=np.int32), -self.current_player)
+        return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.int32),)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
-    def check_win_MCTS(board: np.array, action_history: np.array, current_player: int) -> int:
+    def check_win_MCTS(board: np.array, current_player: int, action_history: np.array) -> int:
         """
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
@@ -447,13 +447,13 @@ class Gomoku:
         policies = policies.reshape((-1, 15, 15))# we need
         # to reshape this because we can only rotate a matrix, not a vector
 
-        augmented_boards = []
+        augmented_states = []
         augmented_policies = []
 
-        for action_id in range(state.shape[0]):
-            board = state[action_id]
+        for action_id in range(states.shape[0]):
+            state = states[action_id]
             # augmented_board = np.zeros((8, board_shape))
-            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+            augmented_state = [state, np.flipud(state), np.fliplr(state)]
 
 
             policy = policies[action_id]
@@ -461,22 +461,22 @@ class Gomoku:
 
 
             for k in range(1, 4):
-                rot_board = np.rot90(board, k)
-                augmented_board.append(rot_board)
+                rot_state = np.rot90(state, k)
+                augmented_state.append(rot_state)
 
                 rot_policy = np.rot90(policy, k)
                 augmented_policy.append(rot_policy)
 
                 if k == 1:
-                    augmented_board.append(np.flipud(rot_board))
-                    augmented_board.append(np.fliplr(rot_board))
+                    augmented_state.append(np.flipud(rot_state))
+                    augmented_state.append(np.fliplr(rot_state))
 
                     augmented_policy.append(np.flipud(rot_policy))
                     augmented_policy.append(np.fliplr(rot_policy))
-            augmented_boards.append(augmented_board)
+            augmented_states.append(augmented_state)
 
             augmented_policies.append(augmented_policy)
-        return augmented_boards, augmented_policies
+        return augmented_states, augmented_policies
 
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated

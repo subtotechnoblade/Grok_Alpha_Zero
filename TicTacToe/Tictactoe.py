@@ -106,7 +106,7 @@ train_config = {
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 150, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 50, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -130,21 +130,21 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs":5, # The number of epochs for training
+    "train_epochs": 10, # The number of epochs for training
 }
 
 
 class TicTacToe:
     def __init__(self):
-        self.current_player = -1
+        self.next_player = -1
         self.board = np.zeros((3, 3), dtype=np.int8)
         self.action_history = []
         # doesn't return anything
 
         self.policy_shape = (9,)
 
-    def get_current_player(self):
-        return self.current_player
+    def get_next_player(self):
+        return self.next_player
 
     def input_action(self):
         while True:
@@ -168,8 +168,7 @@ class TicTacToe:
         self.total_action is a set
         :return: a list of actions [action0, action1]
         """
-        # return np.array(list(self.total_actions))
-        return self.get_legal_actions_MCTS(self.board, self.get_current_player(), np.array(self.action_history))
+        return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
     @staticmethod
     @njit(cache=True)
@@ -199,20 +198,20 @@ class TicTacToe:
         x, y = action
         if self.board[y][x] != 0:
             raise ValueError("Illegal move")
-        self.board[y][x] = self.current_player
-        self.current_player = self.current_player * -1
+        self.board[y][x] = self.next_player
+        self.next_player = self.next_player * -1
         self.action_history.append(action)
 
 
     @staticmethod
     @njit(cache=True)
-    def do_action_MCTS(board: np.array, action: np.array, current_player: int) -> np.array:
+    def do_action_MCTS(board: np.array, action: np.array, next_player: int) -> np.array:
         x, y = action
-        board[y][x] = current_player
+        board[y][x] = next_player
         return board
 
     def get_input_state(self):
-        return self.get_input_state_MCTS(self.board, self.current_player, np.array(self.action_history))
+        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
 
     @staticmethod
@@ -232,24 +231,25 @@ class TicTacToe:
         # Note that self.current player is actually the next player
         # -self.current_player because we've just played a move which changes to the next player
         # thus if you found a win you have to return the previous player since that player just played -Brian
+        current_player = -self.next_player
         for row in self.board:
             if self._check_row(row) is True: #Pulling out func from LALA-land
                 "                    ^ Jessy, just letting you know that 'is True' is not necessary for python"
                 "It's equally valid to do 'if self._check_row(row):' - Brian"
-                return -self.current_player #Someone has won! :D
+                return current_player #Someone has won! :D
 
         for column_index in range(3): #Checking if someone has won in columns
             column = self.board[:, column_index]
             if self._check_row(column) is True: #Pulling out func from LALA-land pt2
-                return -self.current_player #Someone has won, yippee :3
+                return current_player #Someone has won, yippee :3
 
         diag1 = np.diag(self.board) #Checking if someone has won in diagonals
         if self._check_row(diag1) is True: #Pulling out func from dark magic
-            return -self.current_player #Someone has won :P
+            return current_player #Someone has won :P
 
         diag2 = np.diag(np.fliplr(self.board))
         if self._check_row(diag2) is True: #Pulling func from Narnia
-            return -self.current_player #Someone has won :)
+            return current_player #Someone has won :)
 
         flattened_board = self.board.reshape((9,)) #Reshape board into 9 items, this is to check for draw
         for value in flattened_board:
@@ -308,17 +308,18 @@ class TicTacToe:
 
     @staticmethod
     @njit(cache=True)
-    def augment_sample_fn(boards: np.array, policies: np.array):
+    def augment_sample_fn(states: np.array, policies: np.array):
         policies = policies.reshape((-1, 3, 3))# we need
         # to reshape this because we can only rotate a matrix, not a vector
 
         augmented_boards = []
         augmented_policies = []
 
-        for action_id in range(boards.shape[0]):
-            board = boards[action_id]
+        for action_id in range(states.shape[0]):
+            state = states[action_id]
             # augmented_board = np.zeros((8, board_shape))
-            augmented_board = [board, np.flipud(board), np.fliplr(board)]
+            augmented_state = [state, np.flipud(state), np.fliplr(state)]
+
 
 
             policy = policies[action_id]
@@ -326,19 +327,19 @@ class TicTacToe:
 
 
             for k in range(1, 4):
-                rot_board = np.rot90(board, k)
-                augmented_board.append(rot_board)
+                rot_state = np.rot90(state, k)
+                augmented_state.append(rot_state)
 
                 rot_policy = np.rot90(policy, k)
                 augmented_policy.append(rot_policy)
 
                 if k == 1:
-                    augmented_board.append(np.flipud(rot_board))
-                    augmented_board.append(np.fliplr(rot_board))
+                    augmented_state.append(np.flipud(rot_state))
+                    augmented_state.append(np.fliplr(rot_state))
 
                     augmented_policy.append(np.flipud(rot_policy))
                     augmented_policy.append(np.fliplr(rot_policy))
-            augmented_boards.append(augmented_board)
+            augmented_boards.append(augmented_state)
 
             augmented_policies.append(augmented_policy)
         return augmented_boards, augmented_policies
@@ -346,14 +347,20 @@ class TicTacToe:
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
-        return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
+        return np.array(augmented_boards, dtype=self.board[0].dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
         # return np.expand_dims(boards, 0).astype(boards[0].dtype), np.expand_dims(policies, 0).astype(np.float32)
 
 
 
 if __name__ == "__main__":
     # test your code here
+    from Game_Tester import Game_Tester
+    # tester = Game_Tester(TicTacToe)
+    # tester.test()
+
     game = TicTacToe()
+    game.do_action((1, 1))
+    print(game.get_input_state())
     # print(game.board)
     # board = np.zeros((2, 2))
     # board = np.array([0.0, 0.0], dtype=np.uint8)
