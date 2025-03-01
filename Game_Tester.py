@@ -39,14 +39,14 @@ class Game_Tester:
 
 
         try:
-            current_player = self.game.current_player
-            if current_player != -1:
-                print("Starting current player isn't -1, recommend it to be -1")
+            next_player = self.game.next_player
+            if next_player != -1:
+                print("Starting next player isn't -1, recommend it to be -1")
                 print("This is just a warning, there can be unforeseen bugs. It is probably fine")
-            print("Checking for a current_player attribute: Pass\n")
+            print("Checking for a next_player attribute: Pass\n")
         except:
-            print("Checking for a current player attribute: Fail")
-            print("The game class doesn't have a current_player attribute")
+            print("Checking for a next_player attribute: Fail")
+            print("The game class doesn't have a next_player attribute")
             return False
 
         try:
@@ -102,7 +102,7 @@ class Game_Tester:
         try:
             legal_actions = self.game.get_legal_actions()
             MCTS_legal_actions = self.game.get_legal_actions_MCTS(self.game.board,
-                                                                  self.game.get_current_player(),
+                                                                  -self.game.get_next_player(),
                                                                   np.array(self.game.action_history))
         except:
             print("Check get_legal_actions_MCTS: Fail\n")
@@ -130,7 +130,7 @@ class Game_Tester:
 
         try:
             MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
-                                                                                       self.game.get_current_player(),
+                                                                                       self.game.get_next_player(),
                                                                                        np.array(self.game.action_history),
                                                                                        dummy_policy, shuffle=False)
         except AttributeError:
@@ -158,7 +158,7 @@ class Game_Tester:
             return False
 
         shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
-                                                                                                     self.game.get_current_player(),
+                                                                                                     self.game.get_next_player(),
                                                                                                      np.array(self.game.action_history),
                                                                                                      dummy_policy, shuffle=True)
 
@@ -190,7 +190,7 @@ class Game_Tester:
             return False
 
         try:
-            NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, self.game.get_current_player(), np.array(self.game.action_history))
+            NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, -self.game.get_next_player(), np.array(self.game.action_history))
         except:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
             print("get_input_state_MCTS isn't implemented")
@@ -234,7 +234,7 @@ class Game_Tester:
         legal_actions = self.game.get_legal_actions()
         try:
             for action in legal_actions:
-                board = self.game.do_action_MCTS(self.game.board.copy(), action, self.game.current_player)
+                board = self.game.do_action_MCTS(self.game.board.copy(), action, self.game.next_player)
         except AttributeError:
             print("Checking if do_action_MCTS exists: Fail")
             print("do_action_MCTS isn't implemented\n")
@@ -243,7 +243,7 @@ class Game_Tester:
         self.reset()
         MCTS_board = self.game.board.copy()
         for action in legal_actions:
-            MCTS_board = self.game.do_action_MCTS(MCTS_board, action, self.game.current_player)
+            MCTS_board = self.game.do_action_MCTS(MCTS_board, action, self.game.next_player)
             self.game.do_action(action) # this changes the player to the next, ^must happen before
             if not np.array_equal(MCTS_board, self.game.board):
                 print("The returned board from do_action_MCTS doesn't match the one after do_action")
@@ -283,7 +283,7 @@ class Game_Tester:
             return False
 
         try:
-            self.game.check_win_MCTS(self.game.board, -self.game.get_current_player(), np.array(self.game.action_history)) # also counts as a warmup
+            self.game.check_win_MCTS(self.game.board, -self.game.get_next_player(), np.array(self.game.action_history)) # also counts as a warmup
             MCTS_check_win_implemented = True
         except AttributeError:
             print("Checking check_win_MCTS: Fail")
@@ -302,7 +302,7 @@ class Game_Tester:
         total_check_win_time = 0
         total_check_win_MCTS_time = 0
         winner = -2
-        current_player = -1
+        next_player = -1
         while winner == -2:
             if len(legal_actions) == 0 and winner == -2:
                 print("Checking check_win: Fail")
@@ -317,7 +317,7 @@ class Game_Tester:
             total_check_win_time += time.time() - s
 
             s = time.time()
-            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.current_player, np.array(self.game.action_history))
+            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.next_player, np.array(self.game.action_history))
             total_check_win_MCTS_time += time.time() - s
 
             if MCTS_check_win_implemented and winner != MCTS_winner:
@@ -326,11 +326,11 @@ class Game_Tester:
                 return False
 
             if winner  == -2:
-                current_player *= -1
+                next_player *= -1
             checks += 1
             legal_actions = self.game.get_legal_actions()
 
-        if abs(winner) == 1 and current_player != winner:
+        if abs(winner) == 1 and next_player != winner:
             print("If check_win found a winning board then you have to return the previous player")
             print("In do_action the player is changed to the next player to play, but the previous player already won")
             print("Just flip the current player to the previous player by multiplying by -1")
@@ -508,5 +508,5 @@ if __name__ =="__main__":
     from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
-    game_tester = Game_Tester(TicTacToe)
+    game_tester = Game_Tester(Gomoku)
     game_tester.test()
