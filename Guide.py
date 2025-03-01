@@ -108,7 +108,9 @@ class Game:
         self.board = np.array([])
         # current player as an int, first player will be -1 second player is 1
         self.next_player = -1
-        # to swap the current the player -> current_player *= -1 (very handy)
+        # The DEFINITION of next_player is the player that is going to play but hasn't put their move on the board
+        # The DEFINITION of current_player is the player that has just played and their move is on the board
+        # to swap the current the player -> next_player *= -1 (very handy)
         # action history as a list [action0, action1, ...]
         self.action_history = []
         # feel free to define more class attributes (variables)
@@ -125,7 +127,7 @@ class Game:
         # is re normalized
 
     def get_next_player(self) -> int:
-        # returns the current player
+        # returns the next player
         pass
 
     def input_action(self):
