@@ -88,7 +88,7 @@ class Self_Play:
             else:
                 self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
 
-            # if self.game.get_current_player() == -1:
+            # if self.game.get_next_player() == -1:
             action, move_probs = self.mcts1.run(iteration_limit=self.iteration_limit * (2 if current_move_num <= 1 else 1),
                                                time_limit=self.time_limit,
                                                use_bar=False)
@@ -101,7 +101,7 @@ class Self_Play:
             improved_policy = self.game.compute_policy_improvement(move_probs)
             improved_policies.append(improved_policy)
 
-            target_values.append(self.game.get_current_player()) # Important that this is before do_action()
+            target_values.append(self.game.get_next_player()) # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
 
             if current_move_num == 0 and self.train_config.get("opening_actions", False):
