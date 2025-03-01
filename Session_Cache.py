@@ -13,7 +13,7 @@ class Cache_Wrapper:
         self.max_cache_depth = max_cache_depth
 
     def run(self, output_names, input_feed:dict, depth):
-        if not self.finished_lookup and self.max_cache_depth > 0:
+        if self.max_cache_depth > 0 and not self.finished_lookup:
             key = np.ascontiguousarray(input_feed["inputs"].flatten()).newbyteorder("little").tobytes()
             outputs = self.cache.get(key)
             if outputs is not None:
