@@ -92,7 +92,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # number of self play games until we re train the network
+    "games_per_generation": 10, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
     "num_explore_actions_first": 3,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "num_explore_actions_second": 3,
@@ -102,11 +102,11 @@ train_config = {
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 0,  # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 50, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 100, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -121,7 +121,7 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 256, # The number of samples in a batch for training in parallel
+    "train_batch_size": 64, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
     "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4

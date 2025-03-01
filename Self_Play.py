@@ -203,7 +203,7 @@ def self_play_task(worker_id,
     else:
         providers, onnx_path = info
         session = rt.InferenceSession(onnx_path, providers=providers)
-    session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_actions"])
+    session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
                      session,
                      build_config,
