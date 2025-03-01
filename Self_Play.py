@@ -244,9 +244,9 @@ def run_self_play(game_class,
         num_workers = num_games_left
 
     game = game_class()
-    board_shape = game.board.shape
+    inputs_shape = game.get_input_state().shape
     policy_shape = game.policy_shape
-    str_board_shape = convert_shape(board_shape)
+    str_board_shape = convert_shape(inputs_shape)
     del game
 
 
@@ -278,7 +278,7 @@ def run_self_play(game_class,
     else:
         providers = ['CPUExecutionProvider']
 
-    batched_input_feed_info = {"inputs": [[-1, *board_shape], np.float32],
+    batched_input_feed_info = {"inputs": [[-1, *inputs_shape], np.float32],
                                "input_state": [[num_layers, 2, -1, embed_size], np.float32],
                                "input_state_matrix":[[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]}
     batched_output_feed_info = {"policy": [-1, *policy_shape],

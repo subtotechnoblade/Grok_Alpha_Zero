@@ -27,8 +27,8 @@ def build_model(input_shape, policy_shape, build_config):
 
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
 
-    reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
-    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(reshaped_inputs)
+    # reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
+    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(inputs)
     # eyes = tf.keras.layers.LayerNormalization()(eyes)
     # eyes = tf.keras.layers.Activation("relu")(eyes)
     x = eyes
@@ -105,9 +105,9 @@ def build_model_infer(input_shape, policy_shape, build_config):
               ]
     x, state, state_matrix = inputs
 
-    reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
+    # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(reshaped_inputs)
+    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(x)
     # eyes = tf.keras.layers.LayerNormalization()(eyes)
     # eyes = tf.keras.layers.Activation("relu")(eyes)
 

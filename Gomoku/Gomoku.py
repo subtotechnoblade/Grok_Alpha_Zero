@@ -30,11 +30,11 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_actions": 3, # maximum number of actions of the neural networks outputs we should cache
+    "max_cache_actions": 1, # maximum number of actions of the neural networks outputs we should cache
     "num_workers": 6, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 1000, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 500, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -143,7 +143,8 @@ class Gomoku:
     @staticmethod
     @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
-        return board
+        current_player_plane = np.expand_dims(np.ones_like(board) * current_player, -1)
+        return np.concatenate((current_player_plane, np.expand_dims(board,-1)), axis=-1)
 
     def check_win(self, ) -> int:
         """
@@ -268,7 +269,7 @@ class Gomoku:
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
-        return np.array(augmented_boards, dtype=input_states[0].dtype).transpose([1, 0, 2, 3]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
+        return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
 if __name__ == "__main__":
     from Game_Tester import Game_Tester
