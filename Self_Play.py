@@ -59,7 +59,7 @@ class Self_Play:
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,
                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                               dirichlet_epsilon = dirichlet_epsilon,
+                               dirichlet_epsilon=dirichlet_epsilon,
                                tau=1.0,
                                fast_find_win=False)
 
@@ -76,17 +76,17 @@ class Self_Play:
             current_move_num = len(self.game.action_history)
 
             if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                tau = 1.0 - (0.25 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
+                tau = 1.0 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
                 self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
             else:
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 1e-2)
+                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
 
             if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]:
-                tau = 1.0 - (0.25 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
+                tau = 1.0 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
+                self.mcts2.update_hyperparams(self.mcts2.c_puct_init, tau)
             else:
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 1e-2)
+                self.mcts2.update_hyperparams(self.mcts2.c_puct_init, 0)
 
             if self.game.get_next_player() == -1:
                 action, move_probs = self.mcts1.run(iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1)),
