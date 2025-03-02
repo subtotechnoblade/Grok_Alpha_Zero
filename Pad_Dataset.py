@@ -9,11 +9,13 @@ class Pad_Dataset:
         current_generation = max([int(path.split("/")[-1]) for path in glob(f"{outer_folder_path}/*")])
         self.file_paths = [path + "/Self_Play_Data.h5" for path in glob(f"{outer_folder_path}/*")][max(current_generation - num_previous_generations, 0): current_generation + 1]
 
-        self.max_actions = 0 # get the max moves for the previous datasets up to
+        self.max_actions = 0 # get the max actions for the previous datasets up to
         for path in self.file_paths:
             with h5.File(path) as file:
-                if file["game_stats"][0] > self.max_actions:
-                    self.max_actions = file["game_stats"][0]
+                max_actions, total_actions, num_unaugmented_games, _, _, _ = file["game_stats"][:]
+                average_actions = round(((total_actions / num_unaugmented_games) + max_actions) / 2)
+                if average_actions > self.max_actions:
+                    self.max_actions = average_actions
 
     def pad_dataset(self):
         print("Padding the datasets!")
