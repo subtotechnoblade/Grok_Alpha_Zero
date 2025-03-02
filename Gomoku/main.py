@@ -211,6 +211,8 @@ def Run(game_class, build_config, train_config):
         if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
             shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
+        if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
+            shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         Print_Stats(f"Grok_Zero_Train/{generation}")
         Pad_Dataset(f"Grok_Zero_Train/{generation}", train_config["num_previous_generations"]).pad_dataset()
 

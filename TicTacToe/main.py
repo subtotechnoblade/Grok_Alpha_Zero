@@ -66,7 +66,7 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5800)])
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
     game = game_class()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -211,6 +211,8 @@ def Run(game_class, build_config, train_config):
         if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
             shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
+        if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
+            shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         Print_Stats(f"Grok_Zero_Train/{generation}")
         Pad_Dataset(f"Grok_Zero_Train/{generation}", train_config["num_previous_generations"]).pad_dataset()
 
