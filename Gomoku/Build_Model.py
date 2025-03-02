@@ -28,7 +28,7 @@ def build_model(input_shape, policy_shape, build_config):
     inputs = tf.keras.layers.Input(batch_shape=(None, None, *input_shape), name="inputs")
 
     # reshaped_inputs = tf.keras.layers.Reshape((-1, *input_shape, 1))(inputs)
-    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(inputs)
+    eyes = Batched_Net.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same"))(inputs)
     # eyes = tf.keras.layers.LayerNormalization()(eyes)
     # eyes = tf.keras.layers.Activation("relu")(eyes)
     x = eyes
@@ -39,7 +39,7 @@ def build_model(input_shape, policy_shape, build_config):
         if layer_id == 1:
             # padding="valid"
             mul *= 1.25
-            strides = (2, 2)
+            strides = (1, 1)
         x =  Batched_Net.Batch(ResNet_Conv2D(int(num_filters * mul), (3, 3), strides=strides, padding=padding))(x)
         x =  Batched_Net.Batch(ResNet_Identity2D(int(num_filters * mul), (3, 3)))(x)
 
@@ -47,12 +47,12 @@ def build_model(input_shape, policy_shape, build_config):
     #     x = Train_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim, hidden_size)(x)
 
 
-    policy = Batched_Net.Batch(tf.keras.layers.Conv2D(2, (1, 1), padding="same"))(x)
+    policy = Batched_Net.Batch(tf.keras.layers.Conv2D(4, (3, 3), padding="same"))(x)
 
     policy = tf.keras.layers.Reshape((-1, policy.shape[-3] * policy.shape[-2] * policy.shape[-1]))(policy)
 
+    policy = Batched_Net.Batch(tf.keras.layers.Dense(512))(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net.Batch(tf.keras.layers.Dense(embed_size))(policy)
     policy = Batched_Net.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
 
     if build_config["use_stable_max"]:
@@ -107,7 +107,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
 
     # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same"))(x)
+    eyes = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same"))(x)
     # eyes = tf.keras.layers.LayerNormalization()(eyes)
     # eyes = tf.keras.layers.Activation("relu")(eyes)
 
@@ -118,7 +118,7 @@ def build_model_infer(input_shape, policy_shape, build_config):
         padding="same"
         if layer_id == 1:
             # padding="valid"
-            strides = (2, 2)
+            strides = (1, 1)
             mul *= 1.25
         x =  Batched_Net_Infer.Batch(ResNet_Conv2D(int(num_filters * mul), (3, 3), strides=strides, padding=padding))(x)
         x =  Batched_Net_Infer.Batch(ResNet_Identity2D(int(num_filters * mul), (3, 3)))(x)
@@ -127,11 +127,11 @@ def build_model_infer(input_shape, policy_shape, build_config):
     #     x, state, state_matrix = Infer_net.RWKV_Block(layer_id, num_heads, embed_size, token_shift_hidden_dim,
     #                                                       hidden_size)(x, state, state_matrix)
 
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(2, (1, 1), padding="same"))(x)
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Conv2D(4, (3, 3), padding="same"))(x)
     policy = tf.keras.layers.Reshape((policy.shape[-3] * policy.shape[-2] * policy.shape[-1],))(policy)
 
+    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(512))(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(embed_size))(policy)
     policy = Batched_Net_Infer.Batch(tf.keras.layers.Dense(policy_shape[0]))(policy)
 
     if build_config["use_stable_max"]:
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     #                           expand_nested=True)
 
     state, state_matrix = create_states(build_config)
-    dummy_data = np.transpose(dummy_data, [1, 0, 2, 3])
+    dummy_data = np.transpose(dummy_data, [1, 0, 2, 3, 4])
     policy2, value2 = [], []
     for data_point in dummy_data:
         p, v, state, state_matrix = model_infer(
