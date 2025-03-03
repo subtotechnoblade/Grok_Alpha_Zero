@@ -19,7 +19,8 @@ def build_model(input_shape, policy_shape, build_config):
         x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
         x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
 
-    policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    policy = tf.keras.layers.BatchNormalization()(x)
+    policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(policy)
     policy = tf.keras.layers.Reshape((-1,))(policy)
     policy = tf.keras.layers.Dense(256)(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
@@ -32,7 +33,8 @@ def build_model(input_shape, policy_shape, build_config):
     else:
         policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    value = tf.keras.layers.BatchNormalization()(x)
+    value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(value)
     value = tf.keras.layers.Reshape((-1,))(value)
 
     value = tf.keras.layers.Dense(256)(value)
