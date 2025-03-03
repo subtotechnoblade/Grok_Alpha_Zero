@@ -13,11 +13,7 @@ from numba import njit
 # game board must be a numpy array
 
 # This is the default model build config and will be passed to Gomoku_Build_Model_Time_Parallel.py
-build_config = {"embed_size": 32, # this is the vector for RWKV
-                "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
-                "token_shift_hidden_dim": 32, # this is in the RWKV paper
-                "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
-                "num_layers": 0, # This is the total amount of RWKV layers in the model that is using
+build_config = {"num_resnet_layers": 1, # example: you can define your own variables and construct the network with these vars
 
                 "use_stable_max": True,  # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True,  # from grokfast paper

@@ -75,11 +75,7 @@ from numba import njit
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
 
-build_config = {"embed_size": 128, # this is the vector for RWKV
-                "num_heads": 1, # this must be a factor of embed_size or else an error will be raised
-                "token_shift_hidden_dim": 32, # this is in the RWKV paper
-                "hidden_size": None, # None uses the default 3.5 * embed, factor for upscaling in channel mix
-                "num_layers": 0, # This is the total amount of RWKV layers in the model that are used
+build_config = {"num_resnet_layers": 3,
 
                 "use_stable_max": True,
                 "use_grok_fast": True,
