@@ -121,9 +121,9 @@ def Create_Dataset(folder_path,
                                                           test_percent,
                                                           test_decay).split()
 
-    train_dataset = Dataloader(train_states, train_policies, train_values, train_batch_size)
-    test_dataset = Dataloader(test_states, test_policies, test_values, train_batch_size if test_batch_size is None else test_batch_size)
-    return train_dataset, test_dataset
+    train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size)
+    test_dataloader = Dataloader(test_states, test_policies, test_values, train_batch_size if test_batch_size is None else test_batch_size)
+    return train_dataloader, test_dataloader
 
 if __name__ == "__main__":
     parent_path = "Gomoku/Grok_Zero_Train/"

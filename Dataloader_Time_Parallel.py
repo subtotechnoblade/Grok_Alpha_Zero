@@ -121,9 +121,9 @@ def Create_Dataset(folder_path,
                                                                   test_percent,
                                                                   test_decay).split()
 
-    train_dataset = Dataloader(folder_path, train_indexes, train_batch_size)
-    test_dataset = Dataloader(folder_path, test_indexes, train_batch_size if test_batch_size is None else test_batch_size)
-    return train_dataset, test_dataset
+    train_dataloader = Dataloader(folder_path, train_indexes, train_batch_size)
+    test_dataloader = Dataloader(folder_path, test_indexes, train_batch_size if test_batch_size is None else test_batch_size)
+    return train_dataloader, test_dataloader
 
 
 
