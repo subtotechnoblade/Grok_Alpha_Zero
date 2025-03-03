@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # from Gomoku.Build_Model import build_model, build_model_infer
     # from Gomoku.Gomoku import Gomoku, build_config
 
-    from TicTacToe.Build_Model import build_model, build_model_infer
+    from TicTacToe.Build_Model_Time_Parallel import build_model, build_model_infer
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # Test and validation code for gomoku
