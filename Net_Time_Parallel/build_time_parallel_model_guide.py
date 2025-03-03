@@ -1,6 +1,6 @@
 import tensorflow as tf
 from RWKV import RWKV_v6, RWKV_v6_Infer
-import Batched_Net, Batched_Net_Infer
+from Net_Time_Parallel import Batched_Net_Infer, Batched_Net
 from Grok_Model import Grok_Fast_EMA_Model
 # Note the imports will not be the same as these ^, but import RWKV.RWKV_v6
 

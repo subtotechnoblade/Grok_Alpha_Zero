@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from Net.Custom_Loss import Policy_Loss, Value_Loss, KLD
-from Net.Custom_Loss_Time_Parallel import Policy_Loss_Time_Parallel, Value_Loss_Time_Parallel, KLD_Time_Parallel
+from Net_Time_Parallel.Custom_Loss_Time_Parallel import Policy_Loss_Time_Parallel, Value_Loss_Time_Parallel, KLD_Time_Parallel
 def train(train_dataloader, test_dataloader, model, learning_rate, train_config, parent_path):
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     # train_dataset, test_dataset = Create_Dataset(parent_path,
@@ -48,11 +48,10 @@ def train(train_dataloader, test_dataloader, model, learning_rate, train_config,
 if __name__ == "__main__":
     from pathlib import Path
     folder_path = "TicTacToe/Grok_Zero_Train/1"
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from Gomoku.Build_Model import build_model
+    from Gomoku.Build_Model_Time_Parallel import build_model
 
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
-    from TicTacToe.Build_Model import build_model
+    from TicTacToe.Build_Model_Time_Parallel import build_model
 
     # game = Gomoku()
     game = TicTacToe()
