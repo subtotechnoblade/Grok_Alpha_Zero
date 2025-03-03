@@ -1,5 +1,3 @@
-import os
-import tensorflow as tf
 import onnxoptimizer
 import tf2onnx
 import onnx
@@ -33,26 +31,19 @@ def convert_to_onnx(tf_model, input_signature, file_path): # must call this func
 if __name__ == "__main__":
     import time
     import numpy as np
-    # from Gomoku.Build_Model import build_model, build_model_infer
+    from Gomoku.Build_Model import build_model, build_model_infer
     # from Gomoku.Gomoku import Gomoku, build_config
 
-    from TicTacToe.Build_Model_Time_Parallel import build_model, build_model_infer
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config
 
     # Test and validation code for gomoku
 
     batch_size = 12
-    embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config["num_layers"]
     game = TicTacToe()
 
-    model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     generation = 0
     model.load_weights(f"TicTacToe/Grok_Zero_Train/{generation}/model.weights.h5")
-    # input_signature = [tf.TensorSpec((None, 15, 15), tf.float32, name="inputs"),
-    #                    tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
-    #                    tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads), tf.float32, name="input_state_matrix"),
-    #                    ]
-    # convert_to_onnx(model, input_signature, "model.onnx")
 
     import onnxruntime as rt
     min_shape, max_shape, opt_shape = 1, 12, batch_size
@@ -79,11 +70,6 @@ if __name__ == "__main__":
     # sess = rt.InferenceSession("Cache/model_ctx.onnx", sess_options=sess_options, providers=providers)
     # sess = rt.InferenceSession("cache/test_model_ctx.onnx", sess_options=sess_options, providers=providers)
 
-    def create_states():
-        return np.zeros((num_layers, 2, batch_size, embed_size), dtype=np.float32), np.zeros(
-            (num_layers, batch_size, num_heads, embed_size // num_heads, embed_size // num_heads), np.float32)
-    input_state, input_state_matrix = create_states()
-    input_state_onnx, input_state_matrix_onnx = create_states()
 
     dummy_data = np.random.uniform(low=-1, high=2, size=(9, batch_size, *game.get_input_state().shape)).astype(np.float32)
 
@@ -112,10 +98,8 @@ if __name__ == "__main__":
         output1_v.append(v)
 
         s = time.time()
-        policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
-                                                      {"inputs": data_point,
-                                                                "input_state": input_state_onnx,
-                                                                "input_state_matrix": input_state_matrix_onnx})
+        policy, value, state, state_matrix = sess.run(["policy", "value"],
+                                                      {"inputs": data_point})
         dt = time.time() - s
         t_total += dt
         # print("Onnx took:", dt)
