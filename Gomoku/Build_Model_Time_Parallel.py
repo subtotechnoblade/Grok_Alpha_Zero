@@ -77,8 +77,7 @@ def build_model(input_shape, policy_shape, build_config):
         return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
                                    lamb=build_config["grok_lambda"], alpha=0.99)
     elif build_config["use_orthograd"]:
-        return Ortho_Model(inputs=inputs, outputs=[policy, value],
-                           lamb=build_config["grok_lambda"], alpha=0.99)
+        return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:
         return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
