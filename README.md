@@ -25,6 +25,8 @@ Mu Zero paper: https://arxiv.org/pdf/1911.08265
 
 Gumbel Alpha Zero and Mu Zero: https://openreview.net/forum?id=bERaNdoegnO
 
+Residual Network from: https://www.researchgate.net/publication/352720536_Efficiently_Mastering_the_Game_of_NoGo_with_Deep_Reinforcement_Learning_Supported_by_Domain_Knowledge
+
 Monte Carlo Graph Search: https://arxiv.org/pdf/2012.11045
 
 
