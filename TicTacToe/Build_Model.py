@@ -10,10 +10,9 @@ def build_model(input_shape, policy_shape, build_config):
     # feel free to copy and modify
 
     # input shape should be (3, 3)
-    inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs"), # the name must be "inputs"
+    inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs") # the name must be "inputs"
 
-    x, state, state_matrix = inputs
-    x = tf.keras.layers.Conv2D(64, (5, 5), padding="same")(x)
+    x = tf.keras.layers.Conv2D(64, (5, 5), padding="same")(inputs)
 
     for _ in range(2):
         x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
