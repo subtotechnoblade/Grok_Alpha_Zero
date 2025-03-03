@@ -7,7 +7,7 @@ from Net.Stablemax import Stablemax
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 
-def build_model_infer(input_shape, policy_shape, build_config):
+def build_model(input_shape, policy_shape, build_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
@@ -58,5 +58,14 @@ def build_model_infer(input_shape, policy_shape, build_config):
     value = tf.keras.layers.Activation("tanh", name="value")(value)
 
     # Must include this as it is necessary to name the outputs
-
-    return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
+        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
+                                         lamb=build_config["grok_lambda"],
+                                         alpha=0.99)
+    elif build_config["use_grok_fast"]:
+        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
+                                   lamb=build_config["grok_lambda"], alpha=0.99)
+    elif build_config["use_orthograd"]:
+        return Ortho_Model(inputs=inputs, outputs=[policy, value])
+    else:
+        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
