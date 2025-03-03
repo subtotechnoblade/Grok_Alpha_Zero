@@ -49,13 +49,11 @@ def compute_speed(game_class,
     dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
 
     for _ in range(10):
-        policy, value = sess.run(["policy", "value"],
-                                                              input_feed={"inputs": dummy_inputs})
+        policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
 
     s = time.time()
     for _ in range(iterations):
-        policy, value = sess.run(["policy", "value"],
-                                                              input_feed={"inputs": dummy_inputs})
+        policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
     time_taken = time.time() - s
     print(iterations)
     print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s!")
