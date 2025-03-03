@@ -48,6 +48,6 @@ def cache_tensorrt(game_class,
     dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape)).astype(np.float32)
 
     for _ in range(warmup_iterations):
-        policy, value, state, state_matrix = sess.run(["policy", "value", "output_state", "output_state_matrix"],
+        policy, value = sess.run(["policy", "value", "output_state", "output_state_matrix"],
                                                               input_feed={"inputs": dummy_inputs})
     print("Successfully built trt engine!")
