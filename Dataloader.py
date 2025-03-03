@@ -41,7 +41,8 @@ class Create_Train_Test_Split:
             with h5.File(file_path, mode="r") as file:
                 num_games = (len(file.keys()) - 1) // 3
 
-                for game_id in tqdm(range(num_games), desc="Collecting data"):
+                generation = file_path.split("/")[-2]
+                for game_id in tqdm(range(num_games), desc=f"Collecting data from gen: {generation}"):
                     self.states_generation += list(file[f"boards_{game_id}"])
                     self.policies_generation += list(file[f"policies_{game_id}"])
                     self.values_generation += list(file[f"values_{game_id}"])
@@ -63,6 +64,9 @@ class Create_Train_Test_Split:
             self.train_states += list(self.states_generation[train_indexes])
             self.train_policies += list(self.policies_generation[train_indexes])
             self.train_values += list(self.values_generation[train_indexes])
+
+            train_percent *= self.train_decay
+            test_percent *= self.test_decay
 
         return (self.train_states, self.train_policies, self.train_values), (self.test_states, self.test_policies, self.test_values)
 
