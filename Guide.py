@@ -17,7 +17,7 @@ build_config = {"embed_size": 32, # this is the vector for RWKV
                 "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
                 "hidden_size": None, # None uses the default 3.5 * embed , factor for upscaling in channel mix
-                "num_layers": 3, # This is the total amount of RWKV layers in the model that is using
+                "num_layers": 0, # This is the total amount of RWKV layers in the model that is using
 
                 "use_stable_max": True,  # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True,  # from grokfast paper
@@ -28,6 +28,9 @@ build_config = {"embed_size": 32, # this is the vector for RWKV
 train_config = {
     "total_generations": 100, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
+
+    "use_time_parallel": False,  # VERY IMPORTANT, THIS LITERALLY DETERMINES IF YOU WANT TO PARALLELIZE THE TIME DIM
+    # for anything other than an RNN and RWKV, DO NOT SET TO TRUE
 
     # Self Play variables
     "games_per_generation": 100, # number of self play games until we re train the network

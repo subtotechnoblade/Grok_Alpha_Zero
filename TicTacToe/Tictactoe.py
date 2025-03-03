@@ -91,22 +91,25 @@ train_config = {
     "total_generations": 10, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
+    "use_time_parallel": False,  # VERY IMPORTANT, THIS LITERALLY DETERMINES IF YOU WANT TO PARALLELIZE THE TIME DIM
+    # for anything other than an RNN and RWKV, DO NOT SET TO TRUE
+
     # Self Play variables
-    "games_per_generation": 10, # number of self play games until we re train the network
+    "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
-    "num_explore_actions_first": 3,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "num_explore_actions_second": 3,
+    "num_explore_actions_first": 1,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
+    "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 6, # Number of multiprocessing workers used to self play
+    "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 100, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 10, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -115,22 +118,22 @@ train_config = {
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 3, # The previous generation's data that will be used in training
+    "num_previous_generations": 10, # The previous generation's data that will be used in training
     "train_percent": 1.0, # The percent used for training after the test set is taken
-    "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.9, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
-    "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.9, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 64, # The number of samples in a batch for training in parallel
+    "train_batch_size": 128, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 6e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
+    "beta_2": 0.987, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 10, # The number of epochs for training
+    "train_epochs": 15, # The number of epochs for training
 }
 
 
@@ -318,12 +321,12 @@ class TicTacToe:
         for action_id in range(states.shape[0]):
             state = states[action_id]
             # augmented_board = np.zeros((8, board_shape))
-            augmented_state = [state, np.flipud(state), np.fliplr(state)]
+            augmented_state = [state, np.fliplr(state), np.flipud(state)]
 
 
 
             policy = policies[action_id]
-            augmented_policy = [policy, np.flipud(policy), np.fliplr(policy)]
+            augmented_policy = [policy, np.fliplr(policy), np.flipud(policy)]
 
 
             for k in range(1, 4):
@@ -347,20 +350,20 @@ class TicTacToe:
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
-        return np.array(augmented_boards, dtype=self.board[0].dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
-        # return np.expand_dims(boards, 0).astype(boards[0].dtype), np.expand_dims(policies, 0).astype(np.float32)
+        return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
+        # return np.expand_dims(input_states, 0).astype(self.board.dtype), np.expand_dims(policies, 0).astype(np.float32)
 
 
 
 if __name__ == "__main__":
     # test your code here
     from Game_Tester import Game_Tester
-    # tester = Game_Tester(TicTacToe)
-    # tester.test()
+    tester = Game_Tester(TicTacToe)
+    tester.test()
 
-    game = TicTacToe()
-    game.do_action((1, 1))
-    print(game.get_input_state())
+    # game = TicTacToe()
+    # game.do_action((1, 1))
+    # print(game.get_input_state())
     # print(game.board)
     # board = np.zeros((2, 2))
     # board = np.array([0.0, 0.0], dtype=np.uint8)
@@ -390,7 +393,7 @@ if __name__ == "__main__":
     # game.do_action((0, 0))
     # game.do_action((1, 1))
     # game.do_action((2, 2))
-    dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
+    # dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
     # print(game.get_legal_actions_policy_MCTS(game.board, dummy_policy))
 
 
