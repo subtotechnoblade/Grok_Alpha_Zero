@@ -2,6 +2,7 @@ import tensorflow as tf
 
 from Net.Stablemax import Stablemax
 from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
+from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 def build_model(input_shape, policy_shape, build_config):
     import os
@@ -12,11 +13,11 @@ def build_model(input_shape, policy_shape, build_config):
     # input shape should be (3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs") # the name must be "inputs"
 
-    x = tf.keras.layers.Conv2D(64, (5, 5), padding="same")(inputs)
+    x = tf.keras.layers.Conv2D(256, (5, 5), padding="same")(inputs)
 
     for _ in range(2):
-        x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
-        x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
+        x = ResNet_Conv2D(128, (3, 3), activation="relu")(x)
+        x = ResNet_Identity2D(128, (3, 3), activation="relu")(x)
 
     policy = tf.keras.layers.BatchNormalization()(x)
     policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(policy)
@@ -47,4 +48,14 @@ def build_model(input_shape, policy_shape, build_config):
 
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
-    return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
+        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
+                                         lamb=build_config["grok_lambda"],
+                                         alpha=0.99)
+    elif build_config["use_grok_fast"]:
+        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
+                                   lamb=build_config["grok_lambda"], alpha=0.99)
+    elif build_config["use_orthograd"]:
+        return Ortho_Model(inputs=inputs, outputs=[policy, value])
+    else:
+        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
