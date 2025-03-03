@@ -29,10 +29,9 @@ def train(train_dataloader, test_dataloader, model, learning_rate, train_config)
 if __name__ == "__main__":
     from pathlib import Path
     folder_path = "TicTacToe/Grok_Zero_Train/1"
-    from Gomoku.Build_Model_Time_Parallel import build_model
 
+    from TicTacToe.Build_Model import build_model
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
-    from TicTacToe.Build_Model_Time_Parallel import build_model
 
     # game = Gomoku()
     game = TicTacToe()
