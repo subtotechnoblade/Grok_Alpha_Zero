@@ -47,10 +47,12 @@ class Create_Train_Test_Split:
                     self.policies_generation += list(file[f"policies_{game_id}"])
                     self.values_generation += list(file[f"values_{game_id}"])
 
-            self.states_generation, self.policies_generation, self.values_generation = np.ascontiguousarray(self.states_generation), np.ascontiguousarray(self.policies_generation), np.ascontiguousarray(self.values_generation)
-            np.random.shuffle(self.states_generation)
-            np.random.shuffle(self.policies_generation)
-            np.random.shuffle(self.values_generation)
+            self.states_generation, self.policies_generation, self.values_generation = np.array(self.states_generation, copy=False), np.array(self.policies_generation, copy=False), np.array(self.values_generation, copy=False)
+
+            shuffle_indexes = np.random.permutation(len(self.states_generation))
+            self.states_generation = self.states_generation[shuffle_indexes]
+            self.policies_generation = self.policies_generation[shuffle_indexes]
+            self.values_generation = self.values_generation[shuffle_indexes]
 
             num_actions = len(self.states_generation)
             test_indexes = np.random.choice(np.arange(num_actions), size=int(test_percent * num_actions), replace=False)
@@ -132,13 +134,15 @@ def Create_Dataset(folder_path,
     return train_dataloader, test_dataloader
 
 if __name__ == "__main__":
-    parent_path = "Gomoku/Grok_Zero_Train/"
+    parent_path = "TicTacToe/Grok_Zero_Train/"
     split = Create_Train_Test_Split(parent_path, 1)
     (train_state, train_policies, train_values), (test_states, test_policies, test_values) = split.split()
     train_state = np.array(train_state, copy=False)
 
-    data_loader = Dataloader(train_state, train_policies, train_values, 64)
-    batched_states, (batched_policies, batched_values) = data_loader[0]
-    print(batched_states.shape)
-    print(batched_policies.shape)
-    print(batched_values.shape)
+    data_loader = Dataloader(train_state, train_policies, train_values, 1)
+    for batched_states, (batched_policies, batched_values) in data_loader:
+        if np.sum(batched_states[:, :, :, 1] * batched_policies[0].reshape((3, 3))) != 0:
+            print(batched_states[:, :, :, 1])
+            print(batched_policies[0].reshape((3, 3)))
+            print(batched_values)
+            raise ValueError("Sth went wrong")
