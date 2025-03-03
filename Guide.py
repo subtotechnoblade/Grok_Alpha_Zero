@@ -12,7 +12,7 @@ from numba import njit
 # players are represented with -1 and 1 <- this rule cannot change
 # game board must be a numpy array
 
-# This is the default model build config and will be passed to Build_Model.py
+# This is the default model build config and will be passed to Gomoku_Build_Model_Time_Parallel.py
 build_config = {"embed_size": 32, # this is the vector for RWKV
                 "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
                 "token_shift_hidden_dim": 32, # this is in the RWKV paper
@@ -28,9 +28,6 @@ build_config = {"embed_size": 32, # this is the vector for RWKV
 train_config = {
     "total_generations": 100, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
-
-    "use_time_parallel": False,  # VERY IMPORTANT, THIS LITERALLY DETERMINES IF YOU WANT TO PARALLELIZE THE TIME DIM
-    # for anything other than an RNN and RWKV, DO NOT SET TO TRUE
 
     # Self Play variables
     "games_per_generation": 100, # number of self play games until we re train the network

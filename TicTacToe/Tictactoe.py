@@ -91,9 +91,6 @@ train_config = {
     "total_generations": 10, # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
-    "use_time_parallel": False,  # VERY IMPORTANT, THIS LITERALLY DETERMINES IF YOU WANT TO PARALLELIZE THE TIME DIM
-    # for anything other than an RNN and RWKV, DO NOT SET TO TRUE
-
     # Self Play variables
     "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
