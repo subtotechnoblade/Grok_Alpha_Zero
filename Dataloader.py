@@ -93,6 +93,8 @@ class Dataloader(tf.keras.utils.PyDataset):
             remainder = num_samples % self.batch_size
             self.batch_indexes = [*self.indexes[:-remainder].reshape((-1, self.batch_size,)), self.indexes[-remainder:]]
 
+    def __len__(self):
+        return len(self.batch_indexes)
     def __getitem__(self, idx):
         batched_indexes = self.batch_indexes[idx]
         len_batched_indexes = len(batched_indexes)
