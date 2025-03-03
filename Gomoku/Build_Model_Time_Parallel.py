@@ -12,7 +12,7 @@ from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA
 
 
 # This is just a template
-def build_model_time_parallel(input_shape, policy_shape, build_config):
+def build_model(input_shape, policy_shape, build_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
