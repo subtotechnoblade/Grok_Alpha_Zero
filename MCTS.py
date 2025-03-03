@@ -190,18 +190,17 @@ class MCTS:
 
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
-            input_state, input_state_matrix = RNN_state
+            # input_state, input_state_matrix = RNN_state
             kwargs = {
                 "output_names": ["policy", "value", "output_state", "output_state_matrix"],
-                      "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0),
-                                     "input_state": input_state,
-                                     "input_state_matrix": input_state_matrix}}
+                "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0)}
+            }
             if self.cache_session:
                 kwargs["depth"] = depth
 
 
-            policy, value, state, state_matrix = self.session.run(**kwargs)
-            return policy[0], value[0][0], [state, state_matrix]
+            policy, value = self.session.run(**kwargs)
+            return policy[0], value[0][0], RNN_state
         return self._get_dummy_outputs(inputs, RNN_state)
 
     def _get_dummy_outputs(self, input_state, RNN_state):
@@ -741,7 +740,7 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/9/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
     winners = [0, 0, 0]
@@ -776,8 +775,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_next_player() == 1:
-                move, probs = mcts1.run(1000, use_bar=True)
+            if game.get_next_player() == -1:
+                move, probs = mcts1.run(5000, use_bar=True)
             else:
             #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
