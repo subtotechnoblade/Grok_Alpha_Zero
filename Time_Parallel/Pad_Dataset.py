@@ -54,7 +54,7 @@ class Pad_Dataset:
 
 
 if __name__ == "__main__":
-    folder_path = "Gomoku/Grok_Zero_Train/0/"
+    folder_path = "../Gomoku/Grok_Zero_Train/0/"
 
 
     # pad = Pad_Dataset(folder_path, 1)

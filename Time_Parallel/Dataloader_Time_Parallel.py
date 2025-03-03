@@ -132,11 +132,11 @@ if __name__ == "__main__":
     from Gomoku.Gomoku import Gomoku
     np.set_printoptions(threshold=np.inf)
     game = Gomoku()
-    split = Create_Train_Test_Split_Indexes("Gomoku/Grok_Zero_Train/", 3)
+    split = Create_Train_Test_Split_Indexes("../Gomoku/Grok_Zero_Train/", 3)
     train_indexes, test_indexes = split.split()
     print(train_indexes.shape, test_indexes.shape)
 
-    dataloader = Dataloader("Gomoku/Grok_Zero_Train/",
+    dataloader = Dataloader("../Gomoku/Grok_Zero_Train/",
                             train_indexes,
                             batch_size=3)
     boards, (policy, value) = dataloader[len(dataloader) - 1]

@@ -1,9 +1,9 @@
 import tensorflow as tf
 # pip install tensorflow
 
-from Net_Time_Parallel.RWKV import RWKV_v6_Infer, RWKV_v6
+from Time_Parallel.Net_Time_Parallel.RWKV import RWKV_v6_Infer, RWKV_v6
 from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
-from Net_Time_Parallel import Batched_Net_Infer, Batched_Net
+from Time_Parallel.Net_Time_Parallel import Batched_Net_Infer, Batched_Net
 from Net.Stablemax import Stablemax
 
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
