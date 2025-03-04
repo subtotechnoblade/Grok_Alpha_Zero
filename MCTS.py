@@ -121,9 +121,9 @@ class MCTS:
 
         self.use_njit = is_jitted(self.game.get_legal_actions_MCTS) and is_jitted(self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
         # Note that these are functions getting assigned and jitted
-        # if self.use_njit:
+
         if self.use_njit:
-            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True)
+            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=False)
         else:
             self.get_terminal_actions = self.get_terminal_actions_fn
         # perform inference call to initialize root
@@ -558,8 +558,8 @@ class MCTS:
             prob_weights = np.zeros_like(self.root.child_visits)
             prob_weights[np.argmax(self.root.child_visits)] = 1.0
         else:
-            exp = np.array(1.0 / self.tau, dtype=np.float128)
-            prob_weights = ((self.root.child_visits.astype(np.float128) ** exp) / (np.array(self.root.visits, np.float128) ** exp))
+            exp = np.array(1.0 / self.tau, dtype=np.float64)
+            prob_weights = ((self.root.child_visits.astype(np.float64) ** exp) / (np.array(self.root.visits, np.float64) ** exp))
             prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
             prob_weights = np.array(prob_weights, np.float64)
 
