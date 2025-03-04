@@ -33,7 +33,6 @@ def Validate_Train_Config(train_config):
         raise ValueError("You must use the GPU for tensorrt")
 
     available_providers = rt.get_available_providers()
-    available_providers = rt.get_available_providers()
     if train_config["use_tensorrt"] and "TensorrtExecutionProvider" not in available_providers:
         raise RuntimeError("Please install tensorrt as onnxruntime doesn't detect TensorrtExecutionProvider")
 
@@ -104,25 +103,24 @@ def Create_onnx(game_class, build_config, folder_path):
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
 
+def _initialize_model(game, build_config):
+    physical_devices = tf.config.list_physical_devices('GPU')
+    try:
+        for device in physical_devices:
+            tf.config.experimental.set_memory_growth(device, True)
+    except:
+        # Invalid device or cannot modify virtual devices once initialized.
+        pass
 
+    train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    train_model.summary()
+    train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
 def Initialize(game_class, build_config, train_config): # This must be ran with a mp.Process
     # test the game class before anything is done
     print("\n*************Initiating*************\n")
     game = game_class()
-    def initialize_model(game, build_config):
-        physical_devices = tf.config.list_physical_devices('GPU')
-        try:
-            for device in physical_devices:
-                tf.config.experimental.set_memory_growth(device, True)
-        except:
-            # Invalid device or cannot modify virtual devices once initialized.
-            pass
-
-        train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
-        train_model.summary()
-        train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
     print("Initializing the model\n")
-    p = mp.Process(target=initialize_model, args=(game, build_config))
+    p = mp.Process(target=_initialize_model, args=(game, build_config))
     p.start()
     p.join()
 
