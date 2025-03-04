@@ -1,9 +1,11 @@
 import tensorflow as tf
 
+from Net.Stablemax import Stablemax
+
 from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
-def build_model(input_shape, policy_shape, build_config):
+def build_model(input_shape, policy_shape, build_config, train_config):
     import os
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     # Since this is just and example for Gomoku
@@ -26,7 +28,17 @@ def build_model(input_shape, policy_shape, build_config):
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = tf.keras.layers.Dense(64)(policy)
 
-    policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+
+    if train_config["use_gumbel"]:
+        policy = tf.keras.layers.Dense(policy_shape[0], name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
+    else:
+        policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+
+    if not train_config["use_gumbel"]:
+        if build_config["use_stable_max"]:
+            policy = Stablemax(name="policy")(policy)  # MUST NAME THIS "policy"
+        else:
+            policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
 
     # value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
