@@ -132,7 +132,9 @@ class Game_Tester:
             MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                        self.game.get_next_player(),
                                                                                        np.array(self.game.action_history),
-                                                                                       dummy_policy, shuffle=False)
+                                                                                       dummy_policy,
+                                                                                       normalize=True,
+                                                                                       shuffle=False)
         except AttributeError:
             print("Checking get_legal_actions_policy_MCTS: Fail")
             print("get_legal_actions_policy_MCTS isn't implemented correctly")
