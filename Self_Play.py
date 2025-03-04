@@ -279,11 +279,6 @@ def run_self_play(game_class,
 
     print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
 
-    sess_options = rt.SessionOptions()
-    if not train_config["use_gpu"]: # we are using the CPU for self play
-        sess_options.intra_op_num_threads = 2
-        sess_options.inter_op_num_threads = 1
-
     shms = []
     if train_config["use_inference_server"]:
 
@@ -292,7 +287,6 @@ def run_self_play(game_class,
                                                        batched_output_feed_info,
                                                        shms,
                                                        providers,
-                                                       sess_options,
                                                        onnx_file_path,
                                                        1e-4))
         server.start()

@@ -56,7 +56,6 @@ class Server:
                  outputs_feed_info: dict[str: list],
                  shared_memories: list[SharedMemory, ...],
                  providers,
-                 sess_options,
                  file_path,
                  per_process_wait_time=0.001):
 
@@ -107,9 +106,7 @@ class Server:
         self.file_path = file_path
         self.wait_time = per_process_wait_time * self.num_workers
 
-        self.sess = rt.InferenceSession(f"{self.file_path}",
-                                        sess_options=sess_options,
-                                        providers=providers)
+        self.sess = rt.InferenceSession(f"{self.file_path}", providers=providers)
 
 
 
@@ -189,13 +186,12 @@ class Server:
                 # reset it so that the session can pick it up
 
 
-def start_server(inputs_feed_info, outputs_feed_info, shms, providers, sess_options, file_path, per_process_wait_time=0.001):
+def start_server(inputs_feed_info, outputs_feed_info, shms, providers, file_path, per_process_wait_time=0.001):
 
     server = Server(inputs_feed_info,
                     outputs_feed_info,
                     shms,
                     providers,
-                    sess_options,
                     file_path,
                     per_process_wait_time
                     )
