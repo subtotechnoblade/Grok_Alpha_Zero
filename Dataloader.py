@@ -1,3 +1,4 @@
+from pathlib import Path
 import h5py as h5
 import numpy as np
 from glob import glob
@@ -16,8 +17,7 @@ class Create_Train_Test_Split:
         self.parent_path = parent_path
         np.random.seed()
 
-
-        self.generation = max([int(path.split("/")[-1]) for path in glob(self.parent_path + "/*")])
+        self.generation = max([int(Path(path).name) for path in glob("Grok_Zero_Train/*")])
 
         self.files = [path + "/Self_Play_Data.h5" for path in glob(self.parent_path + "/*")][-num_previous_generations - 1:]
 
