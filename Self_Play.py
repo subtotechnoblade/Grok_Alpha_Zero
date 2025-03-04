@@ -35,15 +35,10 @@ class Self_Play:
         self.iteration_limit = self.train_config["MCTS_iteration_limit"]
         self.time_limit = self.train_config["MCTS_time_limit"]
 
-        embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
-            "num_layers"]
-
         dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
 
-        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
         self.mcts1: MCTS = MCTS(self.game,
-                               RNN_state1,
+                               None,
                                self.sess,
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,
@@ -51,10 +46,9 @@ class Self_Play:
                                dirichlet_epsilon=dirichlet_epsilon,
                                tau=1.0,
                                fast_find_win=False)
-        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                                            np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads), dtype=np.float32)]
+
         self.mcts2: MCTS = MCTS(self.game,
-                               RNN_state2,
+                               None,
                                self.sess,
                                c_puct_init=self.train_config["c_puct_init"],
                                use_dirichlet=True,
@@ -140,6 +134,7 @@ class Self_Play:
             target_values *= -1.0 # Flip it so that the player that won, evaluates to 1 (winner)
         elif winner == 0: # if it a draw or
             target_values[:] = 0.0
+
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
@@ -250,25 +245,25 @@ def run_self_play(game_class,
     del game
 
 
-    embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config[
-        "num_layers"]
     onnx_file_path = f"{folder_path}/model.onnx"
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
             max_shape = train_config["num_workers"]
             onnx_file_path = f"{folder_path}/TRT_cache/model_ctx.onnx"
+
             providers = [
                 ('TensorrtExecutionProvider', {
-                    "trt_engine_cache_enable": True,
-                    "trt_dump_ep_context_model": True,
-                    "trt_builder_optimization_level": 5,
-                    "trt_auxiliary_streams": 0,
+                "trt_engine_cache_enable": True,
+                "trt_dump_ep_context_model": True,
+                "trt_builder_optimization_level": 5,
+                "trt_auxiliary_streams": 0,
 
-                    "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
-                    "trt_profile_min_shapes": f"inputs:1x{str_board_shape},input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-                    "trt_profile_max_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-                    "trt_profile_opt_shapes": f"inputs:{max_shape}x{str_board_shape},input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-                }),
+                "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
+                "trt_profile_min_shapes": f"inputs:1x{str_board_shape}",
+                "trt_profile_max_shapes": f"inputs:{max_shape}x{str_board_shape}",
+                "trt_profile_opt_shapes": f"inputs:{max_shape}x{str_board_shape}",
+            })
+            ,
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
         else:
@@ -278,14 +273,10 @@ def run_self_play(game_class,
     else:
         providers = ['CPUExecutionProvider']
 
-    batched_input_feed_info = {"inputs": [[-1, *inputs_shape], np.float32],
-                               "input_state": [[num_layers, 2, -1, embed_size], np.float32],
-                               "input_state_matrix":[[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]}
+    batched_input_feed_info = {"inputs": [[-1, *inputs_shape], np.float32]}
     batched_output_feed_info = {"policy": [-1, *policy_shape],
-                                "value": [-1, 1],
-                                "output_state": [num_layers, 2, -1, embed_size],
-                                "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
-                                }
+                                "value": [-1, 1]}
+
     print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
 
     sess_options = rt.SessionOptions()
