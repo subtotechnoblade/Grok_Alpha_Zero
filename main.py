@@ -12,7 +12,7 @@ import multiprocessing as mp
 
 from Game_Tester import Game_Tester
 
-from Build_Model import build_model
+from TicTacToe.Build_Model import build_model
 from Self_Play import run_self_play
 from Dataloader import Create_Dataset
 # would create a folder for the new generation
@@ -44,7 +44,7 @@ def Validate_Train_Config(train_config):
 
 
 def Make_Generation_Folder(generation):
-    os.makedirs(f"Grok_Zero_Train/{generation}/", exist_ok=False)
+    os.makedirs(f"TicTacToe/Grok_Zero_Train/{generation}/", exist_ok=False)
 def Make_Dataset_File(folder_path):
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6,))
@@ -116,7 +116,7 @@ def _initialize_model(game, build_config, train_config):
 
     train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     train_model.summary()
-    train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
+    train_model.save_weights("TicTacToe/Grok_Zero_Train/0/model.weights.h5")
 def Initialize(game_class, build_config, train_config): # This must be ran with a mp.Process
     # test the game class before anything is done
     print("\n*************Initiating*************\n")
@@ -127,23 +127,24 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     p.join()
 
 
-    p = mp.Process(target=Create_onnx, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+    p = mp.Process(target=Create_onnx, args=(game_class, build_config, train_config, "TicTacToe/Grok_Zero_Train/0"))
     p.start()
     p.join()
 
 
     if train_config["use_tensorrt"]:
-        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, "TicTacToe/Grok_Zero_Train/0"))
         p.start()
         p.join()
 
-    p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+    p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "TicTacToe/Grok_Zero_Train/0"))
     p.start()
     p.join()
 
-    Make_Dataset_File("Grok_Zero_Train/0")
+    Make_Dataset_File("TicTacToe/TicTacToe/Grok_Zero_Train/0")
 
 def Run(game_class, build_config, train_config):
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     Validate_Train_Config(train_config)
 
     parent_dir = Path(__file__).resolve().parent # delete pycache in the parent directory
@@ -154,21 +155,21 @@ def Run(game_class, build_config, train_config):
         raise ValueError("Tests failed, training cannot continue!")
 
     try:
-        current_generation = max([int(path.split("/")[-1]) for path in glob("Grok_Zero_Train/*")])
+        current_generation = max([int(path.split("/")[-1]) for path in glob("TicTacToe/Grok_Zero_Train/*")])
     except:
         current_generation = 0
 
 
     if current_generation == 0:
 
-        os.makedirs("Grok_Zero_Train/0/", exist_ok=True)
+        os.makedirs("TicTacToe/TicTacToe/Grok_Zero_Train/0/", exist_ok=True)
 
-        if (not os.path.exists("Grok_Zero_Train/0/model.weights.h5") or not
-        (os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
-        os.path.exists("Grok_Zero_Train/0/model.onnx") or not
-        os.path.exists("Grok_Zero_Train/0/Self_Play_Data.h5")):
+        if (not os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/model.weights.h5") or not
+        (os.path.exists("TicTacToe/Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
+        os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/model.onnx") or not
+        os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/Self_Play_Data.h5")):
             print("Creating necessary files and models!")
-            shutil.rmtree("Grok_Zero_Train/")
+            shutil.rmtree("TicTacToe/TicTacToe/Grok_Zero_Train/")
             Make_Generation_Folder(0)
 
             Initialize(game_class, build_config, train_config)
@@ -189,60 +190,60 @@ def Run(game_class, build_config, train_config):
 
 
     calculate_speed = False
-    if "model.onnx" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
+    if "model.onnx" not in os.listdir(f"TicTacToe/Grok_Zero_Train/{current_generation}"):
         p = mp.Process(target=Create_onnx, args=(game_class, build_config,
-                                                 f"Grok_Zero_Train/{current_generation}"))
+                                                 f"TicTacToe/Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
         calculate_speed = True
 
-    if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
-        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+    if "TRT_cache" not in os.listdir(f"TicTacToe/Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
+        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, f"TicTacToe/Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
         calculate_speed = True
 
     if calculate_speed:
-        p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+        p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, f"TicTacToe/Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
 
-    if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
-        Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
+    if "Self_Play_Data.h5" not in os.listdir(f"TicTacToe/Grok_Zero_Train/{current_generation}"):
+        Make_Dataset_File(f"TicTacToe/Grok_Zero_Train/{current_generation}/")
 
         current_generation += 1
 
     for generation in range(current_generation, train_config["total_generations"]):
-        if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
-            shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
-        run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
-        if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
-            shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
-        Print_Stats(f"Grok_Zero_Train/{generation}")
+        if os.path.exists(f"TicTacToe/Grok_Zero_Train/{generation}/Cache"):
+            shutil.rmtree(f"TicTacToe/Grok_Zero_Train/{generation}/Cache")
+        run_self_play(game_class, build_config, train_config, f"TicTacToe/Grok_Zero_Train/{generation}")
+        if os.path.exists(f"TicTacToe/Grok_Zero_Train/{generation}/Cache"):
+            shutil.rmtree(f"TicTacToe/Grok_Zero_Train/{generation}/Cache")
+        Print_Stats(f"TicTacToe/Grok_Zero_Train/{generation}")
 
 
         p = mp.Process(target=Train_NN, args=(game_class, build_config, train_config, generation,
-                                              f"Grok_Zero_Train/{generation}", f"Grok_Zero_Train/{generation + 1}"))
+                                              f"TicTacToe/Grok_Zero_Train/{generation}", f"TicTacToe/Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
 
 
-        p = mp.Process(target=Create_onnx, args=(game_class, build_config, f"Grok_Zero_Train/{generation + 1}"))
+        p = mp.Process(target=Create_onnx, args=(game_class, build_config, f"TicTacToe/Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
 
         if train_config["use_tensorrt"]:
             p = mp.Process(target=cache_tensorrt,
-                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           args=(game_class, build_config, train_config, f"TicTacToe/Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
 
             p = mp.Process(target=compute_speed,
-                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           args=(game_class, build_config, train_config, f"TicTacToe/Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
         if generation < train_config["total_generations"] - 1:
-            Make_Dataset_File(f"Grok_Zero_Train/{generation + 1}")
+            Make_Dataset_File(f"TicTacToe/Grok_Zero_Train/{generation + 1}")
             print(f"Generation: {generation + 1} / {train_config['total_generations'] - 1}")
     print("-----------Training Done!-----------")
 
@@ -250,5 +251,5 @@ def Run(game_class, build_config, train_config):
 
 if __name__ == "__main__":
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    from Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     Run(TicTacToe, build_config, train_config)
