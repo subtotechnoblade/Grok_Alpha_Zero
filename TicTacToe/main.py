@@ -85,7 +85,7 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
     model = train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config)
     Make_Generation_Folder(generation + 1)
     model.save_weights(f"{save_folder_path}/model.weights.h5")
-def Create_onnx(game_class, build_config, folder_path):
+def Create_onnx(game_class, build_config, train_config, folder_path):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     game = game_class()
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -125,7 +125,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     p.join()
 
 
-    p = mp.Process(target=Create_onnx, args=(game_class, build_config, "Grok_Zero_Train/0"))
+    p = mp.Process(target=Create_onnx, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
     p.start()
     p.join()
 
