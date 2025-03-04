@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from Net.Stablemax import Stablemax
 from Net.Custom_Loss import Policy_Loss, Value_Loss, KLD
-def train(train_dataloader, test_dataloader, model, learning_rate, train_config):
+def train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config):
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],

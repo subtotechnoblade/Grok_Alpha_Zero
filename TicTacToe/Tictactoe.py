@@ -88,10 +88,10 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 200, # number of self play games until we re train the network
+    "games_per_generation": 100, # number of self play games until we re train the network
     "max_actions": 9, # Note that this should be
     "num_explore_actions_first": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
-    "num_explore_actions_second": 2,
+    "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
@@ -103,7 +103,7 @@ train_config = {
 
     # MCTS variables
     "use_gumbel": False, # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
-    "MCTS_iteration_limit": 150, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 20, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -121,7 +121,7 @@ train_config = {
     "train_batch_size": 512, # The number of samples in a batch for training in parallel
     "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 2e-3, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
