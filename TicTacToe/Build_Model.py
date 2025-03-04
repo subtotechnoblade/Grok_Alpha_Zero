@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-from Net.Stablemax import Stablemax
 from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
@@ -27,12 +26,7 @@ def build_model(input_shape, policy_shape, build_config):
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = tf.keras.layers.Dense(64)(policy)
 
-    policy = tf.keras.layers.Dense(policy_shape[0])(policy)
-
-    if build_config["use_stable_max"]:
-        policy = Stablemax(name="policy")(policy) # MUST NAME THIS "policy"
-    else:
-        policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
+    policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
 
     # value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
