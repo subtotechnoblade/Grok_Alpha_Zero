@@ -141,7 +141,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     p.start()
     p.join()
 
-    Make_Dataset_File("TicTacToe/TicTacToe/Grok_Zero_Train/0")
+    Make_Dataset_File("TicTacToe/Grok_Zero_Train/0")
 
 def Run(game_class, build_config, train_config):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -162,14 +162,14 @@ def Run(game_class, build_config, train_config):
 
     if current_generation == 0:
 
-        os.makedirs("TicTacToe/TicTacToe/Grok_Zero_Train/0/", exist_ok=True)
+        os.makedirs("TicTacToe/Grok_Zero_Train/0/", exist_ok=True)
 
-        if (not os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/model.weights.h5") or not
+        if (not os.path.exists("TicTacToe/Grok_Zero_Train/0/model.weights.h5") or not
         (os.path.exists("TicTacToe/Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
-        os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/model.onnx") or not
-        os.path.exists("TicTacToe/TicTacToe/Grok_Zero_Train/0/Self_Play_Data.h5")):
+        os.path.exists("TicTacToe/Grok_Zero_Train/0/model.onnx") or not
+        os.path.exists("TicTacToe/Grok_Zero_Train/0/Self_Play_Data.h5")):
             print("Creating necessary files and models!")
-            shutil.rmtree("TicTacToe/TicTacToe/Grok_Zero_Train/")
+            shutil.rmtree("TicTacToe/Grok_Zero_Train/")
             Make_Generation_Folder(0)
 
             Initialize(game_class, build_config, train_config)
