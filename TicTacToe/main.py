@@ -62,6 +62,7 @@ def Print_Stats(folder_path):
 
 
 def Train_NN(game_class, build_config, train_config, generation, folder_path, save_folder_path):
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
@@ -104,6 +105,7 @@ def Create_onnx(game_class, build_config, train_config, folder_path):
     print("Successfully converted to onnx\n")
 
 def _initialize_model(game, build_config, train_config):
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     physical_devices = tf.config.list_physical_devices('GPU')
     try:
         for device in physical_devices:
