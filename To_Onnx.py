@@ -1,4 +1,4 @@
-import onnxoptimizer
+# import onnxoptimizer
 import tf2onnx
 import onnx
 
@@ -9,7 +9,7 @@ def convert_to_onnx(tf_model, input_signature, file_path): # must call this func
     # similar to [tf.TensorSpec((None, *gf.SHAPE[1:]), TF_DTYPE, name="x")]
     onnx_model, _ = tf2onnx.convert.from_keras(tf_model, input_signature)
 
-    onnx_model = onnxoptimizer.optimize(onnx_model)
+    # onnx_model = onnxoptimizer.optimize(onnx_model)
     # , passes=['nop', 'eliminate_nop_cast', 'eliminate_nop_dropout', 'eliminate_nop_flatten',
     #                                 'extract_constant_to_initializer', 'eliminate_if_with_const_cond',
     #                                 'eliminate_nop_monotone_argmax', 'eliminate_nop_pad', 'eliminate_nop_concat',
