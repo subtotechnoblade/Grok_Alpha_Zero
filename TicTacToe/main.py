@@ -103,7 +103,7 @@ def Create_onnx(game_class, build_config, folder_path):
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
 
-def _initialize_model(game, build_config):
+def _initialize_model(game, build_config, train_config):
     physical_devices = tf.config.list_physical_devices('GPU')
     try:
         for device in physical_devices:
@@ -120,7 +120,7 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
     print("\n*************Initiating*************\n")
     game = game_class()
     print("Initializing the model\n")
-    p = mp.Process(target=_initialize_model, args=(game, build_config))
+    p = mp.Process(target=_initialize_model, args=(game, build_config, train_config))
     p.start()
     p.join()
 
