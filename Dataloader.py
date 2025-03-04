@@ -141,6 +141,9 @@ if __name__ == "__main__":
 
     data_loader = Dataloader(train_state, train_policies, train_values, 1)
     for batched_states, (batched_policies, batched_values) in data_loader:
+        print(batched_states[:, :, :, 1])
+        print(batched_policies[0].reshape((3, 3)))
+        raise ValueError
         if np.sum(batched_states[:, :, :, 1] * batched_policies[0].reshape((3, 3))) != 0:
             print(batched_states[:, :, :, 1])
             print(batched_policies[0].reshape((3, 3)))
