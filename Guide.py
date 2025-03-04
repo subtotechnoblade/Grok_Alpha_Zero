@@ -145,7 +145,12 @@ class Game:
 
     @staticmethod
     # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, current_player: int, action_history: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array,
+                                      current_player: int,
+                                      action_history: np.array,
+                                      policy: np.array,
+                                      normalize=True,
+                                      shuffle=False) -> (np.array, np.array):
         """
         THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
         :param board: numpy array of the board

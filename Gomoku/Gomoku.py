@@ -91,12 +91,18 @@ class Gomoku:
 
     @staticmethod
     @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, current_player: int, action_history: np.array, policy: np.array, shuffle=False) -> (np.array, np.array):
+    def get_legal_actions_policy_MCTS(board: np.array,
+                                      current_player: int,
+                                      action_history: np.array,
+                                      policy: np.array,
+                                      normalize=True,
+                                      shuffle=False) -> (np.array, np.array):
         flattened_board = board.reshape(-1)  # makes sure that the board is a vector
         policy = policy[flattened_board == 0]  # keep the probabilities where the board is not filled
 
         # [board == 0] creates a mask and when the mask element is True, the probability at that index is returned
-        policy /= np.sum(policy)
+        if normalize:
+            policy /= np.sum(policy)
         # normalize the policy back to a probability distribution
 
         # reverse order of each element from [y, x] -> [x, y]

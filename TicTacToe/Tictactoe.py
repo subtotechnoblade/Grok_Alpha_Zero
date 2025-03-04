@@ -102,7 +102,7 @@ train_config = {
     "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "use_gumbel": True, # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    "use_gumbel": False, # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     "MCTS_iteration_limit": 150, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
@@ -178,11 +178,14 @@ class TicTacToe:
                                       current_player:int,
                                       action_history: np.array,
                                       policy: np.array,
+                                      normalize=True,
                                       shuffle: bool=False):
 
         legal_actions = np.argwhere(board == 0)[:, ::-1]
         legal_policy = policy[board.reshape(-1) == 0]
-        legal_policy /= np.sum(legal_policy)
+
+        if normalize:
+            legal_policy /= np.sum(legal_policy)
 
         if shuffle:
             random_indexes = np.random.permutation(len(legal_actions))
