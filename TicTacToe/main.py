@@ -5,17 +5,16 @@ from pathlib import Path
 import h5py as h5
 import numpy as np
 from glob import glob
-from diskcache import Cache
 
 import tensorflow as tf
 import onnxruntime as rt
 import multiprocessing as mp
 
-from Build_Model import build_model, build_model_infer
 from Game_Tester import Game_Tester
 
+from Build_Model import build_model
 from Self_Play import run_self_play
-from Pad_Dataset import Pad_Dataset
+from Dataloader import Create_Dataset
 # would create a folder for the new generation
 from Train import train
 from To_Onnx import convert_to_onnx
@@ -33,6 +32,7 @@ def Validate_Train_Config(train_config):
     if not train_config["use_gpu"] and train_config["use_tensorrt"]:
         raise ValueError("You must use the GPU for tensorrt")
 
+    available_providers = rt.get_available_providers()
     available_providers = rt.get_available_providers()
     if train_config["use_tensorrt"] and "TensorrtExecutionProvider" not in available_providers:
         raise RuntimeError("Please install tensorrt as onnxruntime doesn't detect TensorrtExecutionProvider")
@@ -68,14 +68,22 @@ def Train_NN(game_class, build_config, train_config, generation, folder_path, sa
         tf.config.experimental.set_virtual_device_configuration(device, [
             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
     game = game_class()
-    model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
 
     lr_decay = train_config["lr_decay"] ** (generation // train_config["decay_lr_after"])
     learning_rate = train_config["learning_rate"] * lr_decay
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
-    model = train(model, learning_rate, train_config, str(Path(folder_path).parent))
+    train_dataloader, test_dataloader = Create_Dataset(str(Path(folder_path).parent),
+                                                       num_previous_generations=train_config["num_previous_generations"],
+                                                       train_batch_size=train_config["train_batch_size"],
+                                                       test_batch_size=train_config["test_batch_size"],
+                                                       train_percent=train_config["train_percent"],
+                                                       train_decay=train_config["train_decay"],
+                                                       test_percent=train_config["test_percent"],
+                                                       test_decay=train_config["test_decay"],)
+    model = train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config)
     Make_Generation_Folder(generation + 1)
     model.save_weights(f"{save_folder_path}/model.weights.h5")
 def Create_onnx(game_class, build_config, folder_path):
@@ -89,13 +97,9 @@ def Create_onnx(game_class, build_config, folder_path):
         # Invalid device or cannot modify virtual devices once initialized.
         pass
     print("Converting tensorflow model to onnx\n")
-    embed_size, num_heads, num_layers = build_config["embed_size"], build_config["num_heads"], build_config["num_layers"]
-    input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs"),
-                       tf.TensorSpec((num_layers, 2, None, embed_size), tf.float32, name="input_state"),
-                       tf.TensorSpec((num_layers, None, num_heads, embed_size // num_heads, embed_size // num_heads),
-                                     tf.float32, name="input_state_matrix"),
-                       ]
-    infer_model = build_model_infer(game.get_input_state().shape, game.policy_shape, build_config)
+    input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs")]
+
+    infer_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
@@ -113,7 +117,8 @@ def Initialize(game_class, build_config, train_config): # This must be ran with 
         except:
             # Invalid device or cannot modify virtual devices once initialized.
             pass
-        train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
+
+        train_model = build_model(game.get_input_state().shape, game.policy_shape, build_config, train_config)
         train_model.summary()
         train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
     print("Initializing the model\n")
@@ -214,7 +219,6 @@ def Run(game_class, build_config, train_config):
         if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
             shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         Print_Stats(f"Grok_Zero_Train/{generation}")
-        Pad_Dataset(f"Grok_Zero_Train/{generation}", train_config["num_previous_generations"]).pad_dataset()
 
 
         p = mp.Process(target=Train_NN, args=(game_class, build_config, train_config, generation,
