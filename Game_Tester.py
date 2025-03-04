@@ -386,8 +386,8 @@ class Game_Tester:
     def check_augment_sample(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[np.random.randint(0, len(legal_actions), size=1)[0]])
-        dummy_states = np.array([self.game.get_input_state() for _ in range(2)])
-        dummy_policy = np.random.uniform(low=0, high=1.0, size=(2, *self.game.policy_shape))
+        dummy_states = np.array([self.game.get_input_state() for _ in range(self.game.policy_shape[0])], dtype=self.game.board.dtype)
+        dummy_policy = np.random.uniform(low=0, high=1.0, size=(self.game.policy_shape[0], *self.game.policy_shape)).astype(np.float32)
         try:
             augmented_boards, augmented_policies = self.game.augment_sample(dummy_states, dummy_policy)
 
@@ -409,7 +409,7 @@ class Game_Tester:
             print("augment_sample isn't fully implemented")
             print("Recommend implementing this for better training")
 
-        if augmented_boards.shape[1] != 2 or augmented_policies.shape[1] != 2:
+        if augmented_boards.shape[1] != self.game.policy_shape[0] or augmented_policies.shape[1] != self.game.policy_shape[0]:
             print("Checking augment sample: Fail")
             print("The timestep dimension should be the same and should be 2 (testing on 2 boards)")
             return False
