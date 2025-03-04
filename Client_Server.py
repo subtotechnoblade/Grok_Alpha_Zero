@@ -209,8 +209,8 @@ def create_shared_memory(inputs_feed_info, outputs_feed_info, num_workers=os.cpu
     for output_shape in outputs_feed_info.values():
         max_length_outputs += -np.prod(output_shape)
 
-    shared_mem_len = max(max_length_inputs, max_length_outputs)
-    return [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for worker_id in range(num_workers)]
+    shared_mem_len = int(max(max_length_inputs, max_length_outputs))
+    return [SharedMemory(create=True, size=(4 * (shared_mem_len + 1))) for _ in range(num_workers)]
 
 def convert_to_single_info(batched_info):
     # removes the -1 and replaces it with a 1, which should be what a single instance requires
