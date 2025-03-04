@@ -192,7 +192,7 @@ class MCTS:
         if self.session is not None:
             # input_state, input_state_matrix = RNN_state
             kwargs = {
-                "output_names": ["policy", "value", "output_state", "output_state_matrix"],
+                "output_names": ["policy", "value"],
                 "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0)}
             }
             if self.cache_session:
@@ -392,6 +392,7 @@ class MCTS:
             terminal_parent.children.append(terminal_child)
 
         return terminal_parent, -terminal_parent_value, terminal_parent_visits
+
         # negative because the child's POV won, thus the parent's POV lost in this searched path
         # don't backprop child as there could be multiple ways to win, but all backprop only cares
         # if someone wins
@@ -641,8 +642,8 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
 
@@ -689,7 +690,6 @@ if __name__ == "__main__":
     #
 
 
-    embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [
         ('TensorrtExecutionProvider', {
@@ -709,15 +709,10 @@ if __name__ == "__main__":
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32],
-                                "input_state": [[num_layers, 2, -1, embed_size], np.float32],
-                                "input_state_matrix": [[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]
-                                }
+    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32]}
+
     batched_outputs_feed_info = {"policy": [-1, 225],
-                                 "value": [-1, 1],
-                                 "output_state": [num_layers, 2, -1, embed_size],
-                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
-                                 }
+                                 "value": [-1, 1]}
 
     # sess_options = rt.SessionOptions()
     # shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
@@ -740,21 +735,16 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
+        game = TicTacToe()
 
-        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
-        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
         mcts1 = MCTS(game,
-                     RNN_state1,
+                     None,
                      session,
                      # None,
                      c_puct_init=1.25,
@@ -776,7 +766,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(5000, use_bar=True)
+                move, probs = mcts1.run(10, use_bar=True)
             else:
             #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
