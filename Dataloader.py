@@ -17,7 +17,7 @@ class Create_Train_Test_Split:
         self.parent_path = parent_path
         np.random.seed()
 
-        self.generation = max([int(Path(path).name) for path in glob("Grok_Zero_Train/*")])
+        self.generation = max([int(Path(path).name) for path in glob(self.parent_path + "/*")])
 
         self.files = [path + "/Self_Play_Data.h5" for path in glob(self.parent_path + "/*")][-num_previous_generations - 1:]
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     parent_path = "TicTacToe/Grok_Zero_Train/"
     split = Create_Train_Test_Split(parent_path, 1)
     (train_state, train_policies, train_values), (test_states, test_policies, test_values) = split.split()
-    train_state = np.array(train_state, copy=False)
+    train_state = np.array(train_state)
 
     data_loader = Dataloader(train_state, train_policies, train_values, 1)
     for batched_states, (batched_policies, batched_values) in data_loader:
