@@ -448,9 +448,9 @@ class MCTS:
                                                                                             np.array(node.action_history),
                                                                                             child_policy)
 
-            # if self.use_dirichlet:
-            #     epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
-            #     child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
+            if self.use_dirichlet:
+                epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
+                child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
 
             child = Node(len(node.children),
                          child_board,
