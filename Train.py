@@ -1,7 +1,8 @@
 import tensorflow as tf
 
 from Net.Stablemax import Stablemax
-from Net.Custom_Loss import Policy_Loss, Value_Loss, KLD
+from Net.Alpha_Loss import Policy_Loss, Value_Loss, KLD
+from Net.Gumbel_Loss import Policy_Loss_Gumbel, Value_Loss_Gumbel, KLD_Gumbel
 def train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config):
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     kwargs = {"learning_rate": learning_rate,
@@ -18,16 +19,19 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
     elif train_config["optimizer"].lower() == "nadam":
         optimizer = tf.keras.optimizers.Nadam(**kwargs)
 
-    activation_fn = None
     if not train_config["use_gumbel"]:
+        policy_loss, value_loss, kld = Policy_Loss(), Value_Loss(), KLD()
+    else:
         if build_config["use_stable_max"]:
             activation_fn = Stablemax(name="policy")
         else:
             activation_fn = tf.keras.layers.Activation("softmax")
+        policy_loss, value_loss, kld = Policy_Loss_Gumbel(activation_fn), Value_Loss_Gumbel(), KLD_Gumbel()
+
 
     model.compile(optimizer=optimizer,
-                  loss={"policy": Policy_Loss(activation_fn=activation_fn), "value": Value_Loss()},
-                  metrics={"policy": KLD()}
+                  loss={"policy": policy_loss, "value": value_loss},
+                  metrics={"policy": kld}
                   )
     model.fit(train_dataloader,
               validation_data=test_dataloader,
