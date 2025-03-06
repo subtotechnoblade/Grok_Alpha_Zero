@@ -2,6 +2,7 @@ import os
 import time
 
 import numpy as np
+np.seterr(all='raise')
 import numba as nb
 from numba import njit
 from numba.extending import is_jitted
@@ -211,7 +212,7 @@ class MCTS:
         if RNN_state is None:
             raise RuntimeError("RNN state cannot be None")
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0, RNN_state
-        return np.random.uniform(low=0, high=1, size=self.game.policy_shape), \
+        return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), \
             np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state  # policy and value
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
 
@@ -255,7 +256,7 @@ class MCTS:
                         break
                 elif result == 0:  # a drawing move
                     terminal_mask.append(0)
-        return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.int8)
+        return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.float32)
 
     def create_expand_root(self):
         action_history = np.array(self.game.action_history)
@@ -364,7 +365,7 @@ class MCTS:
         node.children.append(terminal_parent)
         del terminal_parent.child_legal_actions
 
-        terminal_parent.child_values = terminal_mask  # 0 for draws and 1 for wins, thus perfect for child_values
+        terminal_parent.child_values = terminal_mask.astype(np.float32)  # 0 for draws and 1 for wins, thus perfect for child_values
 
         terminal_parent.child_visits = np.ones(len(terminal_mask),
                                                dtype=np.int32)  # formality so that we don't get division by 0 when calcing stats
@@ -487,6 +488,8 @@ class MCTS:
             node = node.parent
             # ^ does two things, 1. moves up the tree
             # 2. stores the pointer within in the variable rather than indexing twice
+            print("v",value)
+            print("n", node.child_values[node_id], node.child_values.dtype)
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
             value *= -1  # negate for the opponent's move
@@ -643,9 +646,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -740,7 +743,7 @@ if __name__ == "__main__":
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
+        game = TicTacToe()
 
         mcts1 = MCTS(game,
                      [],

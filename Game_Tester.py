@@ -1,5 +1,8 @@
-import numpy as np
 import time
+import numpy as np
+np.seterr(all='raise')
+from tqdm import tqdm
+
 from MCTS import MCTS
 
 
@@ -7,14 +10,14 @@ class Game_Tester:
     def __init__(self, game_class):
         self.game_class = game_class
         if not isinstance(game_class, type):
-            raise TypeError("Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
+            raise TypeError(
+                "Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
         try:
             self.game = self.game_class()
         except:
             print("You cannot specify parameters in the game's __init__ constructor")
             print("All parameters should be a variable in __init__, nothing should be passed in")
             raise TypeError("Class initiation failed")
-
 
     def reset(self):
         self.game = self.game_class()
@@ -33,10 +36,10 @@ class Game_Tester:
         else:
             print("Checking if board is a numpy array: Fail")
             print("The board attribute in the game class must be a numpy array, and thus must be homogenous")
-            print("If homogeneity is an issue, leave self.board as a flat array, and use reshape and slicing to construct the in other methods")
+            print(
+                "If homogeneity is an issue, leave self.board as a flat array, and use reshape and slicing to construct the in other methods")
             print("Find Brian if this is a problem")
             return False
-
 
         try:
             next_player = self.game.next_player
@@ -69,9 +72,7 @@ class Game_Tester:
             print("Checking for a policy shape attribute: Failed\n")
             print("Game class has no attribute policy shape, please define an attribute called")
             return False
-        return True # meaning all tests have passed
-
-
+        return True  # meaning all tests have passed
 
     def check_legal_actions(self):
         try:
@@ -131,7 +132,8 @@ class Game_Tester:
         try:
             MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                        self.game.get_next_player(),
-                                                                                       np.array(self.game.action_history),
+                                                                                       np.array(
+                                                                                           self.game.action_history),
                                                                                        dummy_policy,
                                                                                        normalize=True,
                                                                                        shuffle=False)
@@ -156,16 +158,18 @@ class Game_Tester:
 
         if len(class_legal_actions) != len(MCTS_legal_actions):
             print("Checking get_legal_actions_policy_MCTS: Fail")
-            print("The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
+            print(
+                "The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
             return False
 
         shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                                      self.game.get_next_player(),
-                                                                                                     np.array(self.game.action_history),
-                                                                                                     dummy_policy, shuffle=True)
+                                                                                                     np.array(
+                                                                                                         self.game.action_history),
+                                                                                                     dummy_policy,
+                                                                                                     shuffle=True)
 
-        if (legal_policy != shuffled_legal_policy).any(): # check if arrays are of different order
-
+        if (legal_policy != shuffled_legal_policy).any():  # check if arrays are of different order
 
             anti_shuffled_indexes = np.zeros_like(legal_policy, dtype=np.int32)
             for i, action in enumerate(MCTS_legal_actions):
@@ -174,7 +178,8 @@ class Game_Tester:
                 print("Checking shuffle in get_legal_actions_policy_MCTS: Fail")
                 print("The shuffling for legal actions and policy are different")
                 print("That is to say that you must shuffle both the legal actions and policy in the same way")
-                print("The best way is to generate random indexes and append the policy and actions into 2 lists based on the randomly generated indexes\n")
+                print(
+                    "The best way is to generate random indexes and append the policy and actions into 2 lists based on the randomly generated indexes\n")
                 return False
 
             print("Checking shuffle in get_legal_actions_policy_MCTS: Pass\n")
@@ -192,7 +197,8 @@ class Game_Tester:
             return False
 
         try:
-            NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, -self.game.get_next_player(), np.array(self.game.action_history))
+            NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, -self.game.get_next_player(),
+                                                           np.array(self.game.action_history))
         except:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
             print("get_input_state_MCTS isn't implemented correctly")
@@ -210,6 +216,7 @@ class Game_Tester:
 
         print("Checking if get_input_state and get_input_state_MCTS return the same array: Pass\n")
         return True
+
     def check_do_action(self):
         legal_actions = self.game.get_legal_actions()
         try:
@@ -246,13 +253,13 @@ class Game_Tester:
         MCTS_board = self.game.board.copy()
         for action in legal_actions:
             MCTS_board = self.game.do_action_MCTS(MCTS_board, action, self.game.next_player)
-            self.game.do_action(action) # this changes the player to the next, ^must happen before
+            self.game.do_action(action)  # this changes the player to the next, ^must happen before
             if not np.array_equal(MCTS_board, self.game.board):
                 print("The returned board from do_action_MCTS doesn't match the one after do_action")
                 print("Checking if do_action_MCTS returns the same thing as do_action: Fail\n")
                 return False
         print("Checking if do_action_MCTS exists and returns the same board as do_action: Pass\n")
-        self.reset() # reset the board for any future checks that changes the board
+        self.reset()  # reset the board for any future checks that changes the board
         return True
 
     def _check_action_history_homogenous(self):
@@ -269,7 +276,7 @@ class Game_Tester:
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[0])
         try:
-            winner = self.game.check_win() # also counts as a warmup
+            winner = self.game.check_win()  # also counts as a warmup
         except AttributeError:
             print("Checking check_win: Fail")
             print("check_win not implemented")
@@ -285,7 +292,8 @@ class Game_Tester:
             return False
 
         try:
-            self.game.check_win_MCTS(self.game.board, -self.game.get_next_player(), np.array(self.game.action_history)) # also counts as a warmup
+            self.game.check_win_MCTS(self.game.board, -self.game.get_next_player(),
+                                     np.array(self.game.action_history))  # also counts as a warmup
             MCTS_check_win_implemented = True
         except AttributeError:
             print("Checking check_win_MCTS: Fail")
@@ -296,7 +304,6 @@ class Game_Tester:
             print("Checking check_win_MCTS: Fail")
             print("check_win_MCTS isn't callable as it gives an error, skipped")
             MCTS_check_win_implemented = False
-
 
         self.reset()
         legal_actions = self.game.get_legal_actions()
@@ -309,7 +316,7 @@ class Game_Tester:
             if len(legal_actions) == 0 and winner == -2:
                 print("Checking check_win: Fail")
                 print("Board has been filled and check win still returned -2")
-                return  False
+                return False
             chosen_random_index = np.random.choice(np.arange(len(legal_actions), dtype=np.int32), size=(1,))[0]
             action = legal_actions[chosen_random_index]
             self.game.do_action(action)
@@ -319,15 +326,17 @@ class Game_Tester:
             total_check_win_time += time.time() - s
 
             s = time.time()
-            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.next_player, np.array(self.game.action_history))
+            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.next_player,
+                                                   np.array(self.game.action_history))
             total_check_win_MCTS_time += time.time() - s
 
             if MCTS_check_win_implemented and winner != MCTS_winner:
+                print(self.game.board)
                 print("Checking check_win and check_win_MCTS: Fail")
                 print(f"check_win: ({winner}) and check_win_MCTS: ({MCTS_winner}) doesn't match up")
                 return False
 
-            if winner  == -2:
+            if winner == -2:
                 next_player *= -1
             checks += 1
             legal_actions = self.game.get_legal_actions()
@@ -339,28 +348,33 @@ class Game_Tester:
             print("Remember to do the same for check_win_MCTS or else an error will say that they don't match up!")
             return False
 
-        print(f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
+        print(
+            f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
         if (total_check_win_time / checks) >= 1.0:
-            print("Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+            print(
+                "Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
 
-        print(f"Average time per check_win_MCTS call: {total_check_win_MCTS_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
+        print(
+            f"Average time per check_win_MCTS call: {total_check_win_MCTS_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
         if (total_check_win_MCTS_time / checks) >= 1.0:
-            print("check_win_MCTS implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+            print(
+                "check_win_MCTS implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
         else:
             print()
 
         if total_check_win_MCTS_time > 0.0 and total_check_win_time > 0.0:
             if (total_check_win_MCTS_time / checks) / (total_check_win_time / checks) > 5:
-                print("check_win is much faster than check_win_MCTS, since they are doing the same thing, check their implementation\n")
+                print(
+                    "check_win is much faster than check_win_MCTS, since they are doing the same thing, check their implementation\n")
 
             if (total_check_win_time / checks) / (total_check_win_MCTS_time / checks) > 5:
-                print("check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
+                print(
+                    "check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
 
         print("Check if the final board is correct (win or draw), since there is no way for this program to know that!")
         print(f"Final action is {action}, and the winner should be: {winner}")
         print(self.game.board)
         print("Checking check_win: Pass\n")
-
 
         self._check_action_history_homogenous()
 
@@ -382,12 +396,13 @@ class Game_Tester:
         print("Checking compute_policy_improvement: Pass\n")
         return True
 
-
     def check_augment_sample(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[np.random.randint(0, len(legal_actions), size=1)[0]])
-        dummy_states = np.array([self.game.get_input_state() for _ in range(self.game.policy_shape[0])], dtype=self.game.board.dtype)
-        dummy_policy = np.random.uniform(low=0, high=1.0, size=(self.game.policy_shape[0], *self.game.policy_shape)).astype(np.float32)
+        dummy_states = np.array([self.game.get_input_state() for _ in range(self.game.policy_shape[0])],
+                                dtype=self.game.board.dtype)
+        dummy_policy = np.random.uniform(low=0, high=1.0,
+                                         size=(self.game.policy_shape[0], *self.game.policy_shape)).astype(np.float32)
         try:
             augmented_boards, augmented_policies = self.game.augment_sample(dummy_states, dummy_policy)
 
@@ -400,7 +415,6 @@ class Game_Tester:
             print("Checking augment sample: Fail")
             print("augment_sample must return a np.array")
 
-
         if len(augmented_boards) == 0 or len(augmented_policies) == 0:
             print("Checking augment sample: Fail")
             print("augment_sample cannot return an empty list/array")
@@ -409,7 +423,8 @@ class Game_Tester:
             print("augment_sample isn't fully implemented")
             print("Recommend implementing this for better training")
 
-        if augmented_boards.shape[1] != self.game.policy_shape[0] or augmented_policies.shape[1] != self.game.policy_shape[0]:
+        if augmented_boards.shape[1] != self.game.policy_shape[0] or augmented_policies.shape[1] != \
+                self.game.policy_shape[0]:
             print("Checking augment sample: Fail")
             print("The timestep dimension should be the same and should be 2 (testing on 2 boards)")
             return False
@@ -425,14 +440,14 @@ class Game_Tester:
 
         if augmented_boards.dtype != self.game.board.dtype:
             print("Checking augment sample: Fail")
-            print(f"Augmented boards should have the same dtype as the original board which is {self.game.board.dtype} got {augmented_boards.dtype}")
+            print(
+                f"Augmented boards should have the same dtype as the original board which is {self.game.board.dtype} got {augmented_boards.dtype}")
             return False
 
         if augmented_policies.dtype != np.float32:
             print("Checking augment sample: Fail")
             print(f"The returned augmented_policy should be of type np.float32 not {augmented_policies.dtype}")
             return False
-
 
         self.game = self.game_class()
         print(f"Augment sample duplicates each game by {augmented_boards.shape[0]} times!")
@@ -443,17 +458,25 @@ class Game_Tester:
         self.game = self.game_class()
 
         mcts = MCTS(self.game,
-                    [],
                     None,
                     fast_find_win=False)
-        try:
-            mcts.run(iteration_limit=10, use_bar=False)
-        except:
-            print("Checking if everything works with MCTS: Fail")
-            print("MCTS doesn't work, might want to test that!")
-            return False
 
-        print("Checking if everything works with MCTS: Pass")
+        winner = - 2
+        while winner == -2:
+            try:
+                action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()) * 100, use_bar=False)
+            except:
+                print("Checking if everything works with MCTS: Fail")
+                print("MCTS doesn't work, might want to test that!")
+                return False
+
+            self.game.do_action(action)
+            winner = self.game.check_win()
+            if winner == -2:
+                mcts.prune_tree(action)
+
+        print("Checking if everything works with MCTS: Pass\n")
+        self.game = self.game_class()
         return True
 
     def test(self):
@@ -475,7 +498,7 @@ class Game_Tester:
             test_skipped += 1
 
         if not self.check_get_input_state():
-             return False
+            return False
 
         if not self.check_do_action():
             return False
@@ -504,11 +527,12 @@ class Game_Tester:
         return True
 
 
-if __name__ =="__main__":
+if __name__ == "__main__":
     # Example usage
     # from Guide import Gomoku
     # from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     from TicTacToe.Tictactoe import TicTacToe
+
     game_tester = Game_Tester(TicTacToe)
     game_tester.test()
