@@ -1,5 +1,4 @@
 import tensorflow as tf
-from Net.Stablemax import Stablemax
 class Stable_Categorical_Crossentropy(tf.keras.Loss):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

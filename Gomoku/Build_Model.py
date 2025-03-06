@@ -7,7 +7,7 @@ from Net.Stablemax import Stablemax
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 
-def build_model(input_shape, policy_shape, build_config):
+def build_model(input_shape, policy_shape, build_config, train_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
