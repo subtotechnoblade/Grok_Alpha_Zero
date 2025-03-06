@@ -39,11 +39,12 @@ train_config = {
     "num_workers": 4, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training
     # Set to True for a default of 30 seconds per move
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    "use_njit": None, # None will automatically infer what is supposed to be use for windows/linux
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
 

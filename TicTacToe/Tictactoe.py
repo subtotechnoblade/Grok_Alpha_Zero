@@ -1,5 +1,9 @@
 import numpy as np
 from numba import njit
+import numba as nb
+from numba import types
+import time
+
 # make zeros array np.zeros(shape)
 # make ones array np.ones(shape)
 # make array from list np.array(list)
@@ -36,7 +40,6 @@ from numba import njit
 # print(board)
 # print("draw")
 
-#todo functions: make a place move function that takes:
 # the board
 # coordinate x, y
 # and the current player as -1 or 1
@@ -81,53 +84,58 @@ build_config = {"num_resnet_layers": 3,
                 "use_grok_fast": True,
                 "use_orthograd": True,
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
-          }
+                }
 
 train_config = {
-    "total_generations": 10, # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 10,  # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # number of self play games until we re train the network
-    "max_actions": 9, # Note that this should be
-    "num_explore_actions_first": 2,  # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
+    "games_per_generation": 1000,  # number of self play games until we re train the network
+    "max_actions": 9,  # Note that this should be
+    "num_explore_actions_first": 2,
+    # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
     "use_gpu": False,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "use_inference_server": True, # if an extremely large model is used, because of memory constraints, set this to True
+    "use_inference_server": True,
+    # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 8, # Number of multiprocessing workers used to self play
+    "num_workers": 1,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "use_gumbel": False, # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
-    "MCTS_iteration_limit": 20, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 20, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
-    "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 1.1, # should be around (10 / average moves per game)
+    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
+    "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 1.1,  # should be around (10 / average moves per game)
 
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 2, # The previous generation's data that will be used in training
-    "train_percent": 1.0, # The percent used for training after the test set is taken
-    "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
-    "test_percent": 0.1, # The percent of a dataset that will be used for validation
-    "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "num_previous_generations": 2,  # The previous generation's data that will be used in training
+    "train_percent": 1.0,  # The percent used for training after the test set is taken
+    "train_decay": 0.75,
+    # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "test_percent": 0.1,  # The percent of a dataset that will be used for validation
+    "test_decay": 0.75,
+    # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 512, # The number of samples in a batch for training in parallel
-    "test_batch_size": None, # If none, then train_batch_size will be used for the test batch size
+    "train_batch_size": 512,  # The number of samples in a batch for training in parallel
+    "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4,  # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
-    "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
-    "optimizer": "Nadam", # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15, # The number of epochs for training
+    "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
+    "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
+    "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
+    "train_epochs": 15,  # The number of epochs for training
 }
 
 
@@ -157,10 +165,7 @@ class TicTacToe:
                 print("Invalid Move")
                 continue
 
-
-
-
-    def get_legal_actions(self): #-> list[tuple[int, int], ...] or np.array:
+    def get_legal_actions(self):  # -> list[tuple[int, int], ...] or np.array:
         """
         self.total_action is a set
         :return: a list of actions [action0, action1]
@@ -168,18 +173,21 @@ class TicTacToe:
         return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
     @staticmethod
-    @njit(cache=True)
+    @njit([
+        "int64[:, :](int8[:, :], int64, float64[:])",
+        "int64[:, :](int8[:, :], int64, int64[:, :])"],
+          cache=True)
     def get_legal_actions_MCTS(board, current_player, action_history):
-        return np.argwhere(board == 0)[:,::-1]
+        return np.argwhere(board == 0)[:, ::-1]
 
     @staticmethod
     @njit(cache=True)
     def get_legal_actions_policy_MCTS(board: np.array,
-                                      current_player:int,
+                                      current_player: int,
                                       action_history: np.array,
                                       policy: np.array,
                                       normalize=True,
-                                      shuffle: bool=False):
+                                      shuffle: bool = False):
 
         legal_actions = np.argwhere(board == 0)[:, ::-1]
         legal_policy = policy[board.reshape(-1) == 0]
@@ -194,14 +202,13 @@ class TicTacToe:
 
         return legal_actions, legal_policy
 
-    def do_action(self, action): # must conform to this format - Brian
+    def do_action(self, action):  # must conform to this format - Brian
         x, y = action
         if self.board[y][x] != 0:
             raise ValueError("Illegal move")
         self.board[y][x] = self.next_player
         self.next_player = self.next_player * -1
         self.action_history.append(action)
-
 
     @staticmethod
     @njit(cache=True)
@@ -213,19 +220,18 @@ class TicTacToe:
     def get_input_state(self):
         return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
-
     @staticmethod
     @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array):
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
         current_player_board = np.expand_dims(np.ones_like(board, dtype=board.dtype) * -current_player, -1)
-        return np.concatenate((current_player_board, np.expand_dims(board, -1)), axis=-1).astype(np.float32)
+        return np.concatenate((current_player_board, np.expand_dims(board, -1)), axis=-1)
 
-    def _check_row(self, row): #A function for checking if there's a win on each row.
+    def _check_row(self, row):  # A function for checking if there's a win on each row.
         if row[0] != 0 and row[0] == row[1] == row[2]:
-            return True #If all 3 items on a row equal, someone has won. Yippee!
-        return False #If not then sadly not :(
+            return True  # If all 3 items on a row equal, someone has won. Yippee!
+        return False  # If not then sadly not :(
 
     def check_win(self):
         # Note that self.current player is actually the next player
@@ -233,32 +239,31 @@ class TicTacToe:
         # thus if you found a win you have to return the previous player since that player just played -Brian
         current_player = -self.next_player
         for row in self.board:
-            if self._check_row(row) is True: #Pulling out func from LALA-land
+            if self._check_row(row) is True:  # Pulling out func from LALA-land
                 "                    ^ Jessy, just letting you know that 'is True' is not necessary for python"
                 "It's equally valid to do 'if self._check_row(row):' - Brian"
-                return current_player #Someone has won! :D
+                return current_player  # Someone has won! :D
 
-        for column_index in range(3): #Checking if someone has won in columns
+        for column_index in range(3):  # Checking if someone has won in columns
             column = self.board[:, column_index]
-            if self._check_row(column) is True: #Pulling out func from LALA-land pt2
-                return current_player #Someone has won, yippee :3
+            if self._check_row(column) is True:  # Pulling out func from LALA-land pt2
+                return current_player  # Someone has won, yippee :3
 
-        diag1 = np.diag(self.board) #Checking if someone has won in diagonals
-        if self._check_row(diag1) is True: #Pulling out func from dark magic
-            return current_player #Someone has won :P
+        diag1 = np.diag(self.board)  # Checking if someone has won in diagonals
+        if self._check_row(diag1) is True:  # Pulling out func from dark magic
+            return current_player  # Someone has won :P
 
         diag2 = np.diag(np.fliplr(self.board))
-        if self._check_row(diag2) is True: #Pulling func from Narnia
-            return current_player #Someone has won :)
+        if self._check_row(diag2) is True:  # Pulling func from Narnia
+            return current_player  # Someone has won :)
 
-        flattened_board = self.board.reshape((9,)) #Reshape board into 9 items, this is to check for draw
+        flattened_board = self.board.reshape((9,))  # Reshape board into 9 items, this is to check for draw
         for value in flattened_board:
-            if value == 0: #Still empty spaces on the board, stop checking!!
+            if value == 0:  # Still empty spaces on the board, stop checking!!
                 break
         else:
-            return 0 # return a draw if break never happens - Brian
-
-        return -2 #Game continues :3
+            return 0  # return a draw if break never happens - Brian
+        return -2  # Game continues :3
 
     @staticmethod
     @njit(cache=True)
@@ -309,7 +314,7 @@ class TicTacToe:
     @staticmethod
     @njit(cache=True)
     def augment_sample_fn(states: np.array, policies: np.array):
-        policies = policies.reshape((-1, 3, 3))# we need
+        policies = policies.reshape((-1, 3, 3))  # we need
         # to reshape this because we can only rotate a matrix, not a vector
 
         augmented_boards = []
@@ -320,11 +325,8 @@ class TicTacToe:
             # augmented_board = np.zeros((8, board_shape))
             augmented_state = [state, np.flipud(state), np.fliplr(state)]
 
-
-
             policy = policies[action_id]
             augmented_policy = [policy, np.flipud(policy), np.fliplr(policy)]
-
 
             for k in range(1, 4):
                 rot_state = np.rot90(state, k)
@@ -347,45 +349,165 @@ class TicTacToe:
     def augment_sample(self, input_states, policies):
         # Note that values don't have to be augmented since they are the same regardless of how a board is rotated
         augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
-        return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
+        return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(
+            augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
         # return np.expand_dims(input_states, 0).astype(self.board.dtype), np.expand_dims(policies, 0).astype(np.float32)
 
 
+# @njit(cache=True)
+# def do_action_MCTS(board: np.array, action: np.array, next_player: int) -> np.array:
+#     x, y = action
+#     board[y][x] = next_player
+#     return board
+#
+#
+# @njit(cache=True)
+# def check_win_MCTS(board, current_player, action_history):
+#     for row in board:
+#         if row[0] != 0 and row[0] == row[1] == row[2]:
+#             return current_player
+#
+#     for column_index in range(3):
+#         column = board[:, column_index]
+#         if column[0] != 0 and column[0] == column[1] == column[2]:
+#             return current_player
+#
+#     diag1 = np.diag(board)
+#     if diag1[0] != 0 and diag1[0] == diag1[1] == diag1[2]:
+#         return current_player
+#
+#     diag2 = np.diag(np.fliplr(board))
+#     if diag2[0] != 0 and diag2[0] == diag2[1] == diag2[2]:
+#         return current_player
+#
+#     flattened_board = board.reshape((9,))
+#     for value in flattened_board:
+#         if value == 0:
+#             break
+#     else:
+#         return 0
+#
+#     return -2
+
+do_action_fn = nb.njit(TicTacToe.do_action_MCTS.py_func, cache=True)
+check_win_fn = nb.njit(TicTacToe.check_win_MCTS.py_func, cache=True)
+
+# @njit(
+#     "Tuple((int64[:, :], int8[:]))(int64[:, :, :], int8[:, :], int64, boolean)",
+#       cache=True, nogil=True)
+def get_terminal_actions_fn(action_histories,
+                            board,
+                            current_player,
+                            fast_find_win=False) -> (np.array, np.array):
+    """
+    :param board: The board
+    :param current_player: Current player we want to check for
+    :param WIDTH: board width
+    :param HEIGHT: board height
+    :param fast_find_win: only returns 1 winning move if True for speed
+    This should be False for training, because we want multiple winning moves to determine a better policy
+    with more than 1 terminal move
+    :return:
+    """
+    terminal_index = []  # includes winning and drawing actions
+    terminal_mask = []  # a list of 0 and 1
+    # where each index corresponds to a drawing action if 0, and a winning action if 1
+    # print(board)
+    next_player = -current_player
+    for action_id in range(len(action_histories)):
+        # Try every legal action and check if the current player won
+        # Very inefficient. There is a better implementation
+
+        legal_action = action_histories[action_id][-1]
+        check_win_board = do_action_fn(board.copy(), legal_action, next_player)
+
+        result = check_win_fn(check_win_board, next_player, action_histories[action_id])
+        if result != -2:  # this limits the checks by a lot
+            terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
+            if result == next_player:  # found a winning move
+                terminal_mask.append(1)
+                if fast_find_win:
+                    break
+            elif result == 0:  # a drawing move
+                terminal_mask.append(0)
+    return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.int8)
+
+
+
+# sig = types.Tuple((types.List(nb.int64[:]), nb.int8[:]))(nb.int64[:, :, :], nb.int8[:, :], nb.int64, nb.boolean)
+# def wrap_class(game_instance: TicTacToe):
+#     # do_action_fn = nb.njit(game_instance.do_action_MCTS.py_func, cache=True)
+#     # check_win_fn = nb.njit(game_instance.check_win_MCTS.py_func, cache=True)
+#
+#     do_action_fn = game_instance.do_action_MCTS
+#     check_win_fn = game_instance.check_win_MCTS
+#     @njit(
+#         "Tuple((int64[:, :], int8[:]))(int64[:, :, :], int8[:, :], int64, boolean)",
+#           cache=True, nogil=True)
+#     def get_terminal_actions_fn(action_histories,
+#                                 board,
+#                                 current_player,
+#                                 fast_find_win=False) -> (np.array, np.array):
+#         """
+#         :param board: The board
+#         :param current_player: Current player we want to check for
+#         :param WIDTH: board width
+#         :param HEIGHT: board height
+#         :param fast_find_win: only returns 1 winning move if True for speed
+#         This should be False for training, because we want multiple winning moves to determine a better policy
+#         with more than 1 terminal move
+#         :return:
+#         """
+#         terminal_index = []  # includes winning and drawing actions
+#         terminal_mask = []  # a list of 0 and 1
+#         # where each index corresponds to a drawing action if 0, and a winning action if 1
+#         # print(board)
+#         next_player = -current_player
+#         for action_id in range(len(action_histories)):
+#             # Try every legal action and check if the current player won
+#             # Very inefficient. There is a better implementation
+#
+#             legal_action = action_histories[action_id][-1]
+#             check_win_board = do_action_fn(board.copy(), legal_action, next_player)
+#
+#             result = check_win_fn(check_win_board, next_player, action_histories[action_id])
+#             if result != -2:  # this limits the checks by a lot
+#                 terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
+#                 if result == next_player:  # found a winning move
+#                     terminal_mask.append(1)
+#                     if fast_find_win:
+#                         break
+#                 elif result == 0:  # a drawing move
+#                     terminal_mask.append(0)
+#         return action_histories[:, -1][np.array(terminal_index)], np.array(terminal_mask, dtype=np.int8)
+#     game_instance.get_terminal_actions = get_terminal_actions_fn
 
 if __name__ == "__main__":
     # test your code here
-    from Game_Tester import Game_Tester
-    tester = Game_Tester(TicTacToe)
-    tester.test()
+    # from Game_Tester import Game_Tester
+    # tester = Game_Tester(TicTacToe)
+    # tester.test()
 
-    # game = TicTacToe()
-    # game.do_action((1, 1))
+    game = TicTacToe()
+
+    print(game.get_terminal_actions)
+    # game.make_terminal_actions_MCTS()
+    action_histories = np.expand_dims(game.get_legal_actions(), 0)
+    print(game.get_terminal_actions(action_histories, game.board, game.next_player))
     # print(game.get_input_state())
     # print(game.board)
     # board = np.zeros((2, 2))
     # board = np.array([0.0, 0.0], dtype=np.uint8)
     # print(board.dtype)
 
-    #dtype -> data type
+    # dtype -> data type
     # integer
     # np.uint8 0 to 255
     # np.int16 short, int
     # np.int32 long
     # np.int64 long long
 
-
-
-
-
-
     #
-
-
-
-
-
-
-
 
     # game.do_action((0, 0))
     # game.do_action((1, 1))
@@ -393,21 +515,7 @@ if __name__ == "__main__":
     # dummy_policy = np.random.uniform(low=0, high=1, size=(9,))
     # print(game.get_legal_actions_policy_MCTS(game.board, dummy_policy))
 
-
-
-
-
-
-
-
-
-
-
-
     # todo Jump Ian Patrick Tang
-
-
-
 
     # rot90(), fliplr(), flipup()
     # we only need the original board + flipup + fliplr

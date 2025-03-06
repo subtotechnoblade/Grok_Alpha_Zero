@@ -28,10 +28,11 @@ train_config = {
     "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     "MCTS_iteration_limit": 1000, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.333, # should be around (10 / average moves per game)
 
@@ -201,7 +202,8 @@ class Gomoku:
         :return: The winning player (-1, 1) a draw 1, or no winner -1
         """
 
-        current_x, current_y = action_history[-1]
+        # current_x, current_y = action_history[-1]
+        current_x, current_y = action_history
 
         fives = 0
         for i in range(-5 + 1, 5):
