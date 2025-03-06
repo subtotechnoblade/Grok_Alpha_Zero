@@ -488,8 +488,6 @@ class MCTS:
             node = node.parent
             # ^ does two things, 1. moves up the tree
             # 2. stores the pointer within in the variable rather than indexing twice
-            print("v",value)
-            print("n", node.child_values[node_id], node.child_values.dtype)
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
             value *= -1  # negate for the opponent's move
