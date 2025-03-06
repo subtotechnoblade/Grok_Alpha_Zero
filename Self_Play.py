@@ -228,7 +228,7 @@ def run_self_play(game_class,
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5") as dataset_file:
-        num_games_left = train_config["games_per_generation"] - dataset_file["game_stats"][2]
+        num_games_left = int(train_config["games_per_generation"] - dataset_file["game_stats"][2])
 
     if num_games_left <= 0:
         print(f"Finished generating {train_config['games_per_generation']} games!")
