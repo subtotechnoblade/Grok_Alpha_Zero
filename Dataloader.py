@@ -47,7 +47,7 @@ class Create_Train_Test_Split:
                     self.policies_generation += list(file[f"policies_{game_id}"])
                     self.values_generation += list(file[f"values_{game_id}"])
 
-            self.states_generation, self.policies_generation, self.values_generation = np.array(self.states_generation, copy=False), np.array(self.policies_generation, copy=False), np.array(self.values_generation, copy=False)
+            self.states_generation, self.policies_generation, self.values_generation = np.array(self.states_generation), np.array(self.policies_generation), np.array(self.values_generation)
 
             shuffle_indexes = np.random.permutation(len(self.states_generation))
             self.states_generation = self.states_generation[shuffle_indexes]
