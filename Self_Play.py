@@ -36,10 +36,9 @@ class Self_Play:
         self.time_limit = self.train_config["MCTS_time_limit"]
 
         dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
-
-        self.mcts1: MCTS = MCTS(self.game,
-                                None,
-                                self.sess,
+        self.mcts1: MCTS = MCTS(game=self.game,
+                                session=self.sess,
+                                use_njit=train_config["use_njit"],
                                 c_puct_init=self.train_config["c_puct_init"],
                                 use_dirichlet=True,
                                 dirichlet_alpha=self.train_config["dirichlet_alpha"],
@@ -47,9 +46,9 @@ class Self_Play:
                                 tau=1.0,
                                 fast_find_win=False)
 
-        self.mcts2: MCTS = MCTS(self.game,
-                                None,
-                                self.sess,
+        self.mcts2: MCTS = MCTS(game=self.game,
+                                session=self.sess,
+                                use_njit=train_config["use_njit"],
                                 c_puct_init=self.train_config["c_puct_init"],
                                 use_dirichlet=True,
                                 dirichlet_alpha=self.train_config["dirichlet_alpha"],
@@ -121,7 +120,6 @@ class Self_Play:
             if winner == -2:
                 self.mcts1.prune_tree(action)  # or else there will be an error because you are pruning a winning move
                 self.mcts2.prune_tree(action)  # or else there will be an error because you are pruning a winning move
-
                 # there are no more moves after a winning move
             # else:
             # print(f"Player: {winner} won")
@@ -129,7 +127,7 @@ class Self_Play:
             if actions_count == self.train_config["max_actions"]:
                 winner = 0
         # there is a winner
-        board_states = np.array(board_states, dtype=board_states[0].dtype)
+        board_states = np.array(board_states, dtype=self.game.board.dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
 
         target_values = np.array(target_values, dtype=np.float32).reshape((-1, 1))
@@ -137,16 +135,13 @@ class Self_Play:
             target_values *= -1.0  # Flip it so that the player that won, evaluates to 1 (winner)
         elif winner == 0:  # if it a draw or
             target_values[:] = 0.0
-
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
-
         if augmented_board_states.shape[:2] != augmented_values.shape[:2]:
             print(
                 f"The 0th and 1st dim should the same got: {augmented_board_states.shape[2:]}, {augmented_values.shape[2:]}")
-
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
@@ -161,7 +156,6 @@ class Self_Play:
             file["game_stats"][winner + 4] += 1  # adding winners/ draws
 
             dataset_name = (len(file.keys()) - 1) // 3  # starts from 0
-
             for inc in range(augmented_policies.shape[0]):
                 file.create_dataset(f"boards_{dataset_name + inc}",
                                     maxshape=(None, *augmented_board_states[inc].shape[1:]),
@@ -181,7 +175,6 @@ class Self_Play:
                                     data=augmented_values[inc],
                                     chunks=None)
 
-
 def self_play_task(worker_id,
                    info,
                    game_class,
@@ -193,7 +186,6 @@ def self_play_task(worker_id,
                    folder_path: str,
                    generation: int):
     np.random.seed()
-
     if train_config["use_inference_server"]:
         session = Parallelized_Session(worker_id,
                                        info,
@@ -201,6 +193,8 @@ def self_play_task(worker_id,
                                        output_feed_info, )
     else:
         providers, onnx_path = info
+
+        import onnxruntime as rt # have to do this because of "spawn" in windows
         session = rt.InferenceSession(onnx_path, providers=providers)
     session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
@@ -212,8 +206,10 @@ def self_play_task(worker_id,
                      generation)
 
     task.play()
+
     if train_config["use_inference_server"]:
         info.close()
+
 
 
 def convert_shape(shape):
@@ -283,8 +279,7 @@ def run_self_play(game_class,
     batched_output_feed_info = {"policy": [-1, *policy_shape],
                                 "value": [-1, 1]}
 
-    print(
-        f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
+    print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
 
     shms = []
     if train_config["use_inference_server"]:
@@ -305,8 +300,7 @@ def run_self_play(game_class,
             worker_id = len(jobs)
             worker = mp.Process(target=self_play_task,
                                 args=(worker_id,
-                                      shms[worker_id] if train_config["use_inference_server"] else [providers,
-                                                                                                    onnx_file_path],
+                                      shms[worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
                                       game_class,
                                       convert_to_single_info(batched_input_feed_info),
                                       convert_to_single_info(batched_output_feed_info),
@@ -334,23 +328,18 @@ def run_self_play(game_class,
             if len(alive_jobs) != len(jobs) and num_games_left - len(alive_jobs) > 0:
                 for dead_worker_id in dead_worker_ids:
                     new_worker = mp.Process(target=self_play_task, args=(dead_worker_id,
-                                                                         shms[dead_worker_id] if train_config[
-                                                                             "use_inference_server"] else [providers,
-                                                                                                           onnx_file_path],
+                                                                         shms[dead_worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
                                                                          game_class,
-                                                                         convert_to_single_info(
-                                                                             batched_input_feed_info),
-                                                                         convert_to_single_info(
-                                                                             batched_output_feed_info),
+                                                                         convert_to_single_info(batched_input_feed_info),
+                                                                         convert_to_single_info(batched_output_feed_info),
                                                                          build_config,
                                                                          train_config,
                                                                          lock,
                                                                          folder_path,
                                                                          generation),
                                             name=f"{dead_worker_id}")
-
-                    alive_jobs.append(new_worker)
                     new_worker.start()
+                    alive_jobs.append(new_worker)
                 jobs = alive_jobs
 
     for worker in jobs:
@@ -367,15 +356,17 @@ if __name__ == "__main__":
     import os
     import shutil
     import time
+
+    # os.environ["NUMBA_CACHE_DIR"] = "numba_cache/"
     # Testing code for validation
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
     from Game_Tester import Game_Tester
 
-    folder_path = "Gomoku/Grok_Zero_Train/2"
+    folder_path = "TicTacToe/Grok_Zero_Train/0"
     cache = Cache(folder_path + "/Cache")
     cache.close()
-    Game_Tester(Gomoku).test()
+    # Game_Tester(TicTacToe).test()
 
     if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         os.remove(f"{folder_path}/Self_Play_Data.h5")
@@ -388,7 +379,7 @@ if __name__ == "__main__":
         # file.create_dataset(f"num_unaugmented_games", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))
         file.create_dataset(f"game_stats", maxshape=(6,), dtype=np.uint32, data=np.zeros(6, ))
 
-    run_self_play(Gomoku, build_config, train_config, folder_path)
+    run_self_play(TicTacToe, build_config, train_config, folder_path)
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         # print(file.keys())
