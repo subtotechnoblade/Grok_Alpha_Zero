@@ -27,8 +27,7 @@ class Policy_Loss_Gumbel(tf.keras.Loss):
         self.loss_fn = loss_fn
 
     def call(self, y_true, y_pred):
-        if self.activation_fn is not None:
-            y_pred = self.activation_fn(y_pred)
+        y_pred = self.activation_fn(y_pred)
         return self.loss_fn(y_true, y_pred)
 class Value_Loss_Gumbel(tf.keras.Loss):
     def __init__(self, loss_fn=tf.keras.losses.MeanSquaredError(), **kwargs):
