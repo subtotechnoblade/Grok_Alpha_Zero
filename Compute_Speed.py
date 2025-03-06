@@ -55,7 +55,6 @@ def compute_speed(game_class,
     for _ in range(iterations):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
     time_taken = time.time() - s
-    print(iterations)
     print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s!")
 
 if __name__ == "__main__":
