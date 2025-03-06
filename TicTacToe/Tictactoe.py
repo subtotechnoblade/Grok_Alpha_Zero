@@ -91,7 +91,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000,  # number of self play games until we re train the network
+    "games_per_generation": 100,  # number of self play games until we re train the network
     "max_actions": 9,  # Note that this should be
     "num_explore_actions_first": 2,
     # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
@@ -104,7 +104,7 @@ train_config = {
     "use_inference_server": True,
     # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 1,  # Number of multiprocessing workers used to self play
+    "num_workers": 6,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 20, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
@@ -173,10 +173,7 @@ class TicTacToe:
         return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
     @staticmethod
-    @njit([
-        "int64[:, :](int8[:, :], int64, float64[:])",
-        "int64[:, :](int8[:, :], int64, int64[:, :])"],
-          cache=True)
+    @njit(cache=True)
     def get_legal_actions_MCTS(board, current_player, action_history):
         return np.argwhere(board == 0)[:, ::-1]
 
@@ -229,9 +226,8 @@ class TicTacToe:
         return np.concatenate((current_player_board, np.expand_dims(board, -1)), axis=-1)
 
     def _check_row(self, row):  # A function for checking if there's a win on each row.
-        if row[0] != 0 and row[0] == row[1] == row[2]:
-            return True  # If all 3 items on a row equal, someone has won. Yippee!
-        return False  # If not then sadly not :(
+        return row[0] != 0 and row[0] == row[1] == row[2]
+
 
     def check_win(self):
         # Note that self.current player is actually the next player
@@ -239,22 +235,22 @@ class TicTacToe:
         # thus if you found a win you have to return the previous player since that player just played -Brian
         current_player = -self.next_player
         for row in self.board:
-            if self._check_row(row) is True:  # Pulling out func from LALA-land
+            if self._check_row(row):  # Pulling out func from LALA-land
                 "                    ^ Jessy, just letting you know that 'is True' is not necessary for python"
                 "It's equally valid to do 'if self._check_row(row):' - Brian"
                 return current_player  # Someone has won! :D
 
         for column_index in range(3):  # Checking if someone has won in columns
             column = self.board[:, column_index]
-            if self._check_row(column) is True:  # Pulling out func from LALA-land pt2
+            if self._check_row(column):  # Pulling out func from LALA-land pt2
                 return current_player  # Someone has won, yippee :3
 
         diag1 = np.diag(self.board)  # Checking if someone has won in diagonals
-        if self._check_row(diag1) is True:  # Pulling out func from dark magic
+        if self._check_row(diag1):  # Pulling out func from dark magic
             return current_player  # Someone has won :P
 
         diag2 = np.diag(np.fliplr(self.board))
-        if self._check_row(diag2) is True:  # Pulling func from Narnia
+        if self._check_row(diag2):  # Pulling func from Narnia
             return current_player  # Someone has won :)
 
         flattened_board = self.board.reshape((9,))  # Reshape board into 9 items, this is to check for draw
@@ -353,135 +349,6 @@ class TicTacToe:
             augmented_policies, dtype=np.float32).reshape((-1, 8, 9)).transpose([1, 0, 2])
         # return np.expand_dims(input_states, 0).astype(self.board.dtype), np.expand_dims(policies, 0).astype(np.float32)
 
-
-# @njit(cache=True)
-# def do_action_MCTS(board: np.array, action: np.array, next_player: int) -> np.array:
-#     x, y = action
-#     board[y][x] = next_player
-#     return board
-#
-#
-# @njit(cache=True)
-# def check_win_MCTS(board, current_player, action_history):
-#     for row in board:
-#         if row[0] != 0 and row[0] == row[1] == row[2]:
-#             return current_player
-#
-#     for column_index in range(3):
-#         column = board[:, column_index]
-#         if column[0] != 0 and column[0] == column[1] == column[2]:
-#             return current_player
-#
-#     diag1 = np.diag(board)
-#     if diag1[0] != 0 and diag1[0] == diag1[1] == diag1[2]:
-#         return current_player
-#
-#     diag2 = np.diag(np.fliplr(board))
-#     if diag2[0] != 0 and diag2[0] == diag2[1] == diag2[2]:
-#         return current_player
-#
-#     flattened_board = board.reshape((9,))
-#     for value in flattened_board:
-#         if value == 0:
-#             break
-#     else:
-#         return 0
-#
-#     return -2
-
-do_action_fn = nb.njit(TicTacToe.do_action_MCTS.py_func, cache=True)
-check_win_fn = nb.njit(TicTacToe.check_win_MCTS.py_func, cache=True)
-
-# @njit(
-#     "Tuple((int64[:, :], int8[:]))(int64[:, :, :], int8[:, :], int64, boolean)",
-#       cache=True, nogil=True)
-def get_terminal_actions_fn(action_histories,
-                            board,
-                            current_player,
-                            fast_find_win=False) -> (np.array, np.array):
-    """
-    :param board: The board
-    :param current_player: Current player we want to check for
-    :param WIDTH: board width
-    :param HEIGHT: board height
-    :param fast_find_win: only returns 1 winning move if True for speed
-    This should be False for training, because we want multiple winning moves to determine a better policy
-    with more than 1 terminal move
-    :return:
-    """
-    terminal_index = []  # includes winning and drawing actions
-    terminal_mask = []  # a list of 0 and 1
-    # where each index corresponds to a drawing action if 0, and a winning action if 1
-    # print(board)
-    next_player = -current_player
-    for action_id in range(len(action_histories)):
-        # Try every legal action and check if the current player won
-        # Very inefficient. There is a better implementation
-
-        legal_action = action_histories[action_id][-1]
-        check_win_board = do_action_fn(board.copy(), legal_action, next_player)
-
-        result = check_win_fn(check_win_board, next_player, action_histories[action_id])
-        if result != -2:  # this limits the checks by a lot
-            terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
-            if result == next_player:  # found a winning move
-                terminal_mask.append(1)
-                if fast_find_win:
-                    break
-            elif result == 0:  # a drawing move
-                terminal_mask.append(0)
-    return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.int8)
-
-
-
-# sig = types.Tuple((types.List(nb.int64[:]), nb.int8[:]))(nb.int64[:, :, :], nb.int8[:, :], nb.int64, nb.boolean)
-# def wrap_class(game_instance: TicTacToe):
-#     # do_action_fn = nb.njit(game_instance.do_action_MCTS.py_func, cache=True)
-#     # check_win_fn = nb.njit(game_instance.check_win_MCTS.py_func, cache=True)
-#
-#     do_action_fn = game_instance.do_action_MCTS
-#     check_win_fn = game_instance.check_win_MCTS
-#     @njit(
-#         "Tuple((int64[:, :], int8[:]))(int64[:, :, :], int8[:, :], int64, boolean)",
-#           cache=True, nogil=True)
-#     def get_terminal_actions_fn(action_histories,
-#                                 board,
-#                                 current_player,
-#                                 fast_find_win=False) -> (np.array, np.array):
-#         """
-#         :param board: The board
-#         :param current_player: Current player we want to check for
-#         :param WIDTH: board width
-#         :param HEIGHT: board height
-#         :param fast_find_win: only returns 1 winning move if True for speed
-#         This should be False for training, because we want multiple winning moves to determine a better policy
-#         with more than 1 terminal move
-#         :return:
-#         """
-#         terminal_index = []  # includes winning and drawing actions
-#         terminal_mask = []  # a list of 0 and 1
-#         # where each index corresponds to a drawing action if 0, and a winning action if 1
-#         # print(board)
-#         next_player = -current_player
-#         for action_id in range(len(action_histories)):
-#             # Try every legal action and check if the current player won
-#             # Very inefficient. There is a better implementation
-#
-#             legal_action = action_histories[action_id][-1]
-#             check_win_board = do_action_fn(board.copy(), legal_action, next_player)
-#
-#             result = check_win_fn(check_win_board, next_player, action_histories[action_id])
-#             if result != -2:  # this limits the checks by a lot
-#                 terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
-#                 if result == next_player:  # found a winning move
-#                     terminal_mask.append(1)
-#                     if fast_find_win:
-#                         break
-#                 elif result == 0:  # a drawing move
-#                     terminal_mask.append(0)
-#         return action_histories[:, -1][np.array(terminal_index)], np.array(terminal_mask, dtype=np.int8)
-#     game_instance.get_terminal_actions = get_terminal_actions_fn
-
 if __name__ == "__main__":
     # test your code here
     # from Game_Tester import Game_Tester
@@ -489,11 +356,16 @@ if __name__ == "__main__":
     # tester.test()
 
     game = TicTacToe()
-
-    print(game.get_terminal_actions)
-    # game.make_terminal_actions_MCTS()
-    action_histories = np.expand_dims(game.get_legal_actions(), 0)
-    print(game.get_terminal_actions(action_histories, game.board, game.next_player))
+    game.board = np.array([[1, -1,  1],
+     [-1, -1, -1],
+     [0,  1,  0]])
+    game.next_player = 1
+    print(game.check_win())
+    print(game.check_win_MCTS(game.board, -game.next_player, None))
+    # print(game.get_terminal_actions)
+    # # game.make_terminal_actions_MCTS()
+    # action_histories = np.expand_dims(game.get_legal_actions(), 0)
+    # print(game.get_terminal_actions(action_histories, game.board, game.next_player))
     # print(game.get_input_state())
     # print(game.board)
     # board = np.zeros((2, 2))
