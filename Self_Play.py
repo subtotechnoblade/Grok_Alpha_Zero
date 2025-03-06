@@ -237,7 +237,6 @@ def run_self_play(game_class,
     generation = int(folder_path.split("/")[-1])
     num_workers = train_config["num_workers"]
 
-    bar = tqdm(total=num_games_left, desc="Generating self play games")
     if num_games_left < num_workers:
         num_workers = num_games_left
 
@@ -280,7 +279,7 @@ def run_self_play(game_class,
                                 "value": [-1, 1]}
 
     print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
-
+    bar = tqdm(total=num_games_left, desc="Generating self play games")
     shms = []
     if train_config["use_inference_server"]:
         shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
