@@ -83,7 +83,7 @@ build_config = {"num_resnet_layers": 3,
                 "use_stable_max": True,
                 "use_grok_fast": True,
                 "use_orthograd": True,
-                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "grok_lambda": 5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
                 }
 
 train_config = {
@@ -107,33 +107,33 @@ train_config = {
     "num_workers": 6,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 20, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 10, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
-    "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 1.1,  # should be around (10 / average moves per game)
+    "c_puct_init": 2.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 0.7,  # should be around (10 / average moves per game)
 
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 2,  # The previous generation's data that will be used in training
+    "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
-    "train_decay": 0.75,
+    "train_decay": 0.9,
     # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.75,
+    "test_decay": 0.9,
     # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4,  # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 5e-4,  # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
-    "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
+    "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
+    "beta_2": 0.994,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
     "train_epochs": 15,  # The number of epochs for training
 }

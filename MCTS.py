@@ -1,6 +1,7 @@
 import os
 import time
 
+from collections import deque
 import numpy as np
 np.seterr(all='raise')
 import numba as nb
@@ -23,7 +24,7 @@ class Node:
                  board: np.array,
                  action_history: np.array,
                  current_player: int,
-                 child_legal_actions: list[tuple[int]] or list[int],
+                 child_legal_actions: list[tuple[int]] or list[int] or deque[np.ndarray],
                  RNN_state: list or list[np.array, ...] or np.array,
                  child_prob_priors: np.array,
                  is_terminal=None,
@@ -288,7 +289,7 @@ class MCTS:
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              -self.game.get_next_player(),
-                             terminal_actions,
+                             deque(terminal_actions),
                              [],
                              child_policy)
 
@@ -300,7 +301,7 @@ class MCTS:
                                      self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
                                      self.game.action_history + [terminal_action],
                                      -self.game.get_next_player(),
-                                     [],
+                                     deque(), # faster removal from the start index
                                      [],
                                      [],
                                      terminal_player if mask_value == 1 else 0,
@@ -327,7 +328,7 @@ class MCTS:
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              self.game.get_next_player() * -1,  # current player for no moves placed
-                             list(legal_actions),
+                             deque(legal_actions),
                              initial_RNN_state,
                              child_prob_prior)
 
@@ -357,7 +358,7 @@ class MCTS:
                                terminal_parent_board,
                                node.action_history.copy() + [terminal_parent_action],
                                terminal_parent_current_player,
-                               child_legal_actions=terminal_actions,
+                               child_legal_actions=deque(terminal_actions),
                                RNN_state=None,
                                child_prob_priors=terminal_parent_prob_prior,
                                is_terminal=None,
@@ -379,7 +380,7 @@ class MCTS:
                                   action_history=terminal_parent.action_history + [terminal_action],
                                   current_player=node.current_player,
                                   # based on node.current_player because node's child's child is the same player as node
-                                  child_legal_actions=[1],
+                                  child_legal_actions=[None],
                                   RNN_state=None,
                                   child_prob_priors=None,
                                   is_terminal=node.current_player if mask_value == 1 else 0,
@@ -406,7 +407,7 @@ class MCTS:
     def _expand(self, node: Node) -> (Node, float):
         # note that node is the parent of the child, and node will always be different and unique
         # create the child to expand
-        child_action = node.child_legal_actions.pop(-1)  # this must be -1 because list pop is O(1),
+        child_action = node.child_legal_actions.popleft()  # this must be -1 because list pop is O(1),
         # only when popping from the right
 
         # Note that from now on, -current_player is the current_player for child_board
@@ -456,7 +457,7 @@ class MCTS:
                          child_board,
                          node.action_history.copy() + [child_action],
                          node.current_player * -1,
-                         list(child_legal_actions),
+                         deque(child_legal_actions),
                          next_RNN_state,
                          child_prob_prior,
                          None,
@@ -692,17 +693,17 @@ if __name__ == "__main__":
 
     max_shape, opt_shape = 12, 12
     providers = [
-        ('TensorrtExecutionProvider', {
-            # "trt_engine_cache_enable": True,
-            # "trt_dump_ep_context_model": True,
-            # "trt_builder_optimization_level": 5,
-            # "trt_auxiliary_streams": 0,
-            # "trt_ep_context_file_path": "Gomoku/Cache/",
-            #
-            # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-            # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-            # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        }),
+        # ('TensorrtExecutionProvider', {
+        #     # "trt_engine_cache_enable": True,
+        #     # "trt_dump_ep_context_model": True,
+        #     # "trt_builder_optimization_level": 5,
+        #     # "trt_auxiliary_streams": 0,
+        #     # "trt_ep_context_file_path": "Gomoku/Cache/",
+        #     #
+        #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # }),
         # 'CUDAExecutionProvider',
         'CPUExecutionProvider'
     ]
@@ -735,7 +736,7 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/7/model.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
@@ -744,8 +745,8 @@ if __name__ == "__main__":
         game = TicTacToe()
 
         mcts1 = MCTS(game,
-                     [],
-                     # session,
+                     # None,
+                     session,
                      None,
                      c_puct_init=1.25,
                      tau=0.0,
@@ -766,7 +767,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(100000, use_bar=True)
+                move, probs = mcts1.run(10, use_bar=True)
             else:
                 #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
