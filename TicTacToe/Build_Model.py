@@ -33,12 +33,11 @@ def build_model(input_shape, policy_shape, build_config, train_config):
         policy = tf.keras.layers.Dense(policy_shape[0], name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
     else:
         policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
-
-    if not train_config["use_gumbel"]:
         if build_config["use_stable_max"]:
             policy = Stablemax(name="policy")(policy)  # MUST NAME THIS "policy"
         else:
             policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
+
 
     # value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
