@@ -176,8 +176,6 @@ class MCTS_Gumbel:
             child_ids = np.argsort(gumbel_logits)[-m:]
         else:
             q_hat = q / np.sum(q)
-            print(q, q_hat)
-            print(gumbel_logits, sigma(q_hat, N_b, c_visit, c_scale), gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))
             child_ids = np.argsort(gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))[-int(m / (2 ** phase)):]
         visit_budget_per_child = int(n / (np.log2(m) * (m / (2 ** phase))))
         return child_ids, visit_budget_per_child
@@ -378,7 +376,6 @@ class MCTS_Gumbel:
                                is_terminal=None,
                                parent=node)
         node.children[child_index] = terminal_parent
-        # del terminal_parent.child_legal_actions
 
         terminal_parent.child_values = terminal_mask.astype(np.float32, copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values
 
@@ -545,7 +542,7 @@ class MCTS_Gumbel:
         current_phase = 0
         gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
 
-        top_gumbel_logits = (self.root.child_logit_priors * 20 + gumbel_noise).astype(np.float32, copy=False)
+        top_gumbel_logits = (self.root.child_logit_priors + gumbel_noise).astype(np.float32, copy=False)
         # the * 20 is for debugging for probs to "simulate" logits
         top_node_ids = np.arange(len(self.root.children))
         top_values = top_mean_values = self.root.child_values
@@ -561,9 +558,7 @@ class MCTS_Gumbel:
                                                                    self.c_scale,
                                                                    current_phase)
 
-            print("top node ids:",top_node_ids)
             chosen_ids = np.sort(chosen_ids)
-            print("Chosen ids:", chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
             top_values = top_values[chosen_ids]
@@ -597,10 +592,7 @@ class MCTS_Gumbel:
                     if use_bar:
                         bar.update(1)
                     current_iteration += 1
-            print([self.root.children[id].action_history[-1].tolist() for id in top_node_ids], visits_per_child,
-                  len(chosen_ids) * visits_per_child, current_phase)
             top_mean_values = (top_values / self.root.child_visits[top_node_ids]).astype(np.float32, copy=False)
-            print("Top mean value:", top_mean_values)
             current_phase += 1
 
         if use_bar:
