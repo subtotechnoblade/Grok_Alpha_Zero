@@ -1,9 +1,11 @@
+import os
 import time
 
 import numpy as np
+np.seterr(all='raise')
 import numba as nb
-from numba.extending import is_jitted
 from numba import njit
+from numba.extending import is_jitted
 
 from Session_Cache import Cache_Wrapper
 from tqdm import tqdm
@@ -12,20 +14,22 @@ from warnings import warn
 import onnxruntime as rt
 from Client_Server import Parallelized_Session
 
+
 class Node:
-    __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_prob_priors", "is_terminal",  "parent"
+    __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_logit_priors", "is_terminal", "parent"
+
     def __init__(self,
                  child_id: int,
                  board: np.array,
                  action_history: np.array,
                  current_player: int,
-                 child_legal_actions:list[tuple[int]] or list[int],
-                 RNN_state:list or list[np.array, ...] or np.array,
-                 child_prob_priors: np.array,
+                 child_legal_actions: list[tuple[int]] or list[int],
+                 RNN_state: list or list[np.array, ...] or np.array,
+                 child_logit_priors: np.array,
                  is_terminal=None,
                  parent=None):
         self.child_id = child_id
-        self.board = board # board, this is passed to get_state in order to compute the inputs for the neural network
+        self.board = board  # board, this is passed to get_state in order to compute the inputs for the neural network
         # deleted after it has produced a child node based on the current board
         # board can be all the previous and current board states in a list [board0, board1, ...]
         # self.board will be fed into get_state_MCTS in order to get the neural network input
@@ -34,57 +38,96 @@ class Node:
         self.current_player = current_player
         self.parent: None or Node or Root = parent
 
-        self.children: list[Node] = [] # a list of node objects which are the children aka resulting future actions
-        self.child_legal_actions = child_legal_actions # a list of actions, [action1, action2, ...], will be deleted when completely popped
-        self.child_visits = np.zeros(len(child_legal_actions), dtype=np.int32) # not sure if float32 or uint32 would be better for speed
+        self.children: list[Node] or list[None] = [None for _ in range(len(child_legal_actions))]  # a list of node objects which are the children aka resulting future actions
+        self.child_legal_actions = child_legal_actions  # a list of actions, [action1, action2, ...], will be deleted when completely popped
+        self.child_visits = np.zeros(len(child_legal_actions),
+                                     dtype=np.uint32)  # not sure if float32 or uint32 would be better for speed
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float32)
-
 
         # Pertaining to the input and outputs of the neural network
         self.RNN_state = RNN_state
-        self.child_prob_priors = child_prob_priors
+        self.child_logit_priors = child_logit_priors
 
-        self.is_terminal = is_terminal # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
+        self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
-    # def __repr__(self):
-    #     return f"{self.action_history, self.is_terminal}"
-class Root(Node): # inheritance
+
+class Root(Node):  # inheritance
     __slots__ = "visits"
+
     def __init__(self,
                  board: np.array,
                  action_history: list or tuple or np.array,
                  current_player: int,
-                 child_legal_actions: list[tuple[int]] or list[int],
+                 child_legal_actions: list[tuple[int]] or list[int] or dict[int:np.ndarray],
                  RNN_state: list or list[np.array] or np.array,
-                 child_prob_priors: np.array):
+                 child_logit_priors: np.array):
         super().__init__(0,
                          board,
                          action_history,
                          current_player,
                          child_legal_actions,
                          RNN_state,
-                         child_prob_priors,
+                         child_logit_priors,
                          is_terminal=None,
                          parent=None)
         # root's child_id will always be 0 because it is not needed
         self.visits = 0
         # don't need value because it isn't needed in PUCT calculations
-        del self.child_id # saved 24 bytes OMG
+        del self.child_id  # saved 24 bytes OMG
 
-class MCTS:
+
+@njit("float32[:](float32[:])", cache=True, fastmath=True)
+def stablemax(logits):
+    s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
+    return s_x / np.sum(s_x)
+
+@njit("float32[:](float32[:])", cache=True, fastmath=True)
+def softmax(logits):
+    exp = np.exp(logits)
+    return exp / np.sum(logits)
+
+@njit(["float32[:](float32[:], uint32[:], float32, float32)",
+       "float32[:](float32[:], int64, float32, float32)"]
+          , cache=True, fastmath=True)
+def q_transform(values, visits, min_value=-1.0, max_value=1.0):
+    values = np.where(visits > 0, values, min_value)
+    return (values - min_value) / (max_value - min_value)
+
+@njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
+def sigma(q, N_b, c_visit, c_scale):
+    return (c_visit + N_b) * c_scale * q
+
+@njit(cache=True)
+def compute_pi(values,
+               logits,
+               visits,
+               N_b, # max visits for any action (this will be a child of the root)
+               c_visit,
+               c_scale,
+               use_softmax=False,
+               min_value=-1.0,
+               max_value=1.0,
+               ):
+    q = q_transform(values, visits, min_value, max_value)
+    if use_softmax:
+        completed_q = np.where(visits > 0, q, np.sum(softmax(logits) * q))
+        return softmax(logits + sigma(completed_q, N_b, c_visit, c_scale))
+    else:
+        completed_q = np.where(visits > 0, q, np.sum(stablemax(logits) * q))
+        return stablemax(logits + sigma(completed_q, N_b, c_visit, c_scale))
+
+class MCTS_Gumbel:
     # will start from point where the game class left off
     # will update itself after every move assuming the methods are called in the right order
     def __init__(self,
-                 game, # the annotation is for testing and debugging
-                 RNN_state: np.array,
+                 game,  # the annotation is for testing and debugging
                  session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None,
-                 c_puct_init: float=2.5,
-                 c_puct_base: float=19_652,
-                 use_dirichlet=True,
-                 dirichlet_alpha=1.11,
-                 dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
-                 tau=1.0,
-                 fast_find_win=False, # this is for training, when exploiting change to True
+                 use_njit=None,
+                 m=16,
+                 c_visit=50.0,
+                 c_scale=1.0,
+                 activation_fn="stablemax",
+                 fast_find_win=False,  # this is for training, when exploiting change to True
                  ):
         """
         :param game: Your game class
@@ -94,114 +137,92 @@ class MCTS:
         :param dirichlet_alpha: The exploration rate in the alpa zero paper, should be (average moves per game / 10)
         :param dirichlet_epsilon: The weighting that dirichlet noise has over the policy
         :param tau: Temperature which controls how a move is chosen, input tau to be a very small number to chose the move with highest probability
-        :param fast_check_win: To uses fast check win parameter in check_win_MCTS
-        :param use_njit: jit the method get_terminal_actions
         """
         self.game = game
-        self.RNN_state = RNN_state
         self.session = session
         self.cache_session = isinstance(self.session, Cache_Wrapper)
         self.fast_find_win = fast_find_win
 
-        self.c_puct_init = c_puct_init # determined experimentally
-        self.c_puct_base = c_puct_base # DO NOT CHANGE
+        self.use_njit = use_njit if use_njit is not None else hasattr(os, "fork")
+        self.m = m
+        self.c_visit = c_visit
+        self.c_scale = c_scale
 
-        self.use_dirichlet = use_dirichlet
-        self.dirichlet_alpha = dirichlet_alpha
-        self.dirichlet_epsilon = dirichlet_epsilon
-        # dirichlet_alpha can be choosen with (10 / average_moves_per_game), 10 / 9 = 1.11 for tic tac toe
-        # see https://ai.stackexchange.com/questions/25939/alpha-zero-does-not-converge-for-connect-6-a-game-with-huge-branching-factor
-        # for more info on what c_puct should be along with how dirichlet alpha should be calculated
+        self.use_softmax = activation_fn == "softmax"
 
-        if tau != 0.0 and tau < 5e-3:
-            warn("Tau cannot be smaller than 1e-3 as it will cause floating point errors")
-            warn("If you want the most visited move, set tau = 0.0, defaulting tau to 0.0")
-            tau = 0.0
-        self.tau = tau # temperature parameter in alpha zero
 
-        self.use_njit = is_jitted(self.game.get_legal_actions_MCTS) and is_jitted(self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
+        njitable = is_jitted(self.game.get_legal_actions_MCTS) and is_jitted(
+            self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
+
         # Note that these are functions getting assigned and jitted
-        # if self.use_njit:
-        if self.use_njit:
-            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=True)
+        if njitable and self.use_njit:
+            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=hasattr(os, "fork"))
         else:
             self.get_terminal_actions = self.get_terminal_actions_fn
-        # perform inference call to initialize root
 
+        # perform inference call to initialize root
         self.create_expand_root()
 
-
     def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
-        if new_c_puct_init < 0.0:
-            warn(f"Cpuct value is invalid, {new_c_puct_init} cannot be negative. Invalidating update and returning")
-            return
-        self.c_puct_init = new_c_puct_init
-
-        if new_tau != 0 and new_tau < 5e-3:
-            warn(f"Tau can't be less than 5e-3.Changing tau = 0.0")
-            new_tau = 0.0
-        self.tau = new_tau
-
+        return
 
     @staticmethod
-    @njit(cache=True, fastmath=True)
-    def _get_best_PUCT_score_index(child_prob_priors: np.array,
-                                   child_values: np.array,
-                                   child_visits: np.array,
-                                   parent_visits: float,
-                                   c_puct_init: float,
-                                   c_puct_base: float):
-        # note that np.log is actually a math ln with base e (2.7)
-        U = child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
-        PUCT_score = (child_values / child_visits) + U
-        return np.argmax(PUCT_score)
+    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    def sequential_halving(m, n, gumbel_logits, q, N_b, c_visit, c_scale, phase,):
+        """
+        return the index of the top actions as a generator
+        """
+        if phase == 0:
+            child_ids = np.argsort(gumbel_logits)[-m:]
+        else:
+            q_hat = q / np.sum(q)
+            print(q, q_hat)
+            print(gumbel_logits, sigma(q_hat, N_b, c_visit, c_scale), gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))
+            child_ids = np.argsort(gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))[-int(m / (2 ** phase)):]
+        visit_budget_per_child = int(n / (np.log2(m) * (m / (2 ** phase))))
+        return child_ids, visit_budget_per_child
+    @staticmethod
+    @njit(cache=True)
+    def deterministic_selection(values,
+                                logits,
+                                visits,
+                                N_b,
+                                c_visit,
+                                c_scale,
+                                use_softmax=False,
+                                min_value=-1.0,
+                                max_value=1.0):
+        pi = compute_pi(values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax, min_value=min_value, max_value=max_value,)
+        return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
-    def _PUCT_select(self) -> Node:
-        node = self.root
-        parent_visits = self.root.visits
-
-        # heavily optimized code
+    def select(self, node: Node):
         while True:
 
-            if node.children and node.children[0].is_terminal is not None: # terminal parent
-                if np.sum(node.child_values) != 0: # meaning we have winning moves, if it was 0 then all the moves were a draw
-                    terminal_nodes = [terminal_child for terminal_child in node.children if terminal_child.is_terminal != 0]
-                else:
-                    terminal_nodes = node.children
-                # THIS RETURNS A CHILD
-                return terminal_nodes[np.random.permutation(len(terminal_nodes))[0]]
-
-            if len(node.child_values) > len(node.children):  # we have to select a node
-                # and return as it is a new unvisited node
-                # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
-                return node  # note that this returns the parent, _expand will create the child node
-            # expensive call here, use only if PUCT_scores are needed and are useful
-            best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
-                                                         node.child_values,
-                                                         node.child_visits,
-                                                         parent_visits,
-                                                         self.c_puct_init,
-                                                         self.c_puct_base)
-
-            # change the node pointer to the selected child at best_index
-            parent_visits = node.child_visits[best_index]
-            node: Node = node.children[best_index]
-
-
+            child_id = self.deterministic_selection(node.child_values,
+                                                    node.child_logit_priors,
+                                                    node.child_visits,
+                                                    self.root.child_visits.max(),
+                                                    self.c_visit,
+                                                    self.c_scale,
+                                                    self.use_softmax)
+            if node.children[child_id] is None:
+                return node, child_id # Note that the node is the parent not the child
+            else:
+                if node.children[child_id].is_terminal is not None:
+                    return node.children[child_id], child_id
+            node = node.children[child_id]
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
-            input_state, input_state_matrix = RNN_state
+            # input_state, input_state_matrix = RNN_state
             kwargs = {
-                "output_names": ["policy", "value", "output_state", "output_state_matrix"],
-                      "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32), 0),
-                                     "input_state": input_state,
-                                     "input_state_matrix": input_state_matrix}}
+                "output_names": ["policy", "value"],
+                "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32, copy=False), 0)}
+            }
             if self.cache_session:
                 kwargs["depth"] = depth
 
-
-            policy, value, state, state_matrix = self.session.run(**kwargs)
-            return policy[0], value[0][0], [state, state_matrix]
+            policy, value = self.session.run(**kwargs)
+            return policy[0], value[0][0], RNN_state
         return self._get_dummy_outputs(inputs, RNN_state)
 
     def _get_dummy_outputs(self, input_state, RNN_state):
@@ -210,17 +231,17 @@ class MCTS:
         if RNN_state is None:
             raise RuntimeError("RNN state cannot be None")
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0, RNN_state
-        return np.random.uniform(low=0, high=1, size=self.game.policy_shape), np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state # policy and value
+        return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), \
+            np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state  # policy and value
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
-    def _apply_dirichlet(self, legal_policy, epsilon):
-        return (1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(self.dirichlet_alpha * np.ones_like(legal_policy))
+
 
     @staticmethod
     def get_terminal_actions_fn(do_action_fn,
                                 check_win_fn,
                                 action_histories,
                                 board,
-                                current_player,
+                                next_player,
                                 fast_find_win=False) -> (np.array, np.array):
         """
         :param board: The board
@@ -232,11 +253,9 @@ class MCTS:
         with more than 1 terminal move
         :return:
         """
-        terminal_actions = []  # includes winning and drawing actions
+        terminal_index = []  # includes winning and drawing actions
         terminal_mask = []  # a list of 0 and 1
         # where each index corresponds to a drawing action if 0, and a winning action if 1
-        # print(board)
-        next_player = -current_player
         for action_id in range(len(action_histories)):
             # Try every legal action and check if the current player won
             # Very inefficient. There is a better implementation
@@ -246,15 +265,15 @@ class MCTS:
 
             result = check_win_fn(check_win_board, next_player, action_histories[action_id])
             if result != -2:  # this limits the checks by a lot
-                terminal_actions.append(legal_action)  # in any case as long as the result != -2, we have a terminal action
+                terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
                 if result == next_player:  # found a winning move
                     terminal_mask.append(1)
                     if fast_find_win:
                         break
                 elif result == 0:  # a drawing move
                     terminal_mask.append(0)
-        # raise ValueError
-        return terminal_actions, np.array(terminal_mask)
+        return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.float32)
+
 
     def create_expand_root(self):
         action_history = np.array(self.game.action_history)
@@ -264,20 +283,18 @@ class MCTS:
         if self.game.action_history:
             repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
             repeated_action_history[:] = action_history
-            action_histories = np.concatenate((repeated_action_history,
-                                               np.expand_dims(legal_actions, 1)), axis=1)
+            future_action_histories = np.concatenate((repeated_action_history,
+                                                      np.expand_dims(legal_actions, 1)), axis=1)
         else:
-            action_histories = np.expand_dims(legal_actions, 1)
-
+            future_action_histories = np.expand_dims(legal_actions, 1)
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
-                                                                    action_histories,
+                                                                    future_action_histories,
                                                                     self.game.board,
-                                                                    -self.game.get_next_player(),
+                                                                    self.game.get_next_player(),
                                                                     fast_find_win=self.fast_find_win)
 
-
-        if terminal_actions:
+        if len(terminal_actions) > 0:
             if 1 in terminal_mask:
                 value = 1
                 child_policy = terminal_mask / len(terminal_mask)
@@ -291,12 +308,11 @@ class MCTS:
                              terminal_actions,
                              [],
                              child_policy)
-
+            self.root.child_legal_actions = {}
             del self.root.board
-            del self.root.child_legal_actions
-            for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
+            for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
                 terminal_player = self.game.get_next_player()
-                terminal_node = Node(len(self.root.children),
+                terminal_node = Node(child_id,
                                      self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
                                      self.game.action_history + [terminal_action],
                                      -self.game.get_next_player(),
@@ -305,104 +321,105 @@ class MCTS:
                                      [],
                                      terminal_player if mask_value == 1 else 0,
                                      parent=self.root)
-                del terminal_node.child_legal_actions, terminal_node.RNN_state, terminal_node.child_prob_priors
-                self.root.children.append(terminal_node)
+                del terminal_node.child_legal_actions
+                del terminal_node.RNN_state, terminal_node.child_logit_priors
+                self.root.children[child_id] = terminal_node
 
                 self._back_propagate(self.root, value)
 
 
         else:
             child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.get_input_state(),
-                                                                                 self.RNN_state,
+                                                                                 [],
                                                                                  len(self.game.action_history))
 
-            legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(self.game.board,
+            legal_actions, child_logit_prior = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                       -self.game.get_next_player(),
-                                                                                      np.array(self.game.action_history),
+                                                                                      np.array(
+                                                                                          self.game.action_history),
                                                                                       child_policy)
-            if self.use_dirichlet:
-                child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
+
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
-                             self.game.get_next_player() * -1, #current player for no moves placed
-                             list(legal_actions),
+                             self.game.get_next_player() * -1,  # current player for no moves placed
+                             dict(enumerate(legal_actions)),
                              initial_RNN_state,
-                             child_prob_prior)
+                             child_logit_prior)
 
-    def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions, terminal_mask):
+    def _expand_with_terminal_actions(self, node, child_index, terminal_parent_board, terminal_parent_action, terminal_actions,
+                                      terminal_mask):
         # winning actions must have at least 1 winning action
 
-        if 1 in terminal_mask: # if there is a win, then draw's probability should stay at 0
+        if 1 in terminal_mask:  # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
-            num_winning_actions = len(terminal_mask == 1) # get the length of thr array that is equal to 1
-            terminal_parent_value = num_winning_actions # the evaluation when we win num_winning_actions
+            num_winning_actions = len(terminal_mask == 1)  # get the length of thr array that is equal to 1
+            terminal_parent_value = num_winning_actions  # the evaluation when we win num_winning_actions
             # terminal_parent_value = 1 # debug
-            terminal_parent_visits = num_winning_actions # we must visits num_winning_actions to win that many times
+            terminal_parent_visits = num_winning_actions  # we must visits num_winning_actions to win that many times
             # terminal_parent_visits = 1 # debug
-            terminal_parent_prob_prior = terminal_mask / num_winning_actions
-        else: # there are only draws
+            terminal_parent_prob_prior = terminal_mask.astype(np.float32, copy=False) / num_winning_actions
+        else:  # there are only draws
             len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0
             # terminal_parent_visits = 1 # debug
             terminal_parent_visits = len_terminal_moves
-            terminal_parent_prob_prior = np.ones(len_terminal_moves) / len_terminal_moves # winning policy
+            terminal_parent_prob_prior = np.ones(len_terminal_moves, dtype=np.float32) / len_terminal_moves  # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
             # it's nice to see the some numbers that state that there is a win or loss
         terminal_parent_current_player = node.current_player * -1
 
-        terminal_parent = Node(len(node.children),
+        terminal_parent = Node(child_index,
                                terminal_parent_board,
-                               node.action_history.copy() + [terminal_parent_action],
+                               node.action_history + [terminal_parent_action],
                                terminal_parent_current_player,
-                               child_legal_actions=terminal_actions,
+                               child_legal_actions=dict(enumerate(terminal_actions)),
                                RNN_state=None,
-                               child_prob_priors=terminal_parent_prob_prior,
+                               child_logit_priors=terminal_parent_prob_prior,
                                is_terminal=None,
                                parent=node)
-        node.children.append(terminal_parent)
-        del terminal_parent.child_legal_actions
+        node.children[child_index] = terminal_parent
+        # del terminal_parent.child_legal_actions
 
-        terminal_parent.child_values = terminal_mask # 0 for draws and 1 for wins, thus perfect for child_values
+        terminal_parent.child_values = terminal_mask.astype(np.float32, copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values
 
-        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.int32) # formality so that we don't get division by 0 when calcing stats
+        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.uint32)
+        # formality so that we don't get division by 0 when calcing stats
 
-        for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
+        for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
             # ^ isn't needed because we don't need to use it for the children since is terminal
 
-            terminal_child = Node(child_id=len(terminal_parent.children),
+            terminal_child = Node(child_id=child_id,
                                   board=None,
                                   action_history=terminal_parent.action_history + [terminal_action],
-                                  current_player=node.current_player, # based on node.current_player because node's child's child is the same player as node
-                                  child_legal_actions=[1],
+                                  current_player=node.current_player,
+                                  # based on node.current_player because node's child's child is the same player as node
+                                  child_legal_actions=[None],
                                   RNN_state=None,
-                                  child_prob_priors=None,
+                                  child_logit_priors=None,
                                   is_terminal=node.current_player if mask_value == 1 else 0,
                                   parent=terminal_parent)
             # ^ node's child's child
 
-            #deleting stuff because terminal nodes should have no children and thus any stats for the children
+            # deleting stuff because terminal nodes should have no children and thus any stats for the children
             del terminal_child.board
             del terminal_child.children
             del terminal_child.child_values
             del terminal_child.child_visits
-            del terminal_child.child_prob_priors
-            del terminal_child.child_legal_actions
+            del terminal_child.child_logit_priors
             del terminal_child.RNN_state
-
-            terminal_parent.children.append(terminal_child)
+            terminal_parent.children[child_id] = terminal_child
 
         return terminal_parent, -terminal_parent_value, terminal_parent_visits
+
         # negative because the child's POV won, thus the parent's POV lost in this searched path
         # don't backprop child as there could be multiple ways to win, but all backprop only cares
         # if someone wins
 
-
-    def _expand(self, node: Node) -> (Node, float):
+    def _expand(self, node: Node, index: int or np.uint32) -> (Node, float):
         # note that node is the parent of the child, and node will always be different and unique
         # create the child to expand
-        child_action = node.child_legal_actions.pop(-1) # this must be -1 because list pop is O(1),
-        # only when popping from the right
+        child_action = node.child_legal_actions.pop(index) # child_legal_actions will now be a dict
 
         # Note that from now on, -current_player is the current_player for child_board
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
@@ -415,51 +432,50 @@ class MCTS:
         if self.game.action_history:
             repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
             repeated_action_history[:] = action_history
-            action_histories = np.concatenate((repeated_action_history,
-                                               np.expand_dims(legal_actions, 1)), axis=1)
+            future_action_histories = np.concatenate((repeated_action_history,
+                                                      np.expand_dims(legal_actions, 1)), axis=1)
         else:
-            action_histories = np.expand_dims(legal_actions, 1)
+            future_action_histories = np.expand_dims(legal_actions, 1)
 
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
-                                                                    action_histories,
+                                                                    future_action_histories,
                                                                     child_board,
-                                                                    -node.current_player, # the current_player for child_board
+                                                                    node.current_player,
                                                                     fast_find_win=self.fast_find_win)
 
-        if terminal_actions:
-            return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
-
+        if len(terminal_actions) > 0:
+            return self._expand_with_terminal_actions(node, index, child_board, child_action, terminal_actions, terminal_mask)
         else:
-            child_policy, child_value, next_RNN_state = self._compute_outputs(self.game.get_input_state_MCTS(child_board, -node.current_player, np.array(node.action_history + [child_action])),
-                                                                              node.RNN_state, len(node.action_history))
-            # print("compute", time.time() - s)
+            child_policy, child_value, next_RNN_state = self._compute_outputs(
+                self.game.get_input_state_MCTS(child_board,
+                                               -node.current_player,
+                                               np.array(node.action_history + [child_action])),
+                node.RNN_state, len(node.action_history))
+
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
-            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board, -node.current_player, np.array(node.action_history),  child_policy)
+            child_legal_actions, child_logit_prior = self.game.get_legal_actions_policy_MCTS(child_board,
+                                                                                            -node.current_player,
+                                                                                            np.array(node.action_history),
+                                                                                            child_policy)
 
-            # if self.use_dirichlet:
-            #     epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
-            #     child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
-            # gets the legal actions and associated probabilities
-
-            child = Node(len(node.children),
+            child = Node(index,
                          child_board,
-                         node.action_history.copy() + [child_action],
+                         node.action_history + [child_action],
                          node.current_player * -1,
-                         list(child_legal_actions),
+                         dict(enumerate(child_legal_actions)),
                          next_RNN_state,
-                         child_prob_prior,
+                         child_logit_prior,
                          None,
                          parent=node)
             # we don't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
-            node.children.append(child)
+            node.children[index] = child
 
             if len(node.child_legal_actions) == 0:  # we will never use this parent again for generating children
                 # because node.children is full
                 # and there will no longer be any more legal moves cuz they all have been expanded
-                del node.child_legal_actions  # saves a lot of memory as we no longer need it
 
                 # since we got the policy and value from inputs node.board
                 # we can delete it because the NN will not evaluate it again thus saving more memory
@@ -467,7 +483,7 @@ class MCTS:
                 del node.current_player
                 del node.RNN_state  # we no longer need RNN state
             # negated child_child_values is the child value
-        return child, -child_value, 1 # contact Brian if you don't understand why it is -value
+        return child, -child_value, 1  # contact Brian if you don't understand why it is -value
 
     def _back_propagate(self, node: Node, value: float, visits=1) -> None:
         # note that the node class is the child returned by expand or selection method
@@ -481,18 +497,25 @@ class MCTS:
             # 2. stores the pointer within in the variable rather than indexing twice
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
-            value *= -1 # negate for the opponent's move
+            value *= -1  # negate for the opponent's move
         self.root.visits += visits
 
-    def stable_max(self, logits):
-        with np.errstate(divide="ignore"):
-            s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
-        return s_x / np.sum(s_x)
+    def fill_empty_children(self):
+        for node_id, node in enumerate(self.root.children):
+            if node is None:
+                child_action = self.root.child_legal_actions.pop(node_id)
+                child = Node(node_id,
+                             None,
+                             self.root.action_history + [child_action],
+                             self.root.current_player * -1,
+                             [None],
+                             None,
+                             None,
+                             None,
+                             self.root)
+                self.root.children[node_id] = child
 
-    def softmax(self, logits):
-        exp = np.exp(logits)
-        return exp / np.sum(exp)
-    def run(self, iteration_limit: int or bool=None, time_limit: int or float=None, use_bar=True):
+    def run(self, iteration_limit: int or bool = None, time_limit: int or float = None, use_bar=True):
         """
         :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
         :param time_limit: The time limit MCTS is allowed to run, note that MCTS can go over the time limit by small amounts
@@ -500,95 +523,130 @@ class MCTS:
         where each action in actions corresponds to the prob in probs, actions[0]'s prob is probs[0] and so on
         returns the top action and action distribution for the storage buffer
         """
+        legal_actions = self.game.get_legal_actions()
+        len_legal_actions = len(legal_actions)
 
-        # if iteration_limit is not True and iteration_limit is not None and iteration_limit < len(self.game.get_legal_actions()):
-        #     warn(f"Iterations must be greater than or equal to {len(self.game.get_legal_actions())} "
-        #          f"because all depth 1 actions must be visited to produce a valid policy"
-        #          f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
+        if (iteration_limit is not None and iteration_limit is True) and time_limit is None:
+            iteration_limit = len(self.game.get_legal_actions()) * 3
 
-        if (iteration_limit is not None and (iteration_limit is True or iteration_limit < len(self.game.get_legal_actions()))) and time_limit is None:
-            iteration_limit = len(self.game.get_legal_actions()) + 1
+        if time_limit is not None:
+            iteration_limit = len(self.game.get_legal_actions()) * 3
+            warn("Time limit isn't allowed for gumbel MCTS defaulting to use 3 * len_legal_actions")
 
-        if iteration_limit is None and time_limit is True:
-            time_limit = 30.0 # 30 seconds by default
-
+        num_starting_legal_actions = len(self.game.get_legal_actions())
+        if self.m > num_starting_legal_actions:
+            self.m = num_starting_legal_actions
         if use_bar:
-            if iteration_limit and time_limit is None:
-                bar = tqdm(total=iteration_limit)
-            else:
-                bar = tqdm(total=time_limit)
+            bar = tqdm(total=iteration_limit)
 
         assert iteration_limit > 0
 
         current_iteration = 0
-        start_time = time.time()
-        while (iteration_limit is None or current_iteration < iteration_limit) and (time_limit is None or time.time() - start_time < time_limit):
-            loop_start_time = time.time()
-            node = self._PUCT_select()
+        current_phase = 0
+        gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
 
-            if node.is_terminal is not None:
-                value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
-                visits = 1
-            else:
-                node, value, visits = self._expand(node)
+        top_gumbel_logits = (self.root.child_logit_priors * 20 + gumbel_noise).astype(np.float32, copy=False)
+        # the * 20 is for debugging for probs to "simulate" logits
+        top_node_ids = np.arange(len(self.root.children))
+        top_values = top_mean_values = self.root.child_values
 
-            self._back_propagate(node, value, visits)
+        while len_legal_actions > 1:
 
-            if use_bar:
-                if iteration_limit:
-                    bar.update(1)
-                else:
-                    bar.update(time.time() - loop_start_time)
-            current_iteration += 1
+            chosen_ids, visits_per_child = self.sequential_halving(self.m,
+                                                                   iteration_limit,
+                                                                   top_gumbel_logits,
+                                                                   q_transform(top_mean_values, 1, -1.0, 1.0),
+                                                                   self.root.child_visits.max(),
+                                                                   self.c_visit,
+                                                                   self.c_scale,
+                                                                   current_phase)
+
+            print("top node ids:",top_node_ids)
+            chosen_ids = np.sort(chosen_ids)
+            print("Chosen ids:", chosen_ids)
+
+            top_gumbel_logits = top_gumbel_logits[chosen_ids]
+            top_values = top_values[chosen_ids]
+            top_node_ids = top_node_ids[chosen_ids]
+            len_root_ids = len(chosen_ids)
+            if len_root_ids == 1:
+                break
+
+
+            if len_root_ids == 2 or len_root_ids == 3:
+                visits_per_child = (iteration_limit - current_iteration) // len_root_ids
+
+            # raise ValueError
+
+            for root_child_id in top_node_ids:
+                if self.root.children[root_child_id] is None:
+                    node, value, visits = self._expand(self.root, root_child_id)
+                    self._back_propagate(node, value, visits)
+
+                for _ in range(visits_per_child):
+                    node: Node = self.root.children[root_child_id]
+                    node, child_id = self.select(node)
+
+                    if node.is_terminal is not None:
+                        value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
+                        visits = 1
+                    else:
+                        node, value, visits = self._expand(node, child_id)
+
+                    self._back_propagate(node, value, visits)
+                    if use_bar:
+                        bar.update(1)
+                    current_iteration += 1
+            print([self.root.children[id].action_history[-1].tolist() for id in top_node_ids], visits_per_child,
+                  len(chosen_ids) * visits_per_child, current_phase)
+            top_mean_values = (top_values / self.root.child_visits[top_node_ids]).astype(np.float32, copy=False)
+            print("Top mean value:", top_mean_values)
+            current_phase += 1
+
         if use_bar:
             bar.close()
 
-        move_probs = [0] * len(self.root.children) # this speeds things up by a bit, compared to append
-
-        prob_distribution = self.stable_max(self.root.child_visits)
+        move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
+        pi = compute_pi(self.root.child_values,
+                        self.root.child_logit_priors,
+                        self.root.child_visits,
+                        self.root.child_visits.max(),
+                        self.c_visit, self.c_scale,
+                        self.use_softmax)
+        self.fill_empty_children()
+        with np.errstate(divide='ignore', invalid='ignore'):
+            mean_values = self.root.child_values / self.root.child_visits
+            mean_values = np.where(self.root.child_visits > 0, mean_values, pi)
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                                         prob_distribution,
-                                                                                         self.root.child_values / self.root.child_visits, # winrate
+                                                                                         pi,
+                                                                                         mean_values, # winrate
                                                                                          self.root.child_values,
                                                                                          self.root.child_visits,
-                                                                                         self.root.child_prob_priors)):
-            move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior, self.root.visits, child.is_terminal]
-
-        if self.tau == 0:
-            prob_weights = np.zeros_like(self.root.child_visits)
-            prob_weights[np.argmax(self.root.child_visits)] = 1.0
-        else:
-            exp = np.array(1.0 / self.tau, dtype=np.float128)
-            prob_weights = ((self.root.child_visits.astype(np.float128) ** exp) / (np.array(self.root.visits, np.float128) ** exp))
-            prob_weights /= np.sum(prob_weights) # normalize back into a probability distribution
-            prob_weights = np.array(prob_weights, np.float64)
-
-        chosen_index = np.random.choice(np.arange(len(move_probs)), size=1, replace=False, p=prob_weights)[0]
-        move = move_probs[chosen_index][0]
+                                                                                         self.root.child_logit_priors)):
+            move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior,
+                                    self.root.visits, child.is_terminal]
         # stochastically sample a move with the weights affected by tau
 
-        move_probs = sorted(move_probs, key=lambda x: x[4], reverse=True)
-
-        return move, move_probs
-
+        move_probs = sorted(move_probs, key=lambda x: x[1], reverse=True)
+        return self.root.children[top_node_ids[0]].action_history[-1], move_probs
 
     def _set_root(self, child: Node):
         # cannot delete action or child_legal_moves because there is a chance that they haven't been fully searched
         # don't worry they will be deleted in _expand when the time is right
 
         if child.is_terminal is None:
-            if len(child.children) < len(child.child_visits):
+            if len(child.child_legal_actions) > 0:
                 child_legal_actions = child.child_legal_actions
                 child_current_player = child.current_player
                 child_RNN_state = child.RNN_state
             else:
-                child_legal_actions = [0]  # this is only used as an initialization, will be overwritten
+                child_legal_actions = child.child_legal_actions  # this is only used as an initialization, will be overwritten
                 child_current_player = None
                 child_RNN_state = None
-            child_prob_priors = child.child_prob_priors
+            child_logit_priors = child.child_logit_priors
         else:
-            child_legal_actions = [0] # this is only used as an initialization, will be overwritten
-            child_prob_priors = None
+            child_legal_actions = {}  # this is only used as an initialization, will be overwritten
+            child_logit_priors = None
             child_current_player = None
             child_RNN_state = None
 
@@ -597,7 +655,7 @@ class MCTS:
                         current_player=child_current_player,
                         child_legal_actions=child_legal_actions,
                         RNN_state=child_RNN_state,
-                        child_prob_priors=child_prob_priors)
+                        child_logit_priors=child_logit_priors)
 
         # del new_root.RNN_state # don't need this as child must be evaluated
         if child.is_terminal is None:
@@ -605,28 +663,26 @@ class MCTS:
             new_root.child_values = child.child_values
             new_root.child_visits = child.child_visits
 
-            if len(child.children) == len(child.child_visits):
-                del new_root.child_legal_actions, new_root.current_player
+            if len(child.child_legal_actions) == 0:
+                del new_root.current_player
 
         if child.is_terminal is not None:
-            del new_root.children, new_root.child_values, new_root.child_prob_priors,  new_root.child_legal_actions, new_root.current_player
+            del new_root.children, new_root.child_values, new_root.child_logit_priors, new_root.child_legal_actions, new_root.current_player
 
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
-
 
     def prune_tree(self, action):
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node
         # print(self.RNN_state)
         if self.session is not None:
-            _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), self.RNN_state, len(self.game.action_history))
+            _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), [], len(self.game.action_history))
         # print(self.RNN_state)
         for child in self.root.children:
-            if np.array_equal(child.action_history[-1], action):
+            if child is not None and np.array_equal(child.action_history[-1], action):
                 self._set_root(child)
                 return
-
 
         # this assumes that the tree was initialized with the other person's perspective
         # and calling prune_tree wants MCTS to play from the opponents perspective,
@@ -636,19 +692,17 @@ class MCTS:
         self.create_expand_root()
 
 
-
-
 if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
     # from Gomoku.Gomoku import Gomoku, build_config, train_config
+
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
-
     # game = Gomoku()
-
 
     # game.do_action((7, 7))
     # game.do_action((6, 7))
@@ -672,7 +726,6 @@ if __name__ == "__main__":
     # game.do_action((7, 4))
     # game.do_action((6, 4))
 
-
     # game = TicTacToe()
     # game.do_action((0, 0))
     # game.do_action((1, 0))
@@ -689,36 +742,29 @@ if __name__ == "__main__":
     # print(move, probs)
     #
 
-
-    embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [
-        ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable": True,
-        # "trt_dump_ep_context_model": True,
-        # "trt_builder_optimization_level": 5,
-        # "trt_auxiliary_streams": 0,
-        # "trt_ep_context_file_path": "Gomoku/Cache/",
-        #
-        # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        }),
+        # ('TensorrtExecutionProvider', {
+        #     # "trt_engine_cache_enable": True,
+        #     # "trt_dump_ep_context_model": True,
+        #     # "trt_builder_optimization_level": 5,
+        #     # "trt_auxiliary_streams": 0,
+        #     # "trt_ep_context_file_path": "Gomoku/Cache/",
+        #     #
+        #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # }),
         # 'CUDAExecutionProvider',
         'CPUExecutionProvider'
     ]
     # sess_options = rt.SessionOptions()
     # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32],
-                                "input_state": [[num_layers, 2, -1, embed_size], np.float32],
-                                "input_state_matrix": [[num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads], np.float32]
-                                }
+    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32]}
+
     batched_outputs_feed_info = {"policy": [-1, 225],
-                                 "value": [-1, 1],
-                                 "output_state": [num_layers, 2, -1, embed_size],
-                                 "output_state_matrix": [num_layers, -1, num_heads, embed_size // num_heads, embed_size // num_heads]
-                                 }
+                                 "value": [-1, 1]}
 
     # sess_options = rt.SessionOptions()
     # shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
@@ -741,26 +787,30 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/9/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
         game = TicTacToe()
+        # game.do_action((1, 1))
+        # game.do_action((0, 0))
+        # game.do_action((1, 0))
+        # game.do_action((1, 2))
+        # game.do_action((0, 2))
+        # game.do_action((2, 0))
+        #
+        # game.do_action((0, 1))
 
-        RNN_state1 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
-        RNN_state2 = [np.zeros((num_layers, 2, 1, embed_size), dtype=np.float32),
-                      np.zeros((num_layers, 1, num_heads, embed_size // num_heads, embed_size // num_heads),
-                               dtype=np.float32)]
-        mcts1 = MCTS(game,
-                     RNN_state1,
-                     session,
+        mcts1 = MCTS_Gumbel(game,
                      # None,
-                     c_puct_init=1.25,
-                     tau=0.0,
-                     use_dirichlet=False,
+                     session,
+                     None,
+                     m = 7,
+                     # c_puct_init=1.25,
+                     # tau=0.0,
+                     # use_dirichlet=False,
                      fast_find_win=False)
         # mcts2 = MCTS(game,
         #              RNN_state2,
@@ -776,17 +826,15 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_next_player() == 1:
-                move, probs = mcts1.run(10, use_bar=True)
+            if game.get_next_player() == -1:
+                move, probs = mcts1.run(200, use_bar=True)
             else:
-            #     move, probs = mcts2.run(350, use_bar=False)
+                #     move, probs = mcts2.run(350, use_bar=False)
                 move = game.input_action()
                 probs = []
             # legal_actions = game.get_legal_actions()
             # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
             # move = legal_actions[index]
-
-
 
             game.do_action(move)
             print(game.board)
@@ -802,7 +850,6 @@ if __name__ == "__main__":
         # raise ValueError
     print(winners)
 
-
     # print(game.board)
     # move1, probs1 = mcts1.run(100000, use_bar=False)
     # move2, probs2 = mcts2.run(100000, use_bar=False)
@@ -810,7 +857,6 @@ if __name__ == "__main__":
     # print(move1, move2)
     # print(probs1)
     # print(probs2)
-
 
     # winners = [0, 0, 0]
     # for _ in range(100):
@@ -851,8 +897,6 @@ if __name__ == "__main__":
     #     winners[winner + 1] += 1
     # print(winners)
 
-
-
     # print(game.board)
     # winner = -2
     # while winner == -2:
@@ -889,4 +933,3 @@ if __name__ == "__main__":
     #         winner = game.check_win()
     # print("player", winner, "won")
     # server.terminate()
-
