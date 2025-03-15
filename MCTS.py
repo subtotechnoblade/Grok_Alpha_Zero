@@ -284,7 +284,7 @@ class MCTS:
                 child_policy = terminal_mask / len(terminal_mask)
             else:
                 value = 0
-                child_policy = np.ones(len(terminal_mask)) / len(terminal_mask)
+                child_policy = np.ones(len(terminal_mask), dtype=np.float32) / len(terminal_mask)
 
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
