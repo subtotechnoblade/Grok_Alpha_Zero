@@ -2,7 +2,6 @@ import time
 import numpy as np
 np.seterr(all='raise')
 from tqdm import tqdm
-
 from MCTS import MCTS
 
 
@@ -162,6 +161,13 @@ class Game_Tester:
                 "The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
             return False
 
+        if np.sum(legal_policy) != 1.0:
+            print("Checking get_legal_actions_policy_MCTS: Fail")
+            print("The policy returned by get_legal_actions_policy_MCTS must add up to 1 when normalize=True")
+            return False
+
+
+
         shuffled_MCTS_legal_actions, shuffled_legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                                      self.game.get_next_player(),
                                                                                                      np.array(
@@ -186,6 +192,18 @@ class Game_Tester:
         else:
             print("Shuffle isn't implementing skipping shuffle checks")
         print("Checking get_legal_actions_policy_MCTS: Pass\n")
+
+        MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
+                                                                                   self.game.get_next_player(),
+                                                                                   np.array(
+                                                                                       self.game.action_history),
+                                                                                   dummy_policy,
+                                                                                   normalize=False,
+                                                                                   shuffle=False)
+        if np.sum(legal_policy) != 1.0:
+            print("Checking get_legal_actions_policy_MCTS: Fail")
+            print("The policy returned by get_legal_actions_policy_MCTS must shouldn't up to 1 when normalize=False")
+            return False
         return True
 
     def check_get_input_state(self):
@@ -478,51 +496,65 @@ class Game_Tester:
         print("Checking if everything works with MCTS: Pass\n")
         self.game = self.game_class()
         return True
-
+    def color_text(self, string, color="red"):
+        if color == "red":
+            return f"\033[91m{string}\033[00m"
+        if color == "yellow":
+            return f"\033[93m{string}\033[00m"
     def test(self):
         test_skipped = 0
         if not self.check_attributes():
-            print("Tests cannot continue unless all class attributes are created")
+            print(self.color_text("Tests cannot continue unless all class attributes are created", "yellow"))
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_legal_actions():
-            print("Tests cannot continue unless the tester can get the legal_actions from get_legal_actions")
+            print(self.color_text("Tests cannot continue unless the tester can get the legal actions from get_legal_actions", "yellow"))
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_legal_actions_MCTS():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_legal_actions_policy_MCTS():
-            print("Skipped checking legal_actions_policy_MCTS because it failed for reason above^")
-            print("Tests will continue\n")
+            print(self.color_text("Skipped checking legal_actions_policy_MCTS because it failed for reason above^", "yellow"))
+            print(self.color_text("Tests will continue\n", "yellow"))
             test_skipped += 1
 
         if not self.check_get_input_state():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_do_action():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_do_action_MCTS():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_check_win():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_compute_policy_improvement():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_augment_sample():
+            print(self.color_text("Tests Failed"))
             return False
 
         if not self.check_compatibility_with_MCTS():
+            print(self.color_text("Tests Failed"))
             return False
 
         if test_skipped == 0:
             print("All major and minor tests passed\n")
         else:
-            print(f"Skipped {test_skipped} tests, scroll up to see")
-            print("Aside from that all major tests passed\n")
+            print(self.color_text(f"Skipped {test_skipped} tests, scroll up to see", "yellow"))
+            print(self.color_text("Aside from that all major tests passed\n", "yellow"))
 
         return True
 
