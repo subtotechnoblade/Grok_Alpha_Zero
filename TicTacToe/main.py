@@ -35,6 +35,17 @@ def Validate_Train_Config(train_config):
         "use_tensorrt"] and "CUDAExecutionProvider" not in available_providers:
         raise RuntimeError("Please install CUDA as onnxruntime doesn't detect CUDAExecutionProvider")
 
+    if train_config["use_gumbel"]:
+        if not train_config.get("m", False):
+            raise ValueError("Parameter m is missing in train config")
+
+        if not train_config.get("c_visit", False):
+            raise ValueError("Parameter m is missing in train config")
+
+        if not train_config.get("c_scale", False):
+            raise ValueError("Parameter m is missing in train config")
+
+
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
 
