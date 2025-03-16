@@ -40,10 +40,10 @@ def Validate_Train_Config(train_config):
             raise ValueError("Parameter m is missing in train config")
 
         if not train_config.get("c_visit", False):
-            raise ValueError("Parameter m is missing in train config")
+            raise ValueError("Parameter c_visit is missing in train config")
 
         if not train_config.get("c_scale", False):
-            raise ValueError("Parameter m is missing in train config")
+            raise ValueError("Parameter c_scale is missing in train config")
 
 
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
