@@ -45,6 +45,9 @@ def Validate_Train_Config(train_config):
         if not train_config.get("c_scale", False):
             raise ValueError("Parameter c_scale is missing in train config")
 
+        if train_config.get("time_limit") is not None:
+            raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
+
 
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
