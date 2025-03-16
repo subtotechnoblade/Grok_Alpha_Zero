@@ -9,13 +9,12 @@ build_config = {"num_resnet_layers": 3, # This is the total amount of RWKV layer
                 "use_orthograd": True, # from grokking at the edge of numerica stability
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
-
 train_config = {
     "total_generations": 100, # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000, # amount of self play games until we re train the network
+    "games_per_generation": 100, # amount of self play games until we re train the network
     "max_actions": 150, # Note that this should be
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -28,15 +27,24 @@ train_config = {
     "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 1000, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
-    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
+
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    # These params will only be used when use_gumbel is set to True
+    "m": 16,  # Number of actions sampled in the first stage of sequential halving
+    "c_visit": 50.0,
+    "c_scale": 1.0,
+
+    # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.333, # should be around (10 / average moves per game)
 
-    "opening_actions": [[[7, 7], 0.45], [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.4],
+                        # [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
+                        ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 4, # The previous generation's data that will be used in training
@@ -45,8 +53,8 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.9, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 4, # The number of samples in a batch for training in parallel
-    "test_batch_size": 4, # If none, then train_batch_size will be used for the test batch size
+    "train_batch_size": 128, # The number of samples in a batch for training in parallel
+    "test_batch_size": 128, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": 2,
     "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
@@ -56,6 +64,7 @@ train_config = {
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
     "train_epochs": 15, # The number of epochs for training
 }
+
 class Gomoku:
     def __init__(self, width=15, height=15):
         self.board = np.zeros((height, width),
