@@ -739,7 +739,7 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/7/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
@@ -748,31 +748,31 @@ if __name__ == "__main__":
         game = TicTacToe()
 
         mcts1 = MCTS(game,
-                     None,
-                     # session,
+                     # None,
+                     session,
                      None,
                      c_puct_init=1.25,
                      tau=0.0,
                      use_dirichlet=False,
                      fast_find_win=False)
         # mcts2 = MCTS(game,
-        #              RNN_state2,
-        #              session,
-        #              # None,
+        #              None,
+        #              # session,
+        #              None,
         #              c_puct_init=2.5,
         #              tau=0.0,
         #              use_dirichlet=True,
         #              fast_find_win=False)
-        # print(f"Game: {game_id}")
+        print(f"Game: {game_id}")
         current_move_num = 0
         winner = -2
         print(game.board)
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(1, use_bar=True)
+                move, probs = mcts1.run(9, use_bar=False)
             else:
-                #     move, probs = mcts2.run(350, use_bar=False)
+                # move, probs = mcts2.run(9, use_bar=False)
                 move = game.input_action()
                 probs = []
             # legal_actions = game.get_legal_actions()

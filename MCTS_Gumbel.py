@@ -97,7 +97,7 @@ def q_transform(values, visits, min_value=-1.0, max_value=1.0):
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
 
-@njit(cache=True)
+# @njit(cache=True)
 def compute_pi(values,
                logits,
                visits,
@@ -163,7 +163,7 @@ class MCTS_Gumbel:
         # perform inference call to initialize root
         self.create_expand_root()
 
-    def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
+    def update_hyperparams(self, *args, **kwargs) -> None:
         return
 
     @staticmethod
@@ -180,7 +180,7 @@ class MCTS_Gumbel:
         visit_budget_per_child = int(n / (np.log2(m) * (m / (2 ** phase))))
         return child_ids, visit_budget_per_child
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def deterministic_selection(values,
                                 logits,
                                 visits,
@@ -194,21 +194,27 @@ class MCTS_Gumbel:
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
+        i = 0
         while True:
-
-            child_id = self.deterministic_selection(node.child_values,
-                                                    node.child_logit_priors,
-                                                    node.child_visits,
-                                                    self.root.child_visits.max(),
-                                                    self.c_visit,
-                                                    self.c_scale,
-                                                    self.use_softmax)
+            try:
+                child_id = self.deterministic_selection(node.child_values,
+                                                        node.child_logit_priors,
+                                                        node.child_visits,
+                                                        self.root.child_visits.max(),
+                                                        self.c_visit,
+                                                        self.c_scale,
+                                                        self.use_softmax)
+            except:
+                print("I:", i)
+                print(node.is_terminal)
+                print(self.root.is_terminal)
+                raise ValueError("debug point")
             if node.children[child_id] is None:
                 return node, child_id # Note that the node is the parent not the child
-            else:
-                if node.children[child_id].is_terminal is not None:
-                    return node.children[child_id], child_id
+            elif node.children[child_id].is_terminal is not None:
+                return node.children[child_id], child_id
             node = node.children[child_id]
+            i += 1
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
             # input_state, input_state_matrix = RNN_state
@@ -298,7 +304,7 @@ class MCTS_Gumbel:
                 child_policy = terminal_mask / len(terminal_mask)
             else:
                 value = 0
-                child_policy = np.ones(len(terminal_mask)) / len(terminal_mask)
+                child_policy = np.ones(len(terminal_mask), dtype=np.float32) / len(terminal_mask)
 
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
@@ -335,7 +341,8 @@ class MCTS_Gumbel:
                                                                                       -self.game.get_next_player(),
                                                                                       np.array(
                                                                                           self.game.action_history),
-                                                                                      child_policy)
+                                                                                      child_policy,
+                                                                                       normalize=False)
 
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
@@ -453,9 +460,10 @@ class MCTS_Gumbel:
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_logit_prior = self.game.get_legal_actions_policy_MCTS(child_board,
-                                                                                            -node.current_player,
-                                                                                            np.array(node.action_history),
-                                                                                            child_policy)
+                                                                                             -node.current_player,
+                                                                                             np.array(node.action_history),
+                                                                                             child_policy,
+                                                                                             normalize=False)
 
             child = Node(index,
                          child_board,
@@ -580,7 +588,8 @@ class MCTS_Gumbel:
 
                 for _ in range(visits_per_child):
                     node: Node = self.root.children[root_child_id]
-                    node, child_id = self.select(node)
+                    if node.is_terminal is None:
+                        node, child_id = self.select(node)
 
                     if node.is_terminal is not None:
                         value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
@@ -779,7 +788,7 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
@@ -796,32 +805,27 @@ if __name__ == "__main__":
         # game.do_action((0, 1))
 
         mcts1 = MCTS_Gumbel(game,
-                     # None,
-                     session,
-                     None,
-                     m = 7,
-                     # c_puct_init=1.25,
-                     # tau=0.0,
-                     # use_dirichlet=False,
-                     fast_find_win=False)
-        # mcts2 = MCTS(game,
-        #              RNN_state2,
-        #              session,
-        #              # None,
-        #              c_puct_init=2.5,
-        #              tau=0.0,
-        #              use_dirichlet=True,
+                            # None,
+                            session,
+                            None,
+                            m = 9,
+                            fast_find_win=False)
+        # mcts2 = MCTS_Gumbel(game,
+        #              None,
+        #              # session,
+        #              None,
+        #              m = 9,
         #              fast_find_win=False)
-        # print(f"Game: {game_id}")
+
         current_move_num = 0
         winner = -2
         print(game.board)
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(200, use_bar=True)
+                move, probs = mcts1.run(2, use_bar=False)
             else:
-                #     move, probs = mcts2.run(350, use_bar=False)
+                # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
                 probs = []
             # legal_actions = game.get_legal_actions()
