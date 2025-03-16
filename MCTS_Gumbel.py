@@ -196,19 +196,13 @@ class MCTS_Gumbel:
     def select(self, node: Node):
         i = 0
         while True:
-            try:
-                child_id = self.deterministic_selection(node.child_values,
-                                                        node.child_logit_priors,
-                                                        node.child_visits,
-                                                        self.root.child_visits.max(),
-                                                        self.c_visit,
-                                                        self.c_scale,
-                                                        self.use_softmax)
-            except:
-                print("I:", i)
-                print(node.is_terminal)
-                print(self.root.is_terminal)
-                raise ValueError("debug point")
+            child_id = self.deterministic_selection(node.child_values,
+                                                    node.child_logit_priors,
+                                                    node.child_visits,
+                                                    self.root.child_visits.max(),
+                                                    self.c_visit,
+                                                    self.c_scale,
+                                                    self.use_softmax)
             if node.children[child_id] is None:
                 return node, child_id # Note that the node is the parent not the child
             elif node.children[child_id].is_terminal is not None:
