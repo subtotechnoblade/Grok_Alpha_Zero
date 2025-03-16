@@ -14,7 +14,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     num_resnet_layers = build_config["num_resnet_layers"]
     num_filters = build_config["num_filters"]
     # input shape should be (3, 3)
-    inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs"),  # the name must be "inputs"
+    inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
     x = inputs
 
     # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
@@ -71,3 +71,8 @@ def build_model(input_shape, policy_shape, build_config, train_config):
         return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:
         return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+
+if __name__ == "__main__":
+    from Gomoku import Gomoku, build_config, train_config
+    game = Gomoku()
+    build_model(game.get_input_state().shape, game.policy_shape, build_config,train_config)
