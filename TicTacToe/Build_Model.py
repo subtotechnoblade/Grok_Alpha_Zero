@@ -17,9 +17,9 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     x = tf.keras.layers.Conv2D(128, (5, 5), padding="same")(inputs)
     x = tf.keras.layers.Conv2D(64, (3, 3), padding="same")(x)
 
-    # for _ in range(build_config["num_resnet_layers"]):
-    #     x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
-    #     x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
+    for _ in range(build_config["num_resnet_layers"]):
+        x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
+        x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
 
     # policy = tf.keras.layers.BatchNormalization()(x)
     policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
