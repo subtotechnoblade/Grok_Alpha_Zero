@@ -8,6 +8,7 @@ import onnxruntime as rt
 import multiprocessing as mp
 
 from MCTS import MCTS
+from MCTS_Gumbel import MCTS_Gumbel
 
 from Session_Cache import Cache_Wrapper
 from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
@@ -35,26 +36,41 @@ class Self_Play:
         self.iteration_limit = self.train_config["MCTS_iteration_limit"]
         self.time_limit = self.train_config["MCTS_time_limit"]
 
-        dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
-        self.mcts1: MCTS = MCTS(game=self.game,
-                                session=self.sess,
-                                use_njit=train_config["use_njit"],
-                                c_puct_init=self.train_config["c_puct_init"],
-                                use_dirichlet=True,
-                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                                dirichlet_epsilon=dirichlet_epsilon,
-                                tau=1.0,
-                                fast_find_win=False)
+        if not train_config["use_gumbel"]:
+            dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
+            self.mcts1: MCTS = MCTS(game=self.game,
+                                    session=self.sess,
+                                    use_njit=train_config["use_njit"],
+                                    c_puct_init=self.train_config["c_puct_init"],
+                                    use_dirichlet=True,
+                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
+                                    dirichlet_epsilon=dirichlet_epsilon,
+                                    tau=1.0,
+                                    fast_find_win=False)
 
-        self.mcts2: MCTS = MCTS(game=self.game,
-                                session=self.sess,
-                                use_njit=train_config["use_njit"],
-                                c_puct_init=self.train_config["c_puct_init"],
-                                use_dirichlet=True,
-                                dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                                dirichlet_epsilon=dirichlet_epsilon,
-                                tau=1.0,
-                                fast_find_win=False)
+            self.mcts2: MCTS = MCTS(game=self.game,
+                                    session=self.sess,
+                                    use_njit=train_config["use_njit"],
+                                    c_puct_init=self.train_config["c_puct_init"],
+                                    use_dirichlet=True,
+                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
+                                    dirichlet_epsilon=dirichlet_epsilon,
+                                    tau=1.0,
+                                    fast_find_win=False)
+        else:
+            self.mcts1 = MCTS_Gumbel(game=self.game,
+                                     session=self.sess,
+                                     use_njit=self.train_config["use_njit"],
+                                     m=self.train_config["m"],
+                                     c_visit=self.train_config["c_visit"],
+                                     c_scale=self.train_config["c_scale"])
+
+            self.mcts2 = MCTS_Gumbel(game=self.game,
+                                     session=self.sess,
+                                     use_njit=self.train_config["use_njit"],
+                                     m=self.train_config["m"],
+                                     c_visit=self.train_config["c_visit"],
+                                     c_scale=self.train_config["c_scale"])
 
     def play(self):
         board_states = []
@@ -68,19 +84,20 @@ class Self_Play:
 
             current_move_num = len(self.game.action_history)
 
+            c_puct_init = None if self.train_config["use_gumbel"] else self.mcts1.c_puct_init
             if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
                 tau = 1.0 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, tau)
+                self.mcts1.update_hyperparams(c_puct_init, tau)
             else:
-                self.mcts1.update_hyperparams(self.mcts1.c_puct_init, 0)
+                self.mcts1.update_hyperparams(c_puct_init, 0)
 
             if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
                 "num_explore_actions_second"]:
                 tau = 1.0 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
-                self.mcts2.update_hyperparams(self.mcts2.c_puct_init, tau)
+                self.mcts2.update_hyperparams(c_puct_init, tau)
             else:
-                self.mcts2.update_hyperparams(self.mcts2.c_puct_init, 0)
+                self.mcts2.update_hyperparams(c_puct_init, 0)
 
             if self.game.get_next_player() == -1:
                 action, move_probs = self.mcts1.run(
