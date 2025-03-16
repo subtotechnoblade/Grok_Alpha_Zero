@@ -38,11 +38,13 @@ class Value_Loss_Gumbel(tf.keras.Loss):
         return self.loss_fn(y_true, y_pred)
 
 class KLD_Gumbel(tf.keras.Loss):
-    def __init__(self, **kwargs):
+    def __init__(self, activation_fn, **kwargs):
         super().__init__(**kwargs)
+        self.activation_fn = activation_fn
         self.loss_fn = tf.keras.losses.KLDivergence()
 
     def call(self, y_true, y_pred):
+        y_pred = self.activation_fn(y_pred)
         return self.loss_fn(y_true, y_pred)
 
 
