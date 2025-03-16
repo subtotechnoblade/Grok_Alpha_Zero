@@ -3,7 +3,7 @@ from numba import njit
 
 # This is for building the model
 build_config = {"num_resnet_layers": 3, # This is the total amount of RWKV layers in the model that are used
-
+                "num_filters":128,
                 "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True, # from grokfast paper
                 "use_orthograd": True, # from grokking at the edge of numerica stability
