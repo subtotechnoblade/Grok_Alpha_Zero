@@ -126,7 +126,7 @@ class Game_Tester:
     def check_legal_actions_policy_MCTS(self):
         class_legal_actions = self.game.get_legal_actions()
 
-        dummy_policy = np.random.uniform(0, 1, size=self.game.policy_shape)
+        dummy_policy = np.random.uniform(0, 10, size=self.game.policy_shape)
 
         try:
             MCTS_legal_actions, legal_policy = self.game.get_legal_actions_policy_MCTS(self.game.board,
@@ -161,7 +161,7 @@ class Game_Tester:
                 "The list/array of legal actions returned by get_legal_actions and get_legal_actions_policy_MCTS must be the same length with the same elements")
             return False
 
-        if np.sum(legal_policy) != 1.0:
+        if not np.isclose(np.sum(legal_policy), 1.0):
             print("Checking get_legal_actions_policy_MCTS: Fail")
             print("The policy returned by get_legal_actions_policy_MCTS must add up to 1 when normalize=True")
             return False
@@ -200,7 +200,7 @@ class Game_Tester:
                                                                                    dummy_policy,
                                                                                    normalize=False,
                                                                                    shuffle=False)
-        if np.sum(legal_policy) != 1.0:
+        if np.isclose(np.sum(legal_policy), 1.0):
             print("Checking get_legal_actions_policy_MCTS: Fail")
             print("The policy returned by get_legal_actions_policy_MCTS must shouldn't up to 1 when normalize=False")
             return False
