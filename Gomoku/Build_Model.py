@@ -11,7 +11,6 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
 
-    embed_size = build_config["embed_size"]
     num_resnet_layers = build_config["num_resnet_layers"]
     num_filters = build_config["num_filters"]
     # input shape should be (3, 3)
@@ -55,7 +54,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     # value = Batched_Net_Infer.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
     value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
-    value = tf.keras.layers.Dense(embed_size)(value)
+    value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.Activation("relu")(value)
     value = tf.keras.layers.Dense(1)(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
