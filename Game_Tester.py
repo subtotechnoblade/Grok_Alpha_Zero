@@ -482,7 +482,7 @@ class Game_Tester:
         winner = - 2
         while winner == -2:
             try:
-                action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()) * 100, use_bar=False)
+                action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
             except:
                 print("Checking if everything works with MCTS: Fail")
                 print("MCTS doesn't work, might want to test that!")
