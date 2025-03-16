@@ -308,8 +308,8 @@ class MCTS:
                                      parent=self.root)
                 del terminal_node.child_legal_actions, terminal_node.RNN_state, terminal_node.child_prob_priors
                 self.root.children.append(terminal_node)
-
-                self._back_propagate(self.root, value)
+                print("True")
+                self._back_propagate(terminal_node, value)
 
 
         else:
@@ -739,14 +739,22 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
         game = TicTacToe()
+        game.do_action((1, 1))
+        game.do_action((0, 0))
+        game.do_action((1, 0))
+        game.do_action((1, 2))
+        game.do_action((0, 2))
+        game.do_action((2, 0))
 
+        game.do_action((2, 2))
+        game.do_action((0, 1))
         mcts1 = MCTS(game,
                      # None,
                      session,
@@ -770,7 +778,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(9, use_bar=False)
+                move, probs = mcts1.run(1, use_bar=False)
             else:
                 # move, probs = mcts2.run(9, use_bar=False)
                 move = game.input_action()

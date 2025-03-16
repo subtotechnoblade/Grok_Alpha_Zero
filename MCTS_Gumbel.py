@@ -573,7 +573,6 @@ class MCTS_Gumbel:
             if len_root_ids == 2 or len_root_ids == 3:
                 visits_per_child = (iteration_limit - current_iteration) // len_root_ids
 
-            # raise ValueError
 
             for root_child_id in top_node_ids:
                 if self.root.children[root_child_id] is None:
@@ -608,7 +607,7 @@ class MCTS_Gumbel:
                         self.root.child_visits.max(),
                         self.c_visit, self.c_scale,
                         self.use_softmax)
-        print(pi)
+
         self.fill_empty_children()
         with np.errstate(divide='ignore', invalid='ignore'):
             mean_values = self.root.child_values / self.root.child_visits
