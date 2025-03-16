@@ -76,12 +76,12 @@ class Root(Node):  # inheritance
         del self.child_id  # saved 24 bytes OMG
 
 
-@njit("float32[:](float32[:])", cache=True, fastmath=True)
+@njit("float32[:](float32[:])", cache=True)
 def stablemax(logits):
     s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
     return s_x / np.sum(s_x)
 
-@njit("float32[:](float32[:])", cache=True, fastmath=True)
+@njit("float32[:](float32[:])", cache=True)
 def softmax(logits):
     exp = np.exp(logits)
     return exp / np.sum(logits)
@@ -97,7 +97,7 @@ def q_transform(values, visits, min_value=-1.0, max_value=1.0):
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
 
-# @njit(cache=True)
+@njit(cache=True)
 def compute_pi(values,
                logits,
                visits,
@@ -328,8 +328,8 @@ class MCTS_Gumbel:
                 del terminal_node.child_legal_actions
                 del terminal_node.RNN_state, terminal_node.child_logit_priors
                 self.root.children[child_id] = terminal_node
-
-                self._back_propagate(self.root, value)
+                # print(True)
+                self._back_propagate(terminal_node, value)
 
 
         else:
@@ -614,6 +614,7 @@ class MCTS_Gumbel:
                         self.root.child_visits.max(),
                         self.c_visit, self.c_scale,
                         self.use_softmax)
+        print(pi)
         self.fill_empty_children()
         with np.errstate(divide='ignore', invalid='ignore'):
             mean_values = self.root.child_values / self.root.child_visits
@@ -788,27 +789,28 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/10/model.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
         game = TicTacToe()
-        # game.do_action((1, 1))
-        # game.do_action((0, 0))
-        # game.do_action((1, 0))
-        # game.do_action((1, 2))
-        # game.do_action((0, 2))
-        # game.do_action((2, 0))
-        #
-        # game.do_action((0, 1))
+        game.do_action((1, 1))
+        game.do_action((0, 0))
+        game.do_action((1, 0))
+        game.do_action((1, 2))
+        game.do_action((0, 2))
+        game.do_action((2, 0))
+
+        game.do_action((2, 2))
+        game.do_action((0, 1))
 
         mcts1 = MCTS_Gumbel(game,
                             # None,
                             session,
                             None,
-                            m = 9,
+                            m = 2,
                             fast_find_win=False)
         # mcts2 = MCTS_Gumbel(game,
         #              None,
