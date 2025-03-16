@@ -389,7 +389,7 @@ class Game_Tester:
                 print(
                     "check_win_MCTS is much faster than check_win, perhaps use check_win_MCTS as the implementation for check_win?\n")
 
-        print("Check if the final board is correct (win or draw), since there is no way for this program to know that!")
+        print(self.color_text("Check if the final board is correct (win or draw), since there is no way for this program to know that!", "green"))
         print(f"Final action is {action}, and the winner should be: {winner}")
         print(self.game.board)
         print("Checking check_win: Pass\n")
@@ -501,6 +501,8 @@ class Game_Tester:
             return f"\033[91m{string}\033[00m"
         if color == "yellow":
             return f"\033[93m{string}\033[00m"
+        if color == "green":
+            return f"\033[92m{string}\033[00m"
     def test(self):
         test_skipped = 0
         if not self.check_attributes():
