@@ -368,6 +368,11 @@ def run_self_play(game_class,
 
     for worker in jobs:
         worker.join()
+        if worker.exitcode != 0:
+            server.terminate()
+            for shm in shms:
+                shm.unlink()
+            raise RuntimeError("Main process stopped and self play worker ran into an error")
 
     if train_config["use_inference_server"]:
         server.terminate()
