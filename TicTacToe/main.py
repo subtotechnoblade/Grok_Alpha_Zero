@@ -312,7 +312,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from TicTacToe import Tictactoe, build_config, train_config
-    from Build_Model import build_model
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Build_Model import build_model
 
-    Run(Tictactoe, build_model, build_config, train_config)
+    Run(TicTacToe, build_model, build_config, train_config)
