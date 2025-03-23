@@ -58,10 +58,11 @@ class Self_Play:
                                     tau=1.0,
                                     fast_find_win=False)
         else:
+            use_max_m = (self.generation / self.train_config["total_generations"]) <= 0.2
             self.mcts1 = MCTS_Gumbel(game=self.game,
                                      session=self.sess,
                                      use_njit=self.train_config["use_njit"],
-                                     m=self.train_config["m"],
+                                     m=self.train_config["m"] if not use_max_m else self.game.policy_shape[0],
                                      c_visit=self.train_config["c_visit"],
                                      c_scale=self.train_config["c_scale"],
                                      activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
@@ -69,7 +70,7 @@ class Self_Play:
             self.mcts2 = MCTS_Gumbel(game=self.game,
                                      session=self.sess,
                                      use_njit=self.train_config["use_njit"],
-                                     m=self.train_config["m"],
+                                     m=self.train_config["m"] if not use_max_m else self.game.policy_shape[0],
                                      c_visit=self.train_config["c_visit"],
                                      c_scale=self.train_config["c_scale"],
                                      activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
