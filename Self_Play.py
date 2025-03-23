@@ -101,12 +101,12 @@ class Self_Play:
 
             if self.game.get_next_player() == -1:
                 action, move_probs = self.mcts1.run(
-                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1)),
+                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1.0)),
                     time_limit=self.time_limit,
                     use_bar=False)
             else:
                 action, move_probs = self.mcts2.run(
-                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1)),
+                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1.0)),
                     time_limit=self.time_limit,
                     use_bar=False)
 
@@ -134,12 +134,11 @@ class Self_Play:
 
             winner = self.game.check_win()
 
-            if winner == -2:
-                self.mcts1.prune_tree(action)  # or else there will be an error because you are pruning a winning move
-                self.mcts2.prune_tree(action)  # or else there will be an error because you are pruning a winning move
-                # there are no more moves after a winning move
-            # else:
-            # print(f"Player: {winner} won")
+            if winner == -2:  # or else there will be an error, because you are pruning a winning move
+                create_new_root = train_config.get("create_new_root", False)
+                self.mcts1.prune_tree(action, create_new_root)
+                self.mcts2.prune_tree(action, create_new_root)
+
             actions_count += 1
             if actions_count == self.train_config["max_actions"]:
                 winner = 0
@@ -192,6 +191,7 @@ class Self_Play:
                                     data=augmented_values[inc],
                                     chunks=None)
 
+
 def self_play_task(worker_id,
                    info,
                    game_class,
@@ -211,7 +211,7 @@ def self_play_task(worker_id,
     else:
         providers, onnx_path = info
 
-        import onnxruntime as rt # have to do this because of "spawn" in windows
+        import onnxruntime as rt  # have to do this because of "spawn" in windows
         session = rt.InferenceSession(onnx_path, providers=providers)
     session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
@@ -226,7 +226,6 @@ def self_play_task(worker_id,
 
     if train_config["use_inference_server"]:
         info.close()
-
 
 
 def convert_shape(shape):
@@ -295,7 +294,8 @@ def run_self_play(game_class,
     batched_output_feed_info = {"policy": [-1, *policy_shape],
                                 "value": [-1, 1]}
 
-    print(f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
+    print(
+        f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
     bar = tqdm(total=num_games_left, desc="Generating self play games")
     shms = []
     if train_config["use_inference_server"]:
@@ -316,7 +316,8 @@ def run_self_play(game_class,
             worker_id = len(jobs)
             worker = mp.Process(target=self_play_task,
                                 args=(worker_id,
-                                      shms[worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
+                                      shms[worker_id] if train_config["use_inference_server"] else [providers,
+                                                                                                    onnx_file_path],
                                       game_class,
                                       convert_to_single_info(batched_input_feed_info),
                                       convert_to_single_info(batched_output_feed_info),
@@ -344,10 +345,14 @@ def run_self_play(game_class,
             if len(alive_jobs) != len(jobs) and num_games_left - len(alive_jobs) > 0:
                 for dead_worker_id in dead_worker_ids:
                     new_worker = mp.Process(target=self_play_task, args=(dead_worker_id,
-                                                                         shms[dead_worker_id] if train_config["use_inference_server"] else [providers, onnx_file_path],
+                                                                         shms[dead_worker_id] if train_config[
+                                                                             "use_inference_server"] else [providers,
+                                                                                                           onnx_file_path],
                                                                          game_class,
-                                                                         convert_to_single_info(batched_input_feed_info),
-                                                                         convert_to_single_info(batched_output_feed_info),
+                                                                         convert_to_single_info(
+                                                                             batched_input_feed_info),
+                                                                         convert_to_single_info(
+                                                                             batched_output_feed_info),
                                                                          build_config,
                                                                          train_config,
                                                                          lock,
