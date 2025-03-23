@@ -624,17 +624,14 @@ class MCTS:
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
 
-    def prune_tree(self, action):
+    def prune_tree(self, action, create_new_root=False):
         # given the move set the root to the child that corresponds to the move played
         # then call set root as root is technically a different class from Node
-        # print(self.RNN_state)
-        if self.session is not None:
-            _, _, self.RNN_state = self._compute_outputs(self.game.get_input_state(), [], len(self.game.action_history))
-        # print(self.RNN_state)
-        for child in self.root.children:
-            if np.array_equal(child.action_history[-1], action):
-                self._set_root(child)
-                return
+        if not create_new_root:
+            for child in self.root.children:
+                if np.array_equal(child.action_history[-1], action):
+                    self._set_root(child)
+                    return
 
         # this assumes that the tree was initialized with the other person's perspective
         # and calling prune_tree wants MCTS to play from the opponents perspective,
@@ -746,15 +743,15 @@ if __name__ == "__main__":
     winners = [0, 0, 0]
     for game_id in range(1):
         game = TicTacToe()
-        game.do_action((1, 1))
-        game.do_action((0, 0))
-        game.do_action((1, 0))
-        game.do_action((1, 2))
-        game.do_action((0, 2))
-        game.do_action((2, 0))
-
-        game.do_action((2, 2))
-        game.do_action((0, 1))
+        # game.do_action((1, 1))
+        # game.do_action((0, 0))
+        # game.do_action((1, 0))
+        # game.do_action((1, 2))
+        # game.do_action((0, 2))
+        # game.do_action((2, 0))
+        #
+        # game.do_action((2, 2))
+        # game.do_action((0, 1))
         mcts1 = MCTS(game,
                      # None,
                      session,
