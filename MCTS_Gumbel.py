@@ -93,8 +93,8 @@ def softmax(logits):
 @njit(["float32[:](float32[:], uint32[:], float32, float32)",
        "float32[:](float32[:], int64, float32, float32)"]
     , cache=True, fastmath=True)
-def q_transform(values, visits, min_value=-1.0, max_value=1.0):
-    values = np.where(visits > 0, values, min_value)
+def q_transform(input_values, visits, min_value=-1.0, max_value=1.0):
+    values = np.where(visits > 0, input_values, min_value)
     return (values - min_value) / (max_value - min_value)
 
 
@@ -183,21 +183,20 @@ class MCTS_Gumbel:
             self.c_visit = c_visit
 
     @staticmethod
-    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
-    def sequential_halving(m, n, gumbel_logits, q, N_b, c_visit, c_scale, phase, ):
+    @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase, ):
         """
         return the index of the top actions as a generator
         """
         if phase == 0:
             child_ids = np.argsort(gumbel_logits)[-m:]
         else:
-            q_hat = q / np.sum(q)
             child_ids = np.argsort(gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))[-int(m / (2 ** phase)):]
         visit_budget_per_child = int(n / (np.log2(m) * (m / (2 ** phase))))
         return child_ids, visit_budget_per_child
 
     @staticmethod
-    # @njit(cache=True)
+    @njit(cache=True)
     def deterministic_selection(values,
                                 logits,
                                 visits,
@@ -212,7 +211,6 @@ class MCTS_Gumbel:
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
-        i = 0
         while True:
             child_id = self.deterministic_selection(node.child_values,
                                                     node.child_logit_priors,
@@ -226,7 +224,6 @@ class MCTS_Gumbel:
             elif node.children[child_id].is_terminal is not None:
                 return node.children[child_id], child_id
             node = node.children[child_id]
-            i += 1
 
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
@@ -570,7 +567,7 @@ class MCTS_Gumbel:
         top_gumbel_logits = (self.root.child_logit_priors + gumbel_noise).astype(np.float32, copy=False)
         # the * 20 is for debugging for probs to "simulate" logits
         top_node_ids = np.arange(len(self.root.children))
-        top_values = top_mean_values = self.root.child_values
+        top_mean_values = self.root.child_values
 
         while len_legal_actions > 1:
 
@@ -586,8 +583,8 @@ class MCTS_Gumbel:
             chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
-            top_values = top_values[chosen_ids]
             top_node_ids = top_node_ids[chosen_ids]
+            top_values = self.root.child_values[top_node_ids]
             len_root_ids = len(chosen_ids)
             if len_root_ids == 1:
                 break
@@ -709,9 +706,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -757,17 +754,17 @@ if __name__ == "__main__":
 
     max_shape, opt_shape = 12, 12
     providers = [
-        # ('TensorrtExecutionProvider', {
-        #     # "trt_engine_cache_enable": True,
-        #     # "trt_dump_ep_context_model": True,
-        #     # "trt_builder_optimization_level": 5,
-        #     # "trt_auxiliary_streams": 0,
-        #     # "trt_ep_context_file_path": "Gomoku/Cache/",
-        #     #
-        #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # }),
+        ('TensorrtExecutionProvider', {
+            # "trt_engine_cache_enable": True,
+            # "trt_dump_ep_context_model": True,
+            # "trt_builder_optimization_level": 5,
+            # "trt_auxiliary_streams": 0,
+            # "trt_ep_context_file_path": "Gomoku/Cache/",
+            #
+            # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+            # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+            # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        }),
         # 'CUDAExecutionProvider',
         'CPUExecutionProvider'
     ]
@@ -800,28 +797,38 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/4/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/TRT_cache/model_ctx.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = TicTacToe()
-        game.do_action((1, 1))
-        game.do_action((0, 0))
-        game.do_action((1, 0))
-        game.do_action((1, 2))
-        game.do_action((0, 2))
-        game.do_action((2, 0))
+        game = Gomoku()
+        game.do_action((7, 7))
+        game.do_action((6, 7))
+        game.do_action((7, 6))
+        game.do_action((6, 6))
+        game.do_action((7, 5))
+        # game.do_action((6, 5))
 
-        game.do_action((2, 2))
-        game.do_action((0, 1))
+        # game = TicTacToe()
+        # game.do_action((1, 1))
+        # game.do_action((0, 0))
+        # game.do_action((1, 0))
+        # game.do_action((1, 2))
+        # game.do_action((0, 2))
+        # game.do_action((2, 0))
+        #
+        # game.do_action((2, 2))
+        # game.do_action((0, 1))
 
         mcts1 = MCTS_Gumbel(game,
                             # None,
                             session,
                             None,
-                            m=2,
+                            m=225,
+                            c_scale=1.0,
+                            c_visit = 50.0,
                             fast_find_win=False)
         # mcts2 = MCTS_Gumbel(game,
         #              None,
@@ -835,8 +842,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_next_player() == -1:
-                move, probs = mcts1.run(2, use_bar=False)
+            if game.get_next_player() == 1:
+                move, probs = mcts1.run(20000, use_bar=True)
             else:
                 # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
