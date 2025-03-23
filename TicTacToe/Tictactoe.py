@@ -80,7 +80,7 @@ import time
 
 build_config = {"num_resnet_layers": 1,
 
-                "use_stable_max": False,
+                "use_stablemax": False,
                 "use_grok_fast": True,
                 "use_orthograd": True,
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
