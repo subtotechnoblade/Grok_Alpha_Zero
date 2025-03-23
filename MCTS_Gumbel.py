@@ -86,7 +86,8 @@ def stablemax(logits):
 
 @njit("float32[:](float32[:])", cache=True)
 def softmax(logits):
-    exp = np.exp(logits)
+    c = -np.max(logits) # for numerical stability
+    exp = np.exp(logits + c)
     return exp / np.sum(exp)
 
 
@@ -133,7 +134,7 @@ class MCTS_Gumbel:
                  m=16,
                  c_visit=50.0,
                  c_scale=1.0,
-                 activation_fn="stablemax",
+                 activation_fn="softmax",
                  fast_find_win=False,  # this is for training, when exploiting change to True
                  ):
         """
@@ -706,9 +707,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -797,21 +798,21 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/4/model.onnx", providers=providers)
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/TRT_cache/model_ctx.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
-        game.do_action((7, 7))
-        game.do_action((6, 7))
-        game.do_action((7, 6))
-        game.do_action((6, 6))
-        game.do_action((7, 5))
+        # game = Gomoku()
+        # game.do_action((7, 7))
+        # game.do_action((6, 7))
+        # game.do_action((7, 6))
+        # game.do_action((6, 6))
+        # game.do_action((7, 5))
         # game.do_action((6, 5))
 
-        # game = TicTacToe()
+        game = TicTacToe()
         # game.do_action((1, 1))
         # game.do_action((0, 0))
         # game.do_action((1, 0))
@@ -826,7 +827,7 @@ if __name__ == "__main__":
                             # None,
                             session,
                             None,
-                            m=225,
+                            m=9,
                             c_scale=1.0,
                             c_visit = 50.0,
                             fast_find_win=False)
@@ -842,8 +843,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_next_player() == 1:
-                move, probs = mcts1.run(20000, use_bar=True)
+            if game.get_next_player() == -1:
+                move, probs = mcts1.run(2000, use_bar=True)
             else:
                 # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
