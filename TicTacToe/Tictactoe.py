@@ -80,14 +80,14 @@ import time
 
 build_config = {"num_resnet_layers": 1,
 
-                "use_stable_max": True,
+                "use_stable_max": False,
                 "use_grok_fast": True,
                 "use_orthograd": True,
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
                 }
 
 train_config = {
-    "total_generations": 3,  # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 10,  # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
@@ -136,7 +136,7 @@ train_config = {
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 1.5e-3,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
