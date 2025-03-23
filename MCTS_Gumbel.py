@@ -170,7 +170,17 @@ class MCTS_Gumbel:
         self.create_expand_root()
 
     def update_hyperparams(self, *args, **kwargs) -> None:
-        return
+        m = kwargs.get("m")
+        if m is not None:
+            self.m = m
+
+        c_scale = kwargs.get("c_scale")
+        if c_scale is not None:
+            self.c_scale = c_scale
+
+        c_visit = kwargs.get("c_visit")
+        if c_visit is not None:
+            self.c_visit = c_visit
 
     @staticmethod
     # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)

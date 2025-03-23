@@ -135,16 +135,18 @@ class MCTS:
         # perform inference call to initialize root
         self.create_expand_root()
 
-    def update_hyperparams(self, new_c_puct_init, new_tau) -> None:
-        if new_c_puct_init < 0.0:
-            warn(f"Cpuct value is invalid, {new_c_puct_init} cannot be negative. Invalidating update and returning")
+    def update_hyperparams(self, *args, **kwargs) -> None:
+        c_puct_init = kwargs.get("c_puct_init")
+        if c_puct_init < 0.0:
+            warn(f"c_puct_init value is invalid, {c_puct_init} cannot be negative. Invalidating update and returning")
             return
-        self.c_puct_init = new_c_puct_init
+        self.c_puct_init = c_puct_init
 
-        if new_tau != 0 and new_tau < 5e-3:
+        tau = kwargs.get("tau")
+        if tau != 0 and tau < 5e-3:
             warn(f"Tau can't be less than 5e-3.Changing tau = 0.0")
-            new_tau = 0.0
-        self.tau = new_tau
+            tau = 0.0
+        self.tau = tau
 
     @staticmethod
     @njit("int64(float32[:], float32[:], uint32[:], int64, float32, float32)", cache=True, fastmath=True)
