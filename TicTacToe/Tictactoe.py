@@ -112,7 +112,7 @@ train_config = {
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
-    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
     # These params will only be used when use_gumbel is set to True
     "m": 16, # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
