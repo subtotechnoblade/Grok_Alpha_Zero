@@ -66,7 +66,7 @@ train_config = {
     "train_batch_size": 8,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 1e-3,  # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 1e-3,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.5, # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
@@ -212,7 +212,6 @@ class Game:
         # gets the numpy array for the neural network
         # for now just return the board as a numpy array
         # Brian will probably implement this later for specific neural networks
-        # RWKV can just take in the board without problem
         # the original alphazero's network required the past boards
         # Uses in the root node of MCTS
         pass

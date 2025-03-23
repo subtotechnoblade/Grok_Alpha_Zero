@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 
 # This is for building the model
-build_config = {"num_resnet_layers": 3, # This is the total amount of RWKV layers in the model that are used
+build_config = {"num_resnet_layers": 3, # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
                 "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True, # from grokfast paper
@@ -56,7 +56,7 @@ train_config = {
     "train_batch_size": 256, # The number of samples in a batch for training in parallel
     "test_batch_size": 256, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4, # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
