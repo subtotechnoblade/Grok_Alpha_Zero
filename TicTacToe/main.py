@@ -48,7 +48,6 @@ def Validate_Train_Config(train_config):
         if train_config.get("time_limit") is not None:
             raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
 
-
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
 
@@ -93,7 +92,8 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
     train_dataloader, test_dataloader = Create_Dataset(str(Path(folder_path).parent),
-                                                       num_previous_generations=train_config["num_previous_generations"],
+                                                       num_previous_generations=train_config[
+                                                           "num_previous_generations"],
                                                        train_batch_size=train_config["train_batch_size"],
                                                        test_batch_size=train_config["test_batch_size"],
                                                        train_percent=train_config["train_percent"],
@@ -153,27 +153,37 @@ def Initialize(game_class, build_model_fn, build_config, train_config):  # This 
         print("Running on Windows will cause massive slowdowns")
         print("Although Brian's code has to work around it, training on Linux is just much faster")
         print("Windows has to re spawn every process and thus requires to recreate everything")
-        print("Linux uses fork where the parent memory is just given to the new process and thus nothing need to be recreated")
+        print(
+            "Linux uses fork where the parent memory is just given to the new process and thus nothing need to be recreated")
         print("SO angry RN")
         print("L BOZO")
-        
+
     print("Initializing the model\n")
     p = mp.Process(target=_initialize_model, args=(game, build_model_fn, build_config, train_config))
     p.start()
     p.join()
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
 
-    p = mp.Process(target=Create_onnx, args=(game_class, build_model_fn, build_config, train_config, "Grok_Zero_Train/0"))
+    p = mp.Process(target=Create_onnx,
+                   args=(game_class, build_model_fn, build_config, train_config, "Grok_Zero_Train/0"))
     p.start()
     p.join()
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
 
     if train_config["use_tensorrt"]:
         p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
 
     p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
     p.start()
     p.join()
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
 
     Make_Dataset_File("Grok_Zero_Train/0")
 
@@ -183,6 +193,8 @@ def Run(game_class, build_model_fn, build_config, train_config):
     p = mp.Process(target=Validate_Train_Config, args=(train_config,))
     p.start()
     p.join()
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
 
     parent_dir = Path(__file__).resolve().parent  # delete pycache in the parent directory
     if "__pycache__" in os.listdir(parent_dir):
@@ -230,6 +242,8 @@ def Run(game_class, build_model_fn, build_config, train_config):
                                                  f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
         calculate_speed = True
 
     if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
@@ -237,6 +251,8 @@ def Run(game_class, build_model_fn, build_config, train_config):
                        args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
         calculate_speed = True
 
     if calculate_speed:
@@ -244,6 +260,8 @@ def Run(game_class, build_model_fn, build_config, train_config):
                        args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
 
     if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
@@ -262,22 +280,31 @@ def Run(game_class, build_model_fn, build_config, train_config):
                                               f"Grok_Zero_Train/{generation}", f"Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
 
         p = mp.Process(target=Create_onnx,
-                       args=(game_class, build_model_fn, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                       args=(
+                       game_class, build_model_fn, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
 
         if train_config["use_tensorrt"]:
             p = mp.Process(target=cache_tensorrt,
                            args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
+            if p.exitcode != 0:
+                raise RuntimeError("Main process stopped")
 
             p = mp.Process(target=compute_speed,
                            args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
+            if p.exitcode != 0:
+                raise RuntimeError("Main process stopped")
         if generation < train_config["total_generations"] - 1:
             Make_Dataset_File(f"Grok_Zero_Train/{generation + 1}")
             print(f"Generation: {generation + 1} / {train_config['total_generations'] - 1}")
@@ -285,7 +312,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
-    from TicTacToe.Build_Model import build_model
+    from TicTacToe import Tictactoe, build_config, train_config
+    from Build_Model import build_model
 
-    Run(TicTacToe, build_model, build_config, train_config)
+    Run(Tictactoe, build_model, build_config, train_config)
