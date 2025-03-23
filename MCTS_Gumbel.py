@@ -87,7 +87,7 @@ def stablemax(logits):
 @njit("float32[:](float32[:])", cache=True)
 def softmax(logits):
     exp = np.exp(logits)
-    return exp / np.sum(logits)
+    return exp / np.sum(exp)
 
 
 @njit(["float32[:](float32[:], uint32[:], float32, float32)",
