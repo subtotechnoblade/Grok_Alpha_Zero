@@ -22,7 +22,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
     if not train_config["use_gumbel"]:
         policy_loss, value_loss, kld = Policy_Loss(), Value_Loss(), KLD()
     else:
-        if build_config["use_stable_max"]:
+        if build_config["use_stablemax"]:
             activation_fn = Stablemax()
         else:
             activation_fn = tf.keras.layers.Activation("softmax")

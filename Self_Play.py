@@ -63,14 +63,16 @@ class Self_Play:
                                      use_njit=self.train_config["use_njit"],
                                      m=self.train_config["m"],
                                      c_visit=self.train_config["c_visit"],
-                                     c_scale=self.train_config["c_scale"])
+                                     c_scale=self.train_config["c_scale"],
+                                     activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
 
             self.mcts2 = MCTS_Gumbel(game=self.game,
                                      session=self.sess,
                                      use_njit=self.train_config["use_njit"],
                                      m=self.train_config["m"],
                                      c_visit=self.train_config["c_visit"],
-                                     c_scale=self.train_config["c_scale"])
+                                     c_scale=self.train_config["c_scale"],
+                                     activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
 
     def play(self):
         board_states = []

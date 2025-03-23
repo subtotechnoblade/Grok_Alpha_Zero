@@ -110,7 +110,7 @@ def compute_pi(values,
                N_b,  # max visits for any action (this will be a child of the root)
                c_visit,
                c_scale,
-               use_softmax=False,
+               use_softmax=True,
                min_value=-1.0,
                max_value=1.0,
                ):
@@ -207,7 +207,7 @@ class MCTS_Gumbel:
                                 min_value=-1.0,
                                 max_value=1.0):
         pi = compute_pi(values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax, min_value=min_value,
-                        max_value=max_value, )
+                        max_value=max_value)
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
