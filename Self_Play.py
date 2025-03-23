@@ -135,7 +135,7 @@ class Self_Play:
             winner = self.game.check_win()
 
             if winner == -2:  # or else there will be an error, because you are pruning a winning move
-                create_new_root = train_config.get("create_new_root", False)
+                create_new_root = self.train_config.get("create_new_root", False)
                 self.mcts1.prune_tree(action, create_new_root)
                 self.mcts2.prune_tree(action, create_new_root)
 
