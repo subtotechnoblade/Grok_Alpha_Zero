@@ -342,6 +342,11 @@ def run_self_play(game_class,
                 else:
                     dead_worker_ids.append(int(worker.name))
                     worker.join()
+                    if worker.exitcode != 0:
+                        server.terminate()
+                        for shm in shms:
+                            shm.unlink()
+                        raise RuntimeError("Main process stopped as self play worker ran into an error")
                     num_games_left -= 1
                     bar.update(1)
 
@@ -372,7 +377,7 @@ def run_self_play(game_class,
             server.terminate()
             for shm in shms:
                 shm.unlink()
-            raise RuntimeError("Main process stopped and self play worker ran into an error")
+            raise RuntimeError("Main process stopped as self play worker ran into an error")
 
     if train_config["use_inference_server"]:
         server.terminate()
