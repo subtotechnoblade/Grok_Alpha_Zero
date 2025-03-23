@@ -32,14 +32,15 @@ def build_model(input_shape, policy_shape, build_config, train_config):
             # padding="valid"
             strides = (1, 1)
             mul *= 1.25
-        x =  ResNet_Conv2D(int(num_filters * mul), (3, 3), strides=strides, padding=padding)(x)
-        x =  ResNet_Identity2D(int(num_filters * mul), (3, 3))(x)
+        x = ResNet_Conv2D(int(num_filters * mul), (3, 3), strides=strides, padding=padding)(x)
+        x = ResNet_Identity2D(int(num_filters * mul), (3, 3))(x)
 
-    policy = tf.keras.layers.Conv2D(4, (3, 3), padding="same")(x)
+    policy = tf.keras.layers.Conv2D(8, (3, 3), padding="same")(x)
     policy = tf.keras.layers.Reshape((policy.shape[-3] * policy.shape[-2] * policy.shape[-1],))(policy)
 
-    policy = tf.keras.layers.Dense(512)(policy)
+    policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
+    policy = tf.keras.layers.Dense(512)(policy)
 
     if train_config["use_gumbel"]:
         policy = tf.keras.layers.Dense(policy_shape[0], name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
@@ -50,12 +51,14 @@ def build_model(input_shape, policy_shape, build_config, train_config):
         else:
             policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = tf.keras.layers.Conv2D(2, (2, 2), padding="same")(x)
+    value = tf.keras.layers.Conv2D(4, (2, 2), padding="same")(x)
 
     # value = Batched_Net_Infer.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
     value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
-    value = tf.keras.layers.Dense(128)(value)
+    value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
+
+    value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.Dense(1)(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", name="value")(value)
 
@@ -75,4 +78,5 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 if __name__ == "__main__":
     from Gomoku import Gomoku, build_config, train_config
     game = Gomoku()
-    build_model(game.get_input_state().shape, game.policy_shape, build_config,train_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, build_config,train_config)
+    model.summary()

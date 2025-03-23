@@ -3,7 +3,7 @@ from numba import njit
 
 # This is for building the model
 build_config = {"num_resnet_layers": 3, # This is the total amount of RWKV layers in the model that are used
-                "num_filters":128,
+                "num_filters": 128,
                 "use_stable_max": True, # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True, # from grokfast paper
                 "use_orthograd": True, # from grokking at the edge of numerica stability
@@ -15,7 +15,7 @@ train_config = {
 
     # Self Play variables
     "games_per_generation": 100, # amount of self play games until we re train the network
-    "max_actions": 150, # Note that this should be
+    "max_actions": 150, # Note that this should be less than max actions,
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
@@ -34,7 +34,7 @@ train_config = {
 
     "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     # These params will only be used when use_gumbel is set to True
-    "m": 16,  # Number of actions sampled in the first stage of sequential halving
+    "m": 64,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
     "c_scale": 1.0,
 
@@ -53,9 +53,9 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.9, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "train_batch_size": 128, # The number of samples in a batch for training in parallel
-    "test_batch_size": 128, # If none, then train_batch_size will be used for the test batch size
-    "gradient_accumulation_steps": 2,
+    "train_batch_size": 256, # The number of samples in a batch for training in parallel
+    "test_batch_size": 256, # If none, then train_batch_size will be used for the test batch size
+    "gradient_accumulation_steps": None,
     "learning_rate": 7e-4, # Depending on how many RWKV blocks you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
