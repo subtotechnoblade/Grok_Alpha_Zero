@@ -228,7 +228,6 @@ class MCTS_Gumbel:
 
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
-            # input_state, input_state_matrix = RNN_state
             kwargs = {
                 "output_names": ["policy", "value"],
                 "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32, copy=False), 0)}
@@ -338,7 +337,7 @@ class MCTS_Gumbel:
                 del terminal_node.child_legal_actions
                 del terminal_node.RNN_state, terminal_node.child_logit_priors
                 self.root.children[child_id] = terminal_node
-                # print(True)
+
                 self._back_propagate(terminal_node, value)
 
 
