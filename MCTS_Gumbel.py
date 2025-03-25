@@ -52,7 +52,6 @@ class Node:
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
-
 class Root(Node):  # inheritance
     __slots__ = "visits"
 
@@ -105,7 +104,7 @@ def sigma(q, N_b, c_visit, c_scale):
 
 
 @njit(cache=True)
-def compute_pi(values,
+def compute_pi(mean_values,
                logits,
                visits,
                N_b,  # max visits for any action (this will be a child of the root)
@@ -115,7 +114,7 @@ def compute_pi(values,
                min_value=-1.0,
                max_value=1.0,
                ):
-    q = q_transform(values, visits, min_value, max_value)
+    q = q_transform(mean_values, visits, min_value, max_value)
     if use_softmax:
         completed_q = np.where(visits > 0, q, np.sum(softmax(logits) * q))
         return softmax(logits + sigma(completed_q, N_b, c_visit, c_scale))
@@ -185,7 +184,7 @@ class MCTS_Gumbel:
 
     @staticmethod
     @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
-    def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase, ):
+    def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase):
         """
         return the index of the top actions as a generator
         """
@@ -198,7 +197,7 @@ class MCTS_Gumbel:
 
     @staticmethod
     @njit(cache=True)
-    def deterministic_selection(values,
+    def deterministic_selection(mean_values,
                                 logits,
                                 visits,
                                 N_b,
@@ -207,13 +206,18 @@ class MCTS_Gumbel:
                                 use_softmax=False,
                                 min_value=-1.0,
                                 max_value=1.0):
-        pi = compute_pi(values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax, min_value=min_value,
+        pi = compute_pi(mean_values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax, min_value=min_value,
                         max_value=max_value)
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
         while True:
-            child_id = self.deterministic_selection(node.child_values,
+            mask = node.child_visits > 0
+            mean_child_values = node.child_values[mask] / node.child_visits[mask]
+            complete_mean_child_values = node.child_values.copy() # cause me to lose 1 day to debugging this stoopidity
+            complete_mean_child_values[mask] = mean_child_values
+
+            child_id = self.deterministic_selection(complete_mean_child_values,
                                                     node.child_logit_priors,
                                                     node.child_visits,
                                                     self.root.child_visits.max(),
@@ -225,6 +229,7 @@ class MCTS_Gumbel:
             elif node.children[child_id].is_terminal is not None:
                 return node.children[child_id], child_id
             node = node.children[child_id]
+
 
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
@@ -337,8 +342,8 @@ class MCTS_Gumbel:
                 del terminal_node.child_legal_actions
                 del terminal_node.RNN_state, terminal_node.child_logit_priors
                 self.root.children[child_id] = terminal_node
-
                 self._back_propagate(terminal_node, value)
+
 
 
         else:
@@ -375,7 +380,7 @@ class MCTS_Gumbel:
             terminal_parent_prob_prior = terminal_mask.astype(np.float32, copy=False) / num_winning_actions
         else:  # there are only draws
             len_terminal_moves = len(terminal_actions)
-            terminal_parent_value = 0
+            terminal_parent_value = 0.0
             # terminal_parent_visits = 1 # debug
             terminal_parent_visits = len_terminal_moves
             terminal_parent_prob_prior = np.ones(len_terminal_moves,
@@ -396,9 +401,7 @@ class MCTS_Gumbel:
         node.children[child_index] = terminal_parent
 
         terminal_parent.child_values = terminal_mask.astype(np.float32,
-                                                            copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values
-
-        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.uint32)
+                                                            copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.uint32)
         # formality so that we don't get division by 0 when calcing stats
 
         for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
@@ -425,7 +428,6 @@ class MCTS_Gumbel:
             del terminal_child.child_logit_priors
             del terminal_child.RNN_state
             terminal_parent.children[child_id] = terminal_child
-
         return terminal_parent, -terminal_parent_value, terminal_parent_visits
 
         # negative because the child's POV won, thus the parent's POV lost in this searched path
@@ -516,7 +518,9 @@ class MCTS_Gumbel:
             # 2. stores the pointer within in the variable rather than indexing twice
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
+
             value *= -1  # negate for the opponent's move
+
         self.root.visits += visits
 
     def fill_empty_children(self):
@@ -564,8 +568,9 @@ class MCTS_Gumbel:
         current_phase = 0
         gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
 
-        top_gumbel_logits = (self.root.child_logit_priors + gumbel_noise).astype(np.float32, copy=False)
-        # the * 20 is for debugging for probs to "simulate" logits
+        logits = self.root.child_logit_priors
+        top_gumbel_logits = (logits + gumbel_noise).astype(np.float32, copy=False)
+
         top_node_ids = np.arange(len(self.root.children))
         top_mean_values = self.root.child_values
 
@@ -574,7 +579,7 @@ class MCTS_Gumbel:
             chosen_ids, visits_per_child = self.sequential_halving(self.m,
                                                                    iteration_limit,
                                                                    top_gumbel_logits,
-                                                                   q_transform(top_mean_values, 1, -1.0, 1.0),
+                                                                   q_transform(top_mean_values.copy(), 1, -1.0, 1.0),
                                                                    self.root.child_visits.max(),
                                                                    self.c_visit,
                                                                    self.c_scale,
@@ -584,7 +589,6 @@ class MCTS_Gumbel:
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
             top_node_ids = top_node_ids[chosen_ids]
-            top_values = self.root.child_values[top_node_ids]
             len_root_ids = len(chosen_ids)
             if len_root_ids == 1:
                 break
@@ -607,19 +611,24 @@ class MCTS_Gumbel:
                         visits = 1
                     else:
                         node, value, visits = self._expand(node, child_id)
-
                     self._back_propagate(node, value, visits)
+
                     if use_bar:
                         bar.update(1)
                     current_iteration += 1
-            top_mean_values = (top_values / self.root.child_visits[top_node_ids]).astype(np.float32, copy=False)
+            top_mean_values = (self.root.child_values[top_node_ids] / self.root.child_visits[top_node_ids]).astype(np.float32, copy=False)
             current_phase += 1
 
         if use_bar:
             bar.close()
 
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
-        pi = compute_pi(self.root.child_values,
+
+        mask = self.root.child_visits > 0
+        mean_child_values = self.root.child_values[mask] / self.root.child_visits[mask]
+        complete_mean_child_values = self.root.child_values.copy()
+        complete_mean_child_values[mask] = mean_child_values
+        pi = compute_pi(complete_mean_child_values,
                         self.root.child_logit_priors,
                         self.root.child_visits,
                         self.root.child_visits.max(),
@@ -627,9 +636,11 @@ class MCTS_Gumbel:
                         self.use_softmax)
 
         self.fill_empty_children()
-        with np.errstate(divide='ignore', invalid='ignore'):
-            mean_values = self.root.child_values / self.root.child_visits
-            mean_values = np.where(self.root.child_visits > 0, mean_values, pi)
+
+        mask = self.root.child_visits > 0
+        mean_values = np.zeros_like(self.root.child_values, dtype=np.float32)
+        mean_values[mask] = self.root.child_values[mask] / self.root.child_visits[mask]
+        mean_values[~mask] = pi[~mask]
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
                                                                                          pi,
                                                                                          mean_values,  # winrate
