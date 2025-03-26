@@ -21,8 +21,8 @@ def build_model(input_shape, policy_shape, build_config, train_config):
         x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
         x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
 
-    # policy = tf.keras.layers.BatchNormalization()(x)
     policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Reshape((-1,))(policy)
     policy = tf.keras.layers.Dense(128)(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
@@ -30,7 +30,8 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
 
     if train_config["use_gumbel"]:
-        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32", name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0])(policy)  # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy) # Must enforce float32 on last layer
     else:
         policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
         if build_config["use_stablemax"]:
@@ -39,15 +40,16 @@ def build_model(input_shape, policy_shape, build_config, train_config):
             policy = tf.keras.layers.Activation("softmax", dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
 
 
-    # value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Reshape((-1,))(value)
 
     value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.Dense(64)(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1, dtype="float32")(value)
+    value = tf.keras.layers.Dense(1)(value)
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value) # MUST NAME THIS "value"
+    # must enforcce that the computation be float32
 
     # Must include this as it is necessary to name the outputs
 
