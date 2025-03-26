@@ -63,6 +63,7 @@ train_config = {
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
     "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
+    "mixed_precision": None, # None for no mixed precision, mixed_float16, and mixed_bfloat16 for mixed precision
     "train_batch_size": 8,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,

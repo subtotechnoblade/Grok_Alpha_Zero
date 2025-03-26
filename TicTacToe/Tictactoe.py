@@ -80,7 +80,7 @@ import time
 
 build_config = {"num_resnet_layers": 1,
 
-                "use_stablemax": False,
+                "use_stablemax": True,
                 "use_grok_fast": True,
                 "use_orthograd": True,
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
@@ -91,7 +91,7 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100,  # number of self play games until we re train the network
+    "games_per_generation": 200,  # number of self play games until we re train the network
     "max_actions": 9,  # Note that this should be
     "num_explore_actions_first": 2,
     # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
@@ -104,10 +104,10 @@ train_config = {
     "use_inference_server": True,
     # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 3,  # Number of multiprocessing workers used to self play
+    "num_workers": 10,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 50, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 4, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -125,7 +125,7 @@ train_config = {
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 3,  # The previous generation's data that will be used in training
+    "num_previous_generations": 2,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.9,
     # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
@@ -133,6 +133,7 @@ train_config = {
     "test_decay": 0.9,
     # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
+    "mixed_precision": None, # None for no mixed precision, mixed_float16, and mixed_bfloat16 for mixed precision
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,

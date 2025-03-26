@@ -4,17 +4,17 @@ from numba import njit
 # This is for building the model
 build_config = {"num_resnet_layers": 3, # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
-                "use_stablemax": False, # use stablemax, which will also use stablemax crossentropy
+                "use_stablemax": True, # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True, # from grokfast paper
                 "use_orthograd": True, # from grokking at the edge of numerica stability
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 train_config = {
-    "total_generations": 100, # Total amount of generations, the training can be stopped and resume at any moment
+    "total_generations": 20, # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # amount of self play games until we re train the network
+    "games_per_generation": 300, # amount of self play games until we re train the network
     "max_actions": 150, # Note that this should be less than max actions,
     "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 2, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -27,7 +27,7 @@ train_config = {
     "num_workers": 8, # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 200, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 256 + 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None, # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -53,6 +53,7 @@ train_config = {
     "test_percent": 0.1, # The percent of a dataset that will be used for validation
     "test_decay": 0.9, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
+    "mixed_precision": None, # None for no mixed precision, mixed_float16, and mixed_bfloat16 for mixed precision
     "train_batch_size": 256, # The number of samples in a batch for training in parallel
     "test_batch_size": 256, # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
@@ -62,7 +63,7 @@ train_config = {
     "beta_1": 0.9, # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99, # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15, # The number of epochs for training
+    "train_epochs": 20, # The number of epochs for training
 }
 
 class Gomoku:
