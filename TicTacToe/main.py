@@ -48,6 +48,11 @@ def Validate_Train_Config(train_config):
         if train_config.get("time_limit") is not None:
             raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
 
+    mixed_precision_policy = train_config.get("mixed_precision", None)
+    if mixed_precision_policy is not None and mixed_precision_policy not in ["mixed_float16", "mixed_bfloat16"]:
+        raise ValueError(
+            f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
+
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
 
@@ -83,6 +88,12 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
+
+    mixed_precision_policy = train_config.get("mixed_precision")
+    if mixed_precision_policy is not None:
+        policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
+        tf.keras.mixed_precision.set_global_policy(policy)
+
     game = game_class()
     model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     model.load_weights(f"{folder_path}/model.weights.h5")
@@ -121,6 +132,10 @@ def Create_onnx(game_class, build_model_fn, build_config, train_config, folder_p
     print("Converting tensorflow model to onnx\n")
     input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs")]
 
+    mixed_precision_policy = train_config.get("mixed_precision")
+    if mixed_precision_policy is not None:
+        policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
+        tf.keras.mixed_precision.set_global_policy(policy)
     infer_model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
@@ -138,7 +153,10 @@ def _initialize_model(game, build_model_fn, build_config, train_config):
     except:
         # Invalid device or cannot modify virtual devices once initialized.
         pass
-
+    mixed_precision_policy = train_config.get("mixed_precision")
+    if mixed_precision_policy is not None:
+        policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
+        tf.keras.mixed_precision.set_global_policy(policy)
     train_model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
     train_model.summary()
     train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
@@ -285,7 +303,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
         p = mp.Process(target=Create_onnx,
                        args=(
-                       game_class, build_model_fn, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           game_class, build_model_fn, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
         if p.exitcode != 0:
