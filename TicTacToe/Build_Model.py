@@ -30,13 +30,13 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
 
     if train_config["use_gumbel"]:
-        policy = tf.keras.layers.Dense(policy_shape[0], name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32", name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
     else:
-        policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
         if build_config["use_stablemax"]:
-            policy = Stablemax(name="policy")(policy)  # MUST NAME THIS "policy"
+            policy = Stablemax(dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
         else:
-            policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
+            policy = tf.keras.layers.Activation("softmax", dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
 
 
     # value = tf.keras.layers.BatchNormalization()(x)
@@ -46,11 +46,10 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.Dense(64)(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1)(value)
-    value = tf.keras.layers.Activation("tanh", name="value")(value) # MUST NAME THIS "value"
+    value = tf.keras.layers.Dense(1, dtype="float32")(value)
+    value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value) # MUST NAME THIS "value"
 
     # Must include this as it is necessary to name the outputs
-
 
     # feel free to also use return tf.keras.Model(inputs=inputs, outputs=[policy, value, state, state_matrix])
     # Grok fast model most likey improves convergence
