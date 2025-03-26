@@ -5,6 +5,7 @@ from pathlib import Path
 import h5py as h5
 import numpy as np
 from glob import glob
+import warnings
 
 import multiprocessing as mp
 
@@ -49,10 +50,14 @@ def Validate_Train_Config(train_config):
             raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
 
     mixed_precision_policy = train_config.get("mixed_precision", None)
-    if mixed_precision_policy is not None and mixed_precision_policy not in ["mixed_float16", "mixed_bfloat16"]:
-        raise ValueError(
-            f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
-
+    if mixed_precision_policy is not None:
+        if mixed_precision_policy == "mixed_bfloat16":
+            raise ValueError("mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
+        elif mixed_precision_policy != "mixed_float16":
+            raise ValueError(
+                f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
+    if mixed_precision_policy == "mixed_bfloat16" and not train_config["use_gpu"]:
+        warnings.warn("Using float16 as the compute type for CPU is extremely slow!")
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
 
