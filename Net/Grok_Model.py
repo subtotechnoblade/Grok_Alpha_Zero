@@ -21,7 +21,7 @@ class Grok_Fast_EMA_Model(tf.keras.Model):
             y_pred = self(x, training=True)  # Forward pass
             # Compute the loss value
             # (the loss function is configured in `compile()`)
-            loss = self.compute_loss(y=y, y_pred=y_pred)
+            raw_loss = loss = self.compute_loss(y=y, y_pred=y_pred)
 
             if self.optimizer is not None:
                 loss = self.optimizer.scale_loss(loss)
@@ -50,9 +50,9 @@ class Grok_Fast_EMA_Model(tf.keras.Model):
 
         for metric in self.metrics:
             if metric.name == "loss":
-                metric.update_state(loss)
+                metric.update_state(raw_loss)
 
-        return self.compute_metrics(x, y, y_pred, loss)
+        return self.compute_metrics(x, y, y_pred, raw_loss)
 
 class Ortho_Model(tf.keras.Model):
     def __init__(self, *args, **kwargs):
@@ -68,7 +68,7 @@ class Ortho_Model(tf.keras.Model):
             y_pred = self(x, training=True)  # Forward pass
             # Compute the loss value
             # (the loss function is configured in `compile()`)
-            loss = self.compute_loss(y=y, y_pred=y_pred)
+            raw_loss = loss = self.compute_loss(y=y, y_pred=y_pred)
 
             if self.optimizer is not None:
                 loss = self.optimizer.scale_loss(loss)
@@ -100,9 +100,9 @@ class Ortho_Model(tf.keras.Model):
 
         for metric in self.metrics:
             if metric.name == "loss":
-                metric.update_state(loss)
+                metric.update_state(raw_loss)
 
-        return self.compute_metrics(x, y, y_pred, loss)
+        return self.compute_metrics(x, y, y_pred, raw_loss)
 
 
 class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
@@ -141,7 +141,7 @@ class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
             y_pred = self(x, training=True)  # Forward pass
             # Compute the loss value
             # (the loss function is configured in `compile()`)
-            loss = self.compute_loss(y=y, y_pred=y_pred)
+            raw_loss = loss = self.compute_loss(y=y, y_pred=y_pred)
 
             if self.optimizer is not None:
                 loss = self.optimizer.scale_loss(loss)
@@ -163,16 +163,12 @@ class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
                     current_gradients = tf.convert_to_tensor(gradients[i])
                     self.grads[i].assign(self.grads[i].value() * self.alpha + current_gradients * (1 - self.alpha))
                     gradients[i] = current_gradients + self.grads[i] * self.lamb
-                #     updated_gradients.append(current_gradients + self.grads[i] * self.lamb)
-                # else:
-                #     updated_gradients.append(gradients[i])
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-        # self.optimizer.apply_gradients(zip(updated_gradients, trainable_vars))
         # Update metrics (includes the metric that tracks the loss)
 
         for metric in self.metrics:
             if metric.name == "loss":
-                metric.update_state(loss)
+                metric.update_state(raw_loss)
 
-        return self.compute_metrics(x, y, y_pred, loss)
+        return self.compute_metrics(x, y, y_pred, raw_loss)
