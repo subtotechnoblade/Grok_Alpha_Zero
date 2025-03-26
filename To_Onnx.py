@@ -1,30 +1,14 @@
-# import onnxoptimizer
-
-
-def convert_to_onnx(tf_model, input_signature, file_path): # must call this function "convert_to_onnx"
+def convert_to_onnx(tf_model, input_signature, file_path):  # must call this function "convert_to_onnx"
     import os
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     import tf2onnx
     import onnx
+    import onnxoptimizer
     # Use from_function for tf functions
     # similar to [tf.TensorSpec((None, *gf.SHAPE[1:]), TF_DTYPE, name="x")]
     onnx_model, _ = tf2onnx.convert.from_keras(tf_model, input_signature)
 
-    # onnx_model = onnxoptimizer.optimize(onnx_model)
-    # , passes=['nop', 'eliminate_nop_cast', 'eliminate_nop_dropout', 'eliminate_nop_flatten',
-    #                                 'extract_constant_to_initializer', 'eliminate_if_with_const_cond',
-    #                                 'eliminate_nop_monotone_argmax', 'eliminate_nop_pad', 'eliminate_nop_concat',
-    #                                 'eliminate_nop_split', 'eliminate_nop_expand', 'eliminate_shape_gather',
-    #                                 'eliminate_slice_after_shape', 'eliminate_nop_transpose',
-    #                                 'fuse_add_bias_into_conv', 'fuse_bn_into_conv', 'fuse_consecutive_concats',
-    #                                 'fuse_consecutive_log_softmax', 'fuse_consecutive_reduce_unsqueeze',
-    #                                 'fuse_consecutive_squeezes', 'fuse_consecutive_transposes',
-    #                                 'fuse_matmul_add_bias_into_gemm', 'fuse_pad_into_conv', 'fuse_pad_into_pool',
-    #                                 'fuse_transpose_into_gemm', 'fuse_concat_into_reshape', 'eliminate_nop_reshape',
-    #                                 'eliminate_nop_with_unit', 'eliminate_common_subexpression', 'fuse_qkv',
-    #                                 'fuse_consecutive_unsqueezes', 'eliminate_deadend', 'eliminate_identity',
-    #                                 'eliminate_shape_op', 'fuse_consecutive_slices', 'eliminate_unused_initializer',
-    #                                 'eliminate_duplicate_initializer'])
+    onnx_model = onnxoptimizer.optimize(onnx_model)
 
     onnx.save(onnx_model, file_path)
 
