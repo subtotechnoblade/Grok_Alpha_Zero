@@ -282,10 +282,11 @@ def run_self_play(game_class,
                     "trt_profile_min_shapes": f"inputs:1x{str_board_shape}",
                     "trt_profile_max_shapes": f"inputs:{max_shape}x{str_board_shape}",
                     "trt_profile_opt_shapes": f"inputs:{max_shape}x{str_board_shape}",
-                })
-                ,
+                }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
+            if train_config.get("mixed_precision") == "mixed_float16":
+                providers[0][1]["trt_fp16_enable"] = True
         else:
             providers = [
                 'CUDAExecutionProvider',
