@@ -1,7 +1,8 @@
 import tensorflow as tf
 
 class Stablemax(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, dtype="float32", **kwargs):
+        kwargs.update({"dtype":dtype})
         super().__init__(**kwargs)
 
     def s(self, x, epsilon=1e-30):
