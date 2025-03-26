@@ -6,5 +6,6 @@ diskcache == 5.6.3
 tensorflow[and-cuda] == 2.18.0
 tf2onnx == 1.16.1
 onnx == 1.17.0
+onnxoptimizer == 0.3.13
 onnxruntime-gpu == 1.20.1
 tensorrt == 10.5.0
