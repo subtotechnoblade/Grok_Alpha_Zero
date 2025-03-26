@@ -1,6 +1,5 @@
 import time
 import numpy as np
-import onnxruntime as rt
 def convert_shape(shape):
     assert len(shape) > 0
     str_shape = ""
@@ -12,6 +11,7 @@ def compute_speed(game_class,
               train_config,
               folder_path,
               iterations=500):
+    import onnxruntime as rt # must do this for windows
 
     game = game_class()
     board_shape = game.board.shape

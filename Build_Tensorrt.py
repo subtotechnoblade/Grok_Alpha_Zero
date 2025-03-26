@@ -1,6 +1,4 @@
-import time
 import numpy as np
-import onnxruntime as rt
 # This assumes that use_tensorrt is True in train config
 def convert_shape(shape):
     assert len(shape) > 0
@@ -14,6 +12,7 @@ def cache_tensorrt(game_class,
                    train_config,
                    folder_path,
                    warmup_iterations=10):
+    import onnxruntime as rt
     # uses the generation number to build the generation cache
     game = game_class()
     board_shape = game.board.shape
