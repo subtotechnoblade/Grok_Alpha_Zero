@@ -56,7 +56,7 @@ def Validate_Train_Config(train_config):
         elif mixed_precision_policy != "mixed_float16":
             raise ValueError(
                 f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
-    if mixed_precision_policy == "mixed_bfloat16" and not train_config["use_gpu"]:
+    if mixed_precision_policy == "mixed_float16" and train_config["use_gpu"] is False:
         warnings.warn("Using float16 as the compute type for CPU is extremely slow!")
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")

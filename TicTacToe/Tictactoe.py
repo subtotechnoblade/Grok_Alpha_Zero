@@ -107,14 +107,14 @@ train_config = {
     "num_workers": 10,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 4, #The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 4,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
     "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
     # These params will only be used when use_gumbel is set to True
-    "m": 4, # Number of actions sampled in the first stage of sequential halving
+    "m": 4,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
     "c_scale": 1.0,
 
@@ -133,7 +133,7 @@ train_config = {
     "test_decay": 0.9,
     # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "mixed_precision": None, # None for no mixed precision, mixed_float16, and mixed_bfloat16 for mixed precision
+    "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
