@@ -28,10 +28,10 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     for layer_id in range(num_resnet_layers):
         strides = (1, 1)
         padding="same"
-        if layer_id == 1:
-            # padding="valid"
-            strides = (1, 1)
-            mul *= 1.25
+        # if layer_id == 1:
+        #     # padding="valid"
+        #     strides = (1, 1)
+        #     mul *= 1.25
         x = ResNet_Conv2D(int(num_filters * mul), (3, 3), strides=strides, padding=padding)(x)
         x = ResNet_Identity2D(int(num_filters * mul), (3, 3))(x)
 
@@ -43,15 +43,16 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     policy = tf.keras.layers.Dense(512)(policy)
 
     if train_config["use_gumbel"]:
-        policy = tf.keras.layers.Dense(policy_shape[0], name="policy")(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy)
     else:
         policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
         if build_config["use_stablemax"]:
-            policy = Stablemax(name="policy")(policy)  # MUST NAME THIS "policy"
+            policy = Stablemax(name="policy", dtype="float32")(policy)  # MUST NAME THIS "policy"
         else:
-            policy = tf.keras.layers.Activation("softmax", name="policy")(policy)  # MUST NAME THIS "policy"
+            policy = tf.keras.layers.Activation("softmax", dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = tf.keras.layers.Conv2D(4, (2, 2), padding="same")(x)
+    value = tf.keras.layers.Conv2D(8, (2, 2), padding="same")(x)
 
     # value = Batched_Net_Infer.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
     value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
@@ -60,7 +61,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.Dense(1)(value)  # MUST NAME THIS "value"
-    value = tf.keras.layers.Activation("tanh", name="value")(value)
+    value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
     # Must include this as it is necessary to name the outputs
     if build_config["use_grok_fast"] and build_config["use_orthograd"]:
