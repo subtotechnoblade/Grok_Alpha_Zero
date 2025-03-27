@@ -26,13 +26,16 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
             activation_fn = Stablemax(dtype="float32")
         else:
             activation_fn = tf.keras.layers.Activation("softmax", dtype="float32")
-        policy_loss, value_loss, kld = Policy_Loss_Gumbel(activation_fn=activation_fn), Value_Loss_Gumbel(), KLD_Gumbel(activation_fn=activation_fn)
+        policy_loss, value_loss, kld = (Policy_Loss_Gumbel(activation_fn=activation_fn, dtype="float32"),
+                                        Value_Loss_Gumbel(dtype="float32"),
+                                        KLD_Gumbel(activation_fn=activation_fn, dtype="float32"))
 
 
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
                   metrics={"policy": kld},
-                  auto_scale_loss=True if train_config.get("mixed_precision") == "mixed_float16" else False)
+                  auto_scale_loss=True if train_config.get("mixed_precision") == "mixed_float16" else False
+                  )
 
     model.fit(train_dataloader,
               validation_data=test_dataloader,
