@@ -13,7 +13,7 @@ from numba import njit
 # game board must be a numpy array
 
 # This is the default model build config and will be passed to Gomoku_Build_Model_Time_Parallel.py
-build_config = {"num_resnet_layers": 1, # example: you can define your own variables and construct the network with these vars
+build_config = {"num_resnet_layers": 1,  # example: you can define your own variables and construct the network with these vars
 
                 "use_stable_max": True,  # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True,  # from grokfast paper
@@ -22,26 +22,26 @@ build_config = {"num_resnet_layers": 1, # example: you can define your own varia
           }
 
 train_config = {
-    "total_generations": 100, # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 100,  # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100, # number of self play games until we re train the network
+    "games_per_generation": 100,  # number of self play games until we re train the network
     "max_actions": 9,  # maximum actions allowed in a game
     "num_explore_actions_first": 2,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 0, # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    "num_explore_actions_second": 0,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to false to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
-    "use_inference_server": False, # if an extremely large model is used, because of memory constraints, set this to True
+    "use_inference_server": False,  # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 4, # Number of multiprocessing workers used to self play
+    "num_workers": 4,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 128, # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 128,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
-    "MCTS_time_limit": None, # Not recommended to use for training  Set to True for a default of 30 seconds per move
+    "MCTS_time_limit": None,  # Not recommended to use for training  Set to True for a default of 30 seconds per move
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
     "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
@@ -51,29 +51,29 @@ train_config = {
     "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
-    "c_puct_init": 1.25, # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 1.11, # should be around (10 / average moves per game) this case is (10 / 9)
+    "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 1.11,  # should be around (10 / average moves per game) this case is (10 / 9)
 
     "opening_actions": [],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
-    "train_decay": 0.75, # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.75,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.75, # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.75,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "mixed_precision": None, # None for no mixed precision, mixed_float16, and mixed_bfloat16 for mixed precision
+    "mixed_precision": None,  # None for no mixed precision, mixed_float16
     "train_batch_size": 8,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
     "learning_rate": 1e-3,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
-    "lr_decay": 0.5, # multiplies this to learning rate every decay_lr_after
+    "lr_decay": 0.5,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.989,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 5, # The number of epochs for training a generation's network
+    "train_epochs": 5,  # The number of epochs for training a generation's network
 }
 class Game:
     # DO NOT INHERIT THIS CLASS and overwrite the methods, it's a waste of memory, just copy and implement each method
