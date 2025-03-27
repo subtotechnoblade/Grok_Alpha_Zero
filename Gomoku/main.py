@@ -336,6 +336,6 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 if __name__ == "__main__":
     from Gomoku import Gomoku, build_config, train_config
-    from Gomoku.Build_Model import build_model
+    from Build_Model import build_model
 
     Run(Gomoku, build_model, build_config, train_config)
