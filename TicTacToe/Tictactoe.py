@@ -87,11 +87,11 @@ build_config = {"num_resnet_layers": 1,
                 }
 
 train_config = {
-    "total_generations": 10,  # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 6,  # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 200,  # number of self play games until we re train the network
+    "games_per_generation": 1000,  # number of self play games until we re train the network
     "max_actions": 9,  # Note that this should be
     "num_explore_actions_first": 2,
     # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
@@ -104,17 +104,17 @@ train_config = {
     "use_inference_server": True,
     # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 10,  # Number of multiprocessing workers used to self play
+    "num_workers": 12,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 4,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 27,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
-    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
+    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
     # These params will only be used when use_gumbel is set to True
-    "m": 4,  # Number of actions sampled in the first stage of sequential halving
+    "m": 9,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
     "c_scale": 1.0,
 

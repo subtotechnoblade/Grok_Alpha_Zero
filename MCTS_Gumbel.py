@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 
-np.seterr(all='raise')
+# np.seterr(all='raise')
 import numba as nb
-from numba import njit
+# from numba import njit
 from numba.extending import is_jitted
 
 from Session_Cache import Cache_Wrapper
@@ -52,6 +52,7 @@ class Node:
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
+
 class Root(Node):  # inheritance
     __slots__ = "visits"
 
@@ -77,33 +78,34 @@ class Root(Node):  # inheritance
         del self.child_id  # saved 24 bytes OMG
 
 
-@njit("float32[:](float32[:])", cache=True)
+# @njit("float32[:](float32[:])", cache=True)
 def stablemax(logits):
-    s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
     return s_x / np.sum(s_x)
 
 
-@njit("float32[:](float32[:])", cache=True)
+# @njit("float32[:](float32[:])", cache=True)
 def softmax(logits):
-    c = -np.max(logits) # for numerical stability
+    c = -np.max(logits)  # for numerical stability
     exp = np.exp(logits + c)
     return exp / np.sum(exp)
 
 
-@njit(["float32[:](float32[:], uint32[:], float32, float32)",
-       "float32[:](float32[:], int64, float32, float32)"]
-    , cache=True, fastmath=True)
+# @njit(["float32[:](float32[:], uint32[:], float32, float32)",
+#        "float32[:](float32[:], int64, float32, float32)"]
+#     , cache=True, fastmath=True)
 def q_transform(input_values, visits, min_value=-1.0, max_value=1.0):
     values = np.where(visits > 0, input_values, min_value)
     return (values - min_value) / (max_value - min_value)
 
 
-@njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
+# @njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def compute_pi(mean_values,
                logits,
                visits,
@@ -183,7 +185,7 @@ class MCTS_Gumbel:
             self.c_visit = c_visit
 
     @staticmethod
-    @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
     def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase):
         """
         return the index of the top actions as a generator
@@ -196,7 +198,7 @@ class MCTS_Gumbel:
         return child_ids, visit_budget_per_child
 
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def deterministic_selection(mean_values,
                                 logits,
                                 visits,
@@ -206,7 +208,8 @@ class MCTS_Gumbel:
                                 use_softmax=False,
                                 min_value=-1.0,
                                 max_value=1.0):
-        pi = compute_pi(mean_values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax, min_value=min_value,
+        pi = compute_pi(mean_values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax,
+                        min_value=min_value,
                         max_value=max_value)
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
@@ -214,7 +217,7 @@ class MCTS_Gumbel:
         while True:
             mask = node.child_visits > 0
             mean_child_values = node.child_values[mask] / node.child_visits[mask]
-            complete_mean_child_values = node.child_values.copy() # cause me to lose 1 day to debugging this stoopidity
+            complete_mean_child_values = node.child_values.copy()  # cause me to lose 1 day to debugging this stoopidity
             complete_mean_child_values[mask] = mean_child_values
 
             child_id = self.deterministic_selection(complete_mean_child_values,
@@ -229,7 +232,6 @@ class MCTS_Gumbel:
             elif node.children[child_id].is_terminal is not None:
                 return node.children[child_id], child_id
             node = node.children[child_id]
-
 
     def _compute_outputs(self, inputs, RNN_state, depth=0):
         if self.session is not None:
@@ -616,7 +618,8 @@ class MCTS_Gumbel:
                     if use_bar:
                         bar.update(1)
                     current_iteration += 1
-            top_mean_values = (self.root.child_values[top_node_ids] / self.root.child_visits[top_node_ids]).astype(np.float32, copy=False)
+            top_mean_values = (self.root.child_values[top_node_ids] / self.root.child_visits[top_node_ids]).astype(
+                np.float32, copy=False)
             current_phase += 1
 
         if use_bar:
@@ -839,7 +842,7 @@ if __name__ == "__main__":
                             None,
                             m=9,
                             c_scale=1.0,
-                            c_visit = 50.0,
+                            c_visit=50.0,
                             fast_find_win=False)
         # mcts2 = MCTS_Gumbel(game,
         #              None,

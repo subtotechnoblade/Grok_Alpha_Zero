@@ -9,13 +9,11 @@ import warnings
 
 import multiprocessing as mp
 
-from Game_Tester import Game_Tester
-
 from Self_Play import run_self_play
 # would create a folder for the new generation
+
 from Build_Tensorrt import cache_tensorrt
 from Compute_Speed import compute_speed
-
 
 def Validate_Train_Config(train_config):
     import onnxruntime as rt
@@ -52,7 +50,8 @@ def Validate_Train_Config(train_config):
     mixed_precision_policy = train_config.get("mixed_precision", None)
     if mixed_precision_policy is not None:
         if mixed_precision_policy == "mixed_bfloat16":
-            raise ValueError("mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
+            raise ValueError(
+                "mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
         elif mixed_precision_policy != "mixed_float16":
             raise ValueError(
                 f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
@@ -81,6 +80,12 @@ def Print_Stats(folder_path):
         print(f"Player -1 winrate: {round(player1_wins / num_unaugmented_games, 4)}")
         print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
         print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
+
+
+def Validate_With_Game_Tester(game_class):
+    from Game_Tester import Game_Tester
+    if not Game_Tester(game_class).test():
+        raise RuntimeError("Failed game tester.")
 
 
 def Train_NN(game_class, build_model_fn, build_config, train_config, generation, folder_path, save_folder_path):
@@ -219,12 +224,17 @@ def Run(game_class, build_model_fn, build_config, train_config):
     if p.exitcode != 0:
         raise RuntimeError("Main process stopped")
 
-    parent_dir = Path(__file__).resolve().parent  # delete pycache in the parent directory
-    if "__pycache__" in os.listdir(parent_dir):
-        shutil.rmtree(f"{parent_dir}/__pycache__")
+    # parent_dir = Path(__file__).resolve().parent  # delete pycache in the parent directory
+    # if "__pycache__" in os.listdir(parent_dir):
+    #     shutil.rmtree(f"{parent_dir}/__pycache__")
 
-    if not Game_Tester(game_class).test():
-        raise ValueError("Tests failed, training cannot continue!")
+    p = mp.Process(target=Validate_With_Game_Tester, args=(game_class,))
+    p.start()
+    p.join()
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
+    # if not Game_Tester(game_class).test():
+    #     raise ValueError("Tests failed, training cannot continue!")
 
     try:
         current_generation = max([int(Path(path).name) for path in glob("Grok_Zero_Train/*")])

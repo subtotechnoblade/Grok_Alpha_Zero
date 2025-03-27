@@ -1,16 +1,15 @@
 import os
+import time
 import h5py as h5
 import numpy as np
 
 from tqdm import tqdm
 
-import onnxruntime as rt
 import multiprocessing as mp
 
 from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
 
-from Session_Cache import Cache_Wrapper
 from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
 
 
@@ -23,6 +22,7 @@ class Self_Play:
                  lock: mp.Lock,
                  folder_path: str,
                  generation: int):
+
         self.game = game
         self.sess = sess
         self.build_config = build_config
@@ -36,7 +36,7 @@ class Self_Play:
         self.iteration_limit = self.train_config["MCTS_iteration_limit"]
         self.time_limit = self.train_config["MCTS_time_limit"]
 
-        if not train_config["use_gumbel"]:
+        if train_config["use_gumbel"] is False:
             dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
             self.mcts1: MCTS = MCTS(game=self.game,
                                     session=self.sess,
@@ -205,6 +205,7 @@ def self_play_task(worker_id,
                    lock: mp.Lock,
                    folder_path: str,
                    generation: int):
+    from numba import njit
     np.random.seed()
     if train_config["use_inference_server"]:
         session = Parallelized_Session(worker_id,
@@ -216,6 +217,7 @@ def self_play_task(worker_id,
 
         import onnxruntime as rt  # have to do this because of "spawn" in windows
         session = rt.InferenceSession(onnx_path, providers=providers)
+    from Session_Cache import Cache_Wrapper
     session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
                      session,
@@ -255,6 +257,8 @@ def run_self_play(game_class,
 
     generation = int(folder_path.split("/")[-1])
     num_workers = train_config["num_workers"]
+    if num_workers > mp.cpu_count() // 2:
+        num_workers = mp.cpu_count() // 2
 
     if num_games_left < num_workers:
         num_workers = num_games_left
@@ -333,6 +337,7 @@ def run_self_play(game_class,
                                 name=f"{worker_id}")
             worker.start()
             jobs.append(worker)
+
     while num_games_left > 0:
         if len(jobs) == num_workers:
             alive_jobs = []
@@ -358,10 +363,8 @@ def run_self_play(game_class,
                                                                              "use_inference_server"] else [providers,
                                                                                                            onnx_file_path],
                                                                          game_class,
-                                                                         convert_to_single_info(
-                                                                             batched_input_feed_info),
-                                                                         convert_to_single_info(
-                                                                             batched_output_feed_info),
+                                                                         convert_to_single_info(batched_input_feed_info),
+                                                                         convert_to_single_info(batched_output_feed_info),
                                                                          build_config,
                                                                          train_config,
                                                                          lock,
