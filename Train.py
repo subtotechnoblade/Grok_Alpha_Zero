@@ -10,6 +10,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
               "beta_2": train_config["beta_2"],
               # "weight_decay": 1e-4,
               "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
+              "epsilon":1e-5
               }
 
     if train_config["optimizer"].lower() == "adam":
@@ -20,7 +21,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
         optimizer = tf.keras.optimizers.Nadam(**kwargs)
 
     if not train_config["use_gumbel"]:
-        policy_loss, value_loss, kld = Policy_Loss(), Value_Loss(), KLD()
+        policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32")
     else:
         if build_config["use_stablemax"]:
             activation_fn = Stablemax(dtype="float32")
@@ -52,7 +53,7 @@ if __name__ == "__main__":
     # game = Gomoku()
     game = TicTacToe()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
-    train(model, 5e-4, train_config,  str(Path(folder_path).parent), False)
+    # train(model, 5e-4, train_config,  str(Path(folder_path).parent), False)
 
 
 
