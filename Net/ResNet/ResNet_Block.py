@@ -5,10 +5,10 @@ class ResNet_Identity2D(tf.keras.layers.Layer):
     def __init__(self, filters=256, kernel_size=(3, 3), activation="relu", **kwargs):
         super().__init__(**kwargs)
         self.conv1 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, strides=(1, 1), padding="same")
-        self.bn1 = tf.keras.layers.BatchNormalization()
+        self.bn1 = tf.keras.layers.BatchNormalization(dtype="float32")
 
         self.conv2 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, strides=(1, 1), padding="same")
-        self.bn2 = tf.keras.layers.BatchNormalization()
+        self.bn2 = tf.keras.layers.BatchNormalization(dtype="float32")
 
         self.activation_fn = tf.keras.layers.Activation(activation)
 
@@ -27,10 +27,10 @@ class ResNet_Conv2D(tf.keras.layers.Layer):
     def __init__(self, filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", activation="relu", **kwargs):
         super().__init__(**kwargs)
         self.conv1 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, strides=strides, padding=padding)
-        self.bn1 = tf.keras.layers.BatchNormalization()
+        self.bn1 = tf.keras.layers.BatchNormalization(dtype="float32")
 
         self.conv2 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, strides=(1, 1), padding="same")
-        self.bn2 = tf.keras.layers.BatchNormalization()
+        self.bn2 = tf.keras.layers.BatchNormalization(dtype="float32")
 
         self.residual_conv = tf.keras.layers.Conv2D(filters, kernel_size=(1, 1), strides=strides, padding=padding)
 
