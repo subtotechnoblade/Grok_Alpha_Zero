@@ -5,7 +5,7 @@ class Stablemax(tf.keras.layers.Layer):
         super().__init__(**kwargs)
 
     def s(self, x):
-        return tf.where(x >= 0.0, x + 1.0, tf.math.divide_no_nan(1.0,  1.0 - x + tf.experimental.numpy.finfo(x.dtype).eps))
+        return tf.where(x >= 0.0, x + 1.0, tf.math.divide_no_nan(1.0,  1.0 - x))
     def call(self, inputs, axis=-1):
         s_x = self.s(inputs)
 
