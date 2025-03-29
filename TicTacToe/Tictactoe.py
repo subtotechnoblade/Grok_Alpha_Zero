@@ -87,19 +87,19 @@ build_config = {"num_resnet_layers": 1,
                 }
 
 train_config = {
-    "total_generations": 6,  # Total number of generations, the training can be stopped and resume at any moment
+    "total_generations": 15,  # Total number of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000,  # number of self play games until we re train the network
+    "games_per_generation": 100,  # number of self play games until we re train the network
     "max_actions": 9,  # Note that this should be
     "num_explore_actions_first": 2,
     # This is for tictactoe, a good rule of thumb is 10% to 20% of the average length of a game
     "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
-    "use_gpu": False,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": True,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,
     # if an extremely large model is used, because of memory constraints, set this to True
@@ -107,16 +107,16 @@ train_config = {
     "num_workers": 12,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 27,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 2,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
-    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO, time_limit won't be used
     # These params will only be used when use_gumbel is set to True
-    "m": 9,  # Number of actions sampled in the first stage of sequential halving
+    "m": 2,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 0.1,
+    "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -137,7 +137,7 @@ train_config = {
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 1e-3,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing

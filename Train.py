@@ -33,8 +33,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
 
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
-                  metrics={"policy": kld},
-                  auto_scale_loss=train_config.get("mixed_precision") == "mixed_float16")
+                  metrics={"policy": kld})
 
     model.fit(train_dataloader,
               validation_data=test_dataloader,
