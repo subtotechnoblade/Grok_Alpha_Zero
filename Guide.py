@@ -48,7 +48,7 @@ train_config = {
     # These params will only be used when use_gumbel is set to True
     "m": 16,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 1.0,
+    "c_scale": 0.1,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
