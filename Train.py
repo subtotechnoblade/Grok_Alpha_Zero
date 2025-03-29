@@ -10,7 +10,6 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
               "beta_2": train_config["beta_2"],
               # "weight_decay": 1e-4,
               "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
-              "epsilon":1e-5
               }
 
     if train_config["optimizer"].lower() == "adam":
@@ -35,8 +34,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
                   metrics={"policy": kld},
-                  auto_scale_loss=True if train_config.get("mixed_precision") == "mixed_float16" else False
-                  )
+                  auto_scale_loss=train_config.get("mixed_precision") == "mixed_float16")
 
     model.fit(train_dataloader,
               validation_data=test_dataloader,
