@@ -86,6 +86,7 @@ def softmax(logits):
     exp = np.exp(logits + c)
     return exp / np.sum(exp)
 
+
 @njit(["float32[:](float32[:], uint32[:], float32, float32)",
        "float32[:](float32[:], int64, float32, float32)"]
     , cache=True, fastmath=True)
@@ -93,15 +94,19 @@ def q_transform(values, visits, min_value=-1.0, max_value=1.0):
     values = np.where(visits > 0, values, min_value)
     return (values - min_value) / (max_value - min_value)
 
+
 @njit(["float32[:](float32[:])"], cache=True)
 def rescale_q(q_values):
     min_value = q_values.min()
     max_value = q_values.max()
     return (q_values - min_value) / np.maximum(max_value - min_value, np.finfo(np.float32).eps)
 
+
 @njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
+
+
 @njit(["float32[:](float32[:], float32[:], uint32[:], float32[:])"], cache=True, fastmath=True)
 def compute_v_mix(values, q, visits, prob_priors):
     sum_visits = np.sum(visits)
@@ -109,8 +114,9 @@ def compute_v_mix(values, q, visits, prob_priors):
 
     # this is the sum of pi(a) * q(a)
     weighted_q = np.sum(np.where(visits > 0,
-                          prob_priors * q / np.where(visits > 0, sum_probs, 1.0), # divisor is the sum of all of the visited probs
-                          0.0))
+                                 prob_priors * q / np.where(visits > 0, sum_probs, 1.0),
+                                 # divisor is the sum of all of the visited probs
+                                 0.0))
     # we normalized the weighed q since many actions will have 0 visits and shouldn't be considered
     return ((values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
 
@@ -141,7 +147,6 @@ def compute_pi(values,
         return stablemax(logits + sigma(completed_q, N_b, c_visit, c_scale))
 
 
-
 class MCTS_Gumbel:
     # will start from point where the game class left off
     # will update itself after every move assuming the methods are called in the right order
@@ -151,7 +156,7 @@ class MCTS_Gumbel:
                  use_njit=None,
                  m=16,
                  c_visit=50.0,
-                 c_scale=1.0,
+                 c_scale=0.1,
                  activation_fn="softmax",
                  fast_find_win=False,  # this is for training, when exploiting change to True
                  ):
@@ -360,7 +365,7 @@ class MCTS_Gumbel:
 
         else:
             child_policy, child_value = self._compute_outputs(self.game.get_input_state(),
-                                                                                 len(self.game.action_history))
+                                                              len(self.game.action_history))
 
             legal_actions, child_logit_prior = self.game.get_legal_actions_policy_MCTS(self.game.board,
                                                                                        -self.game.get_next_player(),
@@ -374,7 +379,6 @@ class MCTS_Gumbel:
                              self.game.get_next_player() * -1,  # current player for no moves placed
                              dict(enumerate(legal_actions)),
                              child_logit_prior)
-
 
     def _expand_with_terminal_actions(self, node, child_index, terminal_parent_board, terminal_parent_action,
                                       terminal_actions,
@@ -410,9 +414,9 @@ class MCTS_Gumbel:
                                parent=node)
 
         node.children[child_index] = terminal_parent
-        terminal_parent.child_values[:] = terminal_mask # terminal mask is already float32
+        terminal_parent.child_values[:] = terminal_mask  # terminal mask is already float32
         # 0 for draws and 1 for wins, thus perfect for child_values, a copy is made with [:]
-        terminal_parent.child_raw_values = terminal_mask # won't be modified after creation, no copy is necessary
+        terminal_parent.child_raw_values = terminal_mask  # won't be modified after creation, no copy is necessary
         # formality so that we don't get division by 0 when calcing stats
 
         for terminal_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
