@@ -34,9 +34,9 @@ train_config = {
 
     "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     # These params will only be used when use_gumbel is set to True
-    "m": 64,  # Number of actions sampled in the first stage of sequential halving
+    "m": 128,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 1.0,
+    "c_scale": 0.1,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
@@ -47,23 +47,23 @@ train_config = {
                         ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 4,  # The previous generation's data that will be used in training
+    "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
-    "train_decay": 0.9,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.8,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.9,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.8,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "mixed_precision": "mixed_float16",  # None for no mixed precision, mixed_float16 for flat16
     "train_batch_size": 256,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 7e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 5e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 20,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 20,  # The number of epochs for training
+    "train_epochs": 25,  # The number of epochs for training
 }
 
 class Gomoku:
@@ -158,40 +158,6 @@ class Gomoku:
         current_player_plane = np.expand_dims(np.ones_like(board) * current_player, -1)
         return np.concatenate((current_player_plane, np.expand_dims(board,-1)), axis=-1)
 
-    # @staticmethod
-    # @njit(cache=True, nogil=True, fastmath=True)
-    # def get_input_state_MCTS(board, current_player, input_move_history: np.array, num_previous_moves: int = 3):
-    #     WIDTH, HEIGHT= 15, 15
-    #     NP_DTYPE = np.int16
-    #     SHAPE = (1, 3 + 1, HEIGHT, WIDTH, 1)
-    #     inference_board = []
-    #     board = [[0 for _ in range(WIDTH)] for _ in range(HEIGHT)]
-    #
-    #     for i, (x, y) in enumerate(input_move_history[1:]):
-    #         if i % 2 == 0:
-    #             board[y][x] = -1
-    #         else:
-    #             board[y][x] = 1
-    #         inference_board.append(
-    #             [[*row] for row in board])  # the fastest way to deepcopy knowing the structure of the list
-    #
-    #     current_player = 1 if input_move_history.shape[0] % 2 == 0 else -1
-    #     num_placed_moves = len(inference_board)
-    #     if num_placed_moves >= num_previous_moves:
-    #         inference_board = np.array(inference_board, dtype=NP_DTYPE)[-num_previous_moves:]
-    #         return np.concatenate(
-    #             (
-    #             np.full(shape=(1, HEIGHT, WIDTH), fill_value=current_player, dtype=NP_DTYPE), inference_board)).reshape(
-    #             SHAPE)
-    #     elif num_placed_moves < num_previous_moves and num_placed_moves != 0:
-    #         inference_board = np.array(inference_board, dtype=np.int8)
-    #         return np.concatenate((np.full(shape=(1, HEIGHT, WIDTH), fill_value=current_player, dtype=NP_DTYPE),
-    #                                np.zeros(shape=(num_previous_moves - num_placed_moves, HEIGHT, WIDTH),
-    #                                         dtype=NP_DTYPE),
-    #                                inference_board)).reshape(SHAPE)
-    #     else:
-    #         return np.concatenate((np.full(shape=(1, HEIGHT, WIDTH), fill_value=current_player, dtype=NP_DTYPE),
-    #                                np.zeros(shape=(num_previous_moves, HEIGHT, WIDTH), dtype=NP_DTYPE))).reshape(SHAPE)
 
     def check_win(self, ) -> int:
         """
