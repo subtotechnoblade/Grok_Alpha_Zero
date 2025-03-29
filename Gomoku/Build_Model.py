@@ -38,15 +38,15 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     policy = tf.keras.layers.Conv2D(8, (3, 3), padding="same")(x)
     policy = tf.keras.layers.Reshape((policy.shape[-3] * policy.shape[-2] * policy.shape[-1],))(policy)
 
-    policy = tf.keras.layers.BatchNormalization()(policy)
+    policy = tf.keras.layers.BatchNormalization(dtype="float32")(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = tf.keras.layers.Dense(512)(policy)
 
     if train_config["use_gumbel"]:
-        policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
         policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy)
     else:
-        policy = tf.keras.layers.Dense(policy_shape[0])(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
         if build_config["use_stablemax"]:
             policy = Stablemax(name="policy", dtype="float32")(policy)  # MUST NAME THIS "policy"
         else:
@@ -56,11 +56,11 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     # value = Batched_Net_Infer.Batch(tf.keras.layers.GlobalAveragePooling2D())(value)
     value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
-    value = tf.keras.layers.BatchNormalization()(value)
+    value = tf.keras.layers.BatchNormalization(dtype="float32")(value)
     value = tf.keras.layers.Activation("relu")(value)
 
     value = tf.keras.layers.Dense(128)(value)
-    value = tf.keras.layers.Dense(1)(value)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Dense(1, dtype="float32")(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
     # Must include this as it is necessary to name the outputs
