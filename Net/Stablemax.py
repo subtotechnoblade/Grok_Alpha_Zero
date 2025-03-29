@@ -1,12 +1,11 @@
 import tensorflow as tf
 
 class Stablemax(tf.keras.layers.Layer):
-    def __init__(self, dtype="float32", **kwargs):
-        kwargs.update({"dtype":dtype})
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def s(self, x, epsilon=1e-30):
-        return tf.where(x >= 0.0, x + 1.0, tf.math.divide_no_nan(1.0,  1.0 - x + epsilon))
+    def s(self, x):
+        return tf.where(x >= 0.0, x + 1.0, tf.math.divide_no_nan(1.0,  1.0 - x + tf.experimental.numpy.finfo(x.dtype).eps))
     def call(self, inputs, axis=-1):
         s_x = self.s(inputs)
 
