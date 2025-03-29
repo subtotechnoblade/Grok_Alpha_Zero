@@ -9,6 +9,7 @@ import warnings
 
 import multiprocessing as mp
 
+from Game_Tester import Game_Tester
 from Self_Play import run_self_play
 # would create a folder for the new generation
 
@@ -81,11 +82,6 @@ def Print_Stats(folder_path):
         print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
         print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
 
-
-def Validate_With_Game_Tester(game_class):
-    from Game_Tester import Game_Tester
-    if not Game_Tester(game_class).test():
-        raise RuntimeError("Failed game tester.")
 
 
 def Train_NN(game_class, build_model_fn, build_config, train_config, generation, folder_path, save_folder_path):
@@ -224,17 +220,12 @@ def Run(game_class, build_model_fn, build_config, train_config):
     if p.exitcode != 0:
         raise RuntimeError("Main process stopped")
 
-    # parent_dir = Path(__file__).resolve().parent  # delete pycache in the parent directory
-    # if "__pycache__" in os.listdir(parent_dir):
-    #     shutil.rmtree(f"{parent_dir}/__pycache__")
+    parent_dir = Path(__file__).resolve().parent  # delete pycache in the parent directory
+    if "__pycache__" in os.listdir(parent_dir):
+        shutil.rmtree(f"{parent_dir}/__pycache__")
 
-    p = mp.Process(target=Validate_With_Game_Tester, args=(game_class,))
-    p.start()
-    p.join()
-    if p.exitcode != 0:
-        raise RuntimeError("Main process stopped")
-    # if not Game_Tester(game_class).test():
-    #     raise ValueError("Tests failed, training cannot continue!")
+    if not Game_Tester(game_class).test():
+        raise ValueError("Tests failed, training cannot continue!")
 
     try:
         current_generation = max([int(Path(path).name) for path in glob("Grok_Zero_Train/*")])
