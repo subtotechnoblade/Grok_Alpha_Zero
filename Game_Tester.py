@@ -3,6 +3,7 @@ import numpy as np
 np.seterr(all='raise')
 from tqdm import tqdm
 from MCTS import MCTS
+from MCTS_Gumbel import MCTS_Gumbel
 
 
 class Game_Tester:
@@ -478,6 +479,7 @@ class Game_Tester:
         mcts = MCTS(self.game,
                     None,
                     fast_find_win=False)
+        mcts_gumbel = MCTS_Gumbel(self.game, None)
 
         winner = - 2
         while winner == -2:
@@ -488,13 +490,23 @@ class Game_Tester:
                 print("MCTS doesn't work, might want to test that!")
                 return False
 
+
+            try:
+                action, probs = mcts_gumbel.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
+            except:
+                print("Checking if everything works with MCTS: Fail")
+                print("MCTS gumbel doesn't work, might want to test that!")
+                return False
+
+
             self.game.do_action(action)
             winner = self.game.check_win()
             if winner == -2:
                 mcts.prune_tree(action)
+                mcts_gumbel.prune_tree(action)
 
         print("Checking if everything works with MCTS: Pass\n")
-        self.game = self.game_class()
+        self.reset()
         return True
     def color_text(self, string, color="red"):
         if color == "red":
