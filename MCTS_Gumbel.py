@@ -205,16 +205,17 @@ class MCTS_Gumbel:
             self.c_visit = c_visit
 
     @staticmethod
-    @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
     def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase):
         """
         return the index of the top actions as a generator
         """
+        halved_m = max(1, m / (2 ** phase))
         if phase == 0:
             child_ids = np.argsort(gumbel_logits)[-m:]
         else:
-            child_ids = np.argsort(gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))[-int(m / (2 ** phase)):]
-        visit_budget_per_child = int(n / (np.log2(m) * (m / (2 ** phase))))
+            child_ids = np.argsort(gumbel_logits + sigma(q_hat, N_b, c_visit, c_scale))[-int(halved_m):]
+        visit_budget_per_child = max(1, int(n / (np.log2(m) * halved_m)))
         return child_ids, visit_budget_per_child
 
     @staticmethod
@@ -593,12 +594,13 @@ class MCTS_Gumbel:
                                                                    iteration_limit,
                                                                    top_gumbel_logits,
                                                                    # removed the .copy() on top_mean_values
-                                                                   q_transform(top_mean_values.copy(), 1, -1.0, 1.0),
+                                                                   q_transform(top_mean_values, 1, -1.0, 1.0),
                                                                    self.root.child_visits.max(),
                                                                    self.c_visit,
                                                                    self.c_scale,
                                                                    current_phase)
-
+            if visits_per_child == 0:
+                print("sequ gave visits per child == 0")
             chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
@@ -609,6 +611,7 @@ class MCTS_Gumbel:
 
             if len_root_ids == 2 or len_root_ids == 3:
                 visits_per_child = (iteration_limit - current_iteration) // len_root_ids
+                visits_per_child = max(1, visits_per_child)
 
             for root_child_id in top_node_ids:
                 if self.root.children[root_child_id] is None:
@@ -625,6 +628,7 @@ class MCTS_Gumbel:
                         visits = 1
                     else:
                         node, value, visits = self._expand(node, child_id)
+
                     self._back_propagate(node, value, visits)
 
                     if use_bar:
