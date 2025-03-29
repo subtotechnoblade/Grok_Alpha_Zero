@@ -88,11 +88,12 @@ def softmax(logits):
 
 
 @njit(["float32[:](float32[:], uint32[:], float32, float32)",
+       "float32[:](float32[:], uint32[:], float64, float64)",
        "float32[:](float32[:], int64, float32, float32)"]
     , cache=True, fastmath=True)
 def q_transform(values, visits, min_value=-1.0, max_value=1.0):
     values = np.where(visits > 0, values, min_value)
-    return (values - min_value) / (max_value - min_value)
+    return ((values - min_value) / (max_value - min_value)).astype(np.float32)
 
 
 @njit(["float32[:](float32[:])"], cache=True)
@@ -108,7 +109,7 @@ def sigma(q, N_b, c_visit, c_scale):
 
 
 @njit(["float32[:](float32[:], float32[:], uint32[:], float32[:])"], cache=True, fastmath=True)
-def compute_v_mix(values, q, visits, prob_priors):
+def compute_v_mix(raw_values, q, visits, prob_priors):
     sum_visits = np.sum(visits)
     sum_probs = np.sum(np.where(visits > 0, prob_priors, 0.0))
 
@@ -118,31 +119,28 @@ def compute_v_mix(values, q, visits, prob_priors):
                                  # divisor is the sum of all of the visited probs
                                  0.0))
     # we normalized the weighed q since many actions will have 0 visits and shouldn't be considered
-    return ((values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
+    return ((raw_values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
 
 
-@njit(["float32[:](float32[:], float32[:], uint32[:], int64, float32, float32, boolean, float32, float32)",
-       "float32[:](float32[:], float32[:], uint32[:], uint32, float64, float64, boolean, float32, float32)"],
+@njit(["float32[:](float32[:], float32[:], float32[:], uint32[:], int64, float32, float32, boolean)",
+            "float32[:](float32[:], float32[:], float32[:], uint32[:], uint32, float64, float64, boolean)"],
       cache=True)
-def compute_pi(values,
+def compute_pi(raw_values,
+               q,
                logits,
                visits,
                N_b,  # max visits for any action (this will be a child of the root)
                c_visit,
                c_scale,
-               use_softmax=True,
-               min_value=-1.0,
-               max_value=1.0,
-               ):
-    q = q_transform(values, visits, min_value, max_value)
+               use_softmax=True):
     if use_softmax:
         probs = softmax(logits)
-        completed_q = np.where(visits > 0, q, compute_v_mix(values, q, visits, probs))
+        completed_q = np.where(visits > 0, q, compute_v_mix(raw_values, q, visits, probs))
         completed_q = rescale_q(completed_q)
         return softmax(logits + sigma(completed_q, N_b, c_visit, c_scale))
     else:
         probs = stablemax(logits)
-        completed_q = np.where(visits > 0, q, compute_v_mix(values, q, visits, probs))
+        completed_q = np.where(visits > 0, q, compute_v_mix(raw_values, q, visits, probs))
         completed_q = rescale_q(completed_q)
         return stablemax(logits + sigma(completed_q, N_b, c_visit, c_scale))
 
@@ -220,8 +218,9 @@ class MCTS_Gumbel:
         return child_ids, visit_budget_per_child
 
     @staticmethod
-    @njit(["int64(float32[:], float32[:], uint32[:], uint32, float64, float64, boolean, float32, float32)"], cache=True)
-    def deterministic_selection(values,
+    @njit(["int64(float32[:], float32[:], float32[:], uint32[:], uint32, float64, float64, boolean, float32, float32)"], cache=True)
+    def deterministic_selection(raw_values,
+                                values,
                                 logits,
                                 visits,
                                 N_b,
@@ -230,14 +229,16 @@ class MCTS_Gumbel:
                                 use_softmax=False,
                                 min_value=-1.0,
                                 max_value=1.0):
-        pi = compute_pi(values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax,
-                        min_value=min_value,
-                        max_value=max_value)
+        mean_values = np.where(visits > 0, values / visits, min_value).astype(np.float32)
+        q = q_transform(mean_values, visits, min_value, max_value)
+
+        pi = compute_pi(raw_values, q, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax)
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
         while True:
             child_id = self.deterministic_selection(node.child_raw_values,
+                                                    node.child_values,
                                                     node.child_logit_priors,
                                                     node.child_visits,
                                                     node.child_visits.max(),
@@ -592,13 +593,13 @@ class MCTS_Gumbel:
                                                                    iteration_limit,
                                                                    top_gumbel_logits,
                                                                    # removed the .copy() on top_mean_values
-                                                                   q_transform(top_mean_values, 1, -1.0, 1.0),
+                                                                   q_transform(top_mean_values.copy(), 1, -1.0, 1.0),
                                                                    self.root.child_visits.max(),
                                                                    self.c_visit,
                                                                    self.c_scale,
                                                                    current_phase)
 
-            # chosen_ids = np.sort(chosen_ids)
+            chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
             top_node_ids = top_node_ids[chosen_ids]
@@ -637,20 +638,20 @@ class MCTS_Gumbel:
             bar.close()
 
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
+        with np.errstate(divide="ignore", invalid="ignore"):
+            mean_values = np.where(self.root.child_visits > 0, self.root.child_values / self.root.child_visits, -1.0).astype(np.float32, copy=False)
         pi = compute_pi(self.root.child_raw_values,
+                        q_transform(mean_values, self.root.child_visits, -1.0, 1.0),
                         self.root.child_logit_priors,
                         self.root.child_visits,
                         self.root.child_visits.max(),
                         self.c_visit, self.c_scale,
-                        self.use_softmax,
-                        -1.0, 1.0)
+                        self.use_softmax)
 
         self.fill_empty_children()
 
-        mask = self.root.child_visits > 0
-        mean_values = np.zeros_like(self.root.child_values, dtype=np.float32)
-        mean_values[mask] = self.root.child_values[mask] / self.root.child_visits[mask]
-        mean_values[~mask] = pi[~mask]
+        mask = self.root.child_visits == 0
+        mean_values[mask] = pi[mask]
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
                                                                                          pi,
                                                                                          mean_values,  # winrate
@@ -661,7 +662,7 @@ class MCTS_Gumbel:
                                     self.root.visits, child.is_terminal]
         # stochastically sample a move with the weights affected by tau
 
-        move_probs = sorted(move_probs, key=lambda x: x[-3], reverse=True)
+        move_probs = sorted(move_probs, key=lambda x: x[1] + x[4], reverse=True) # ranks based on probs + visits
         return self.root.children[top_node_ids[0]].action_history[-1], move_probs
 
     def _set_root(self, child: Node):
@@ -723,9 +724,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
+    # from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -814,13 +815,13 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/7/TRT_cache/model_ctx.onnx", providers=providers)
+    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/2/model.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/7/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/5/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
+        # game = Gomoku()
         # game.do_action((7, 7))
         # game.do_action((6, 7))
         # game.do_action((7, 6))
@@ -828,7 +829,7 @@ if __name__ == "__main__":
         # game.do_action((7, 5))
         # game.do_action((6, 5))
 
-        # game = TicTacToe()
+        game = TicTacToe()
         # game.do_action((1, 1))
         # game.do_action((0, 0))
         # game.do_action((1, 0))
@@ -843,8 +844,8 @@ if __name__ == "__main__":
                             # None,
                             session,
                             None,
-                            m=64,
-                            c_scale=0.1,
+                            m=9,
+                            c_scale=1.0,
                             c_visit=50.0,
                             fast_find_win=False,
                             activation_fn="stablemax")
@@ -861,7 +862,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(500, use_bar=True)
+                move, probs = mcts1.run(50, use_bar=True)
             else:
                 # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
