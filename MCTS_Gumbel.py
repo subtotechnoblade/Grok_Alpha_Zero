@@ -340,6 +340,7 @@ class MCTS_Gumbel:
             del self.root.board
 
             self.root.child_raw_values = terminal_mask
+
             for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
                 terminal_player = self.game.get_next_player()
                 terminal_node = Node(child_id,
@@ -435,7 +436,6 @@ class MCTS_Gumbel:
             del terminal_child.child_values
             del terminal_child.child_visits
             del terminal_child.child_logit_priors
-            terminal_parent.child_raw_values[terminal_id] = mask_value
             terminal_parent.children[terminal_id] = terminal_child
         return terminal_parent, -terminal_parent_value, terminal_parent_visits
 
@@ -500,6 +500,7 @@ class MCTS_Gumbel:
                          parent=node)
             # we don't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
+
             node.child_raw_values[index] = child_value
             node.children[index] = child
 
@@ -574,7 +575,7 @@ class MCTS_Gumbel:
         current_iteration = 0
         current_phase = 0
         gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
-        # print(gumbel_noise)
+
         logits = self.root.child_logit_priors
         top_gumbel_logits = (logits + gumbel_noise).astype(np.float32, copy=False)
 
@@ -632,7 +633,6 @@ class MCTS_Gumbel:
             bar.close()
 
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
-
         pi = compute_pi(self.root.child_raw_values,
                         self.root.child_logit_priors,
                         self.root.child_visits,
@@ -686,13 +686,14 @@ class MCTS_Gumbel:
         if child.is_terminal is None:
             new_root.children = child.children
             new_root.child_values = child.child_values
+            new_root.child_raw_values = child.child_raw_values
             new_root.child_visits = child.child_visits
 
             if len(child.child_legal_actions) == 0:
                 del new_root.current_player
 
         if child.is_terminal is not None:
-            del new_root.children, new_root.child_values, new_root.child_logit_priors, new_root.child_legal_actions, new_root.current_player
+            del new_root.children, new_root.child_values, new_root.child_raw_values, new_root.child_logit_priors, new_root.child_legal_actions, new_root.current_player
 
         new_root.visits = self.root.child_visits[child.child_id]
         self.root = new_root
