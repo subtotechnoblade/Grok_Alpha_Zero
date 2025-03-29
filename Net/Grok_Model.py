@@ -84,12 +84,12 @@ class Ortho_Model(tf.keras.Model):
                 g = tf.reshape(current_gradients, (-1,))
                 w = tf.reshape(self.trainable_variables[i], (-1,))
 
-                w_norm_sq = tf.tensordot(w, w, axes=1) + 1e-8
+                w_norm_sq = tf.tensordot(w, w, axes=1) + 1e-25
                 proj = tf.tensordot(w, g, axes=1) / w_norm_sq
                 g_orth = g - proj * w
 
                 g_norm = tf.norm(g, 2)
-                g_orth_norm = tf.norm(g_orth, 2) + 1e-8
+                g_orth_norm = tf.norm(g_orth, 2) + 1e-25
                 g_orth_scaled = g_orth * (g_norm / g_orth_norm)
 
                 updated_gradients.append(tf.reshape(g_orth_scaled, current_gradients.shape))
@@ -121,12 +121,12 @@ class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
                 g = tf.reshape(current_gradients, (-1,))
                 w = tf.reshape(self.trainable_variables[i], (-1,))
 
-                w_norm_sq = tf.tensordot(w, w, axes=1) + 1e-8
+                w_norm_sq = tf.tensordot(w, w, axes=1) + 1e-25
                 proj = tf.tensordot(w, g, axes=1) / w_norm_sq
                 g_orth = g - proj * w
 
                 g_norm = tf.norm(g, 2)
-                g_orth_norm = tf.norm(g_orth, 2) + 1e-8
+                g_orth_norm = tf.norm(g_orth, 2) + 1e-25
                 g_orth_scaled = g_orth * (g_norm / g_orth_norm)
                 gradients[i] = tf.reshape(g_orth_scaled, current_gradients.shape)
 
