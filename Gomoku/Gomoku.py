@@ -24,7 +24,7 @@ train_config = {
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache
-    "num_workers": 8,  # Number of multiprocessing workers used to self play
+    "num_workers": 11,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 256 + 128,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
@@ -36,7 +36,7 @@ train_config = {
     # These params will only be used when use_gumbel is set to True
     "m": 128,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 0.1,
+    "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
