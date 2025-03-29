@@ -217,8 +217,10 @@ def self_play_task(worker_id,
 
         import onnxruntime as rt  # have to do this because of "spawn" in windows
         session = rt.InferenceSession(onnx_path, providers=providers)
-    from Session_Cache import Cache_Wrapper
-    session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
+
+    if train_config.get("max_cache_depth") > 0:
+        from Session_Cache import Cache_Wrapper
+        session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
                      session,
                      build_config,
