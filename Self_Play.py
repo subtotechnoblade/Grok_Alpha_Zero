@@ -205,7 +205,6 @@ def self_play_task(worker_id,
                    lock: mp.Lock,
                    folder_path: str,
                    generation: int):
-    from numba import njit
     np.random.seed()
     if train_config["use_inference_server"]:
         session = Parallelized_Session(worker_id,
@@ -259,7 +258,7 @@ def run_self_play(game_class,
 
     generation = int(folder_path.split("/")[-1])
     num_workers = train_config["num_workers"]
-    if num_workers > mp.cpu_count() // 2:
+    if num_workers > mp.cpu_count() // 2 and mp.get_start_method() == "spawn":
         num_workers = mp.cpu_count() // 2
 
     if num_games_left < num_workers:
