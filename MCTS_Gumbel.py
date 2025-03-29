@@ -5,7 +5,7 @@ import numpy as np
 
 # np.seterr(all='raise')
 import numba as nb
-# from numba import njit
+from numba import njit
 from numba.extending import is_jitted
 
 from Session_Cache import Cache_Wrapper
@@ -17,7 +17,7 @@ from Client_Server import Parallelized_Session
 
 
 class Node:
-    __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "RNN_state", "child_logit_priors", "is_terminal", "parent"
+    __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_raw_values", "child_values", "child_logit_priors", "is_terminal", "parent"
 
     def __init__(self,
                  child_id: int,
@@ -25,7 +25,6 @@ class Node:
                  action_history: np.array,
                  current_player: int,
                  child_legal_actions: list[tuple[int]] or list[int],
-                 RNN_state: list or list[np.array, ...] or np.array,
                  child_logit_priors: np.array,
                  is_terminal=None,
                  parent=None):
@@ -44,10 +43,9 @@ class Node:
         self.child_legal_actions = child_legal_actions  # a list of actions, [action1, action2, ...], will be deleted when completely popped
         self.child_visits = np.zeros(len(child_legal_actions),
                                      dtype=np.uint32)  # not sure if float32 or uint32 would be better for speed
+        self.child_raw_values = np.zeros(len(child_legal_actions), dtype=np.float32)
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float32)
 
-        # Pertaining to the input and outputs of the neural network
-        self.RNN_state = RNN_state
         self.child_logit_priors = child_logit_priors
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
@@ -61,14 +59,12 @@ class Root(Node):  # inheritance
                  action_history: list or tuple or np.array,
                  current_player: int,
                  child_legal_actions: list[tuple[int]] or list[int] or dict[int:np.ndarray],
-                 RNN_state: list or list[np.array] or np.array,
                  child_logit_priors: np.array):
         super().__init__(0,
                          board,
                          action_history,
                          current_player,
                          child_legal_actions,
-                         RNN_state,
                          child_logit_priors,
                          is_terminal=None,
                          parent=None)
@@ -78,35 +74,51 @@ class Root(Node):  # inheritance
         del self.child_id  # saved 24 bytes OMG
 
 
-# @njit("float32[:](float32[:])", cache=True)
+@njit("float32[:](float32[:])", cache=True)
 def stablemax(logits):
-    with np.errstate(divide="ignore", invalid="ignore"):
-        s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits))
+    s_x = np.where(logits >= 0, logits + 1, 1 / (1 - logits + np.finfo(np.float32).eps))
     return s_x / np.sum(s_x)
 
 
-# @njit("float32[:](float32[:])", cache=True)
+@njit("float32[:](float32[:])", cache=True)
 def softmax(logits):
     c = -np.max(logits)  # for numerical stability
     exp = np.exp(logits + c)
     return exp / np.sum(exp)
 
-
-# @njit(["float32[:](float32[:], uint32[:], float32, float32)",
-#        "float32[:](float32[:], int64, float32, float32)"]
-#     , cache=True, fastmath=True)
-def q_transform(input_values, visits, min_value=-1.0, max_value=1.0):
-    values = np.where(visits > 0, input_values, min_value)
+@njit(["float32[:](float32[:], uint32[:], float32, float32)",
+       "float32[:](float32[:], int64, float32, float32)"]
+    , cache=True, fastmath=True)
+def q_transform(values, visits, min_value=-1.0, max_value=1.0):
+    values = np.where(visits > 0, values, min_value)
     return (values - min_value) / (max_value - min_value)
 
+@njit(["float32[:](float32[:])"], cache=True)
+def rescale_q(q_values):
+    min_value = q_values.min()
+    max_value = q_values.max()
+    return (q_values - min_value) / np.maximum(max_value - min_value, np.finfo(np.float32).eps)
 
-# @njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
+@njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
+@njit(["float32[:](float32[:], float32[:], uint32[:], float32[:])"], cache=True, fastmath=True)
+def compute_v_mix(values, q, visits, prob_priors):
+    sum_visits = np.sum(visits)
+    sum_probs = np.sum(np.where(visits > 0, prob_priors, 0.0))
+
+    # this is the sum of pi(a) * q(a)
+    weighted_q = np.sum(np.where(visits > 0,
+                          prob_priors * q / np.where(visits > 0, sum_probs, 1.0), # divisor is the sum of all of the visited probs
+                          0.0))
+    # we normalized the weighed q since many actions will have 0 visits and shouldn't be considered
+    return ((values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
 
 
-# @njit(cache=True)
-def compute_pi(mean_values,
+@njit(["float32[:](float32[:], float32[:], uint32[:], int64, float32, float32, boolean, float32, float32)",
+       "float32[:](float32[:], float32[:], uint32[:], uint32, float64, float64, boolean, float32, float32)"],
+      cache=True)
+def compute_pi(values,
                logits,
                visits,
                N_b,  # max visits for any action (this will be a child of the root)
@@ -116,13 +128,18 @@ def compute_pi(mean_values,
                min_value=-1.0,
                max_value=1.0,
                ):
-    q = q_transform(mean_values, visits, min_value, max_value)
+    q = q_transform(values, visits, min_value, max_value)
     if use_softmax:
-        completed_q = np.where(visits > 0, q, np.sum(softmax(logits) * q))
+        probs = softmax(logits)
+        completed_q = np.where(visits > 0, q, compute_v_mix(values, q, visits, probs))
+        completed_q = rescale_q(completed_q)
         return softmax(logits + sigma(completed_q, N_b, c_visit, c_scale))
     else:
-        completed_q = np.where(visits > 0, q, np.sum(stablemax(logits) * q))
+        probs = stablemax(logits)
+        completed_q = np.where(visits > 0, q, compute_v_mix(values, q, visits, probs))
+        completed_q = rescale_q(completed_q)
         return stablemax(logits + sigma(completed_q, N_b, c_visit, c_scale))
+
 
 
 class MCTS_Gumbel:
@@ -185,7 +202,7 @@ class MCTS_Gumbel:
             self.c_visit = c_visit
 
     @staticmethod
-    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
     def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase):
         """
         return the index of the top actions as a generator
@@ -198,8 +215,8 @@ class MCTS_Gumbel:
         return child_ids, visit_budget_per_child
 
     @staticmethod
-    # @njit(cache=True)
-    def deterministic_selection(mean_values,
+    @njit(["int64(float32[:], float32[:], uint32[:], uint32, float64, float64, boolean, float32, float32)"], cache=True)
+    def deterministic_selection(values,
                                 logits,
                                 visits,
                                 N_b,
@@ -208,32 +225,28 @@ class MCTS_Gumbel:
                                 use_softmax=False,
                                 min_value=-1.0,
                                 max_value=1.0):
-        pi = compute_pi(mean_values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax,
+        pi = compute_pi(values, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax,
                         min_value=min_value,
                         max_value=max_value)
         return np.argmax(pi - (visits / (1 + np.sum(visits))))
 
     def select(self, node: Node):
         while True:
-            mask = node.child_visits > 0
-            mean_child_values = node.child_values[mask] / node.child_visits[mask]
-            complete_mean_child_values = node.child_values.copy()  # cause me to lose 1 day to debugging this stoopidity
-            complete_mean_child_values[mask] = mean_child_values
-
-            child_id = self.deterministic_selection(complete_mean_child_values,
+            child_id = self.deterministic_selection(node.child_raw_values,
                                                     node.child_logit_priors,
                                                     node.child_visits,
-                                                    self.root.child_visits.max(),
+                                                    node.child_visits.max(),
                                                     self.c_visit,
                                                     self.c_scale,
-                                                    self.use_softmax)
+                                                    self.use_softmax,
+                                                    -1.0, 1.0)
             if node.children[child_id] is None:
                 return node, child_id  # Note that the node is the parent not the child
             elif node.children[child_id].is_terminal is not None:
                 return node.children[child_id], child_id
             node = node.children[child_id]
 
-    def _compute_outputs(self, inputs, RNN_state, depth=0):
+    def _compute_outputs(self, inputs, depth=0):
         if self.session is not None:
             kwargs = {
                 "output_names": ["policy", "value"],
@@ -243,18 +256,14 @@ class MCTS_Gumbel:
                 kwargs["depth"] = depth
 
             policy, value = self.session.run(**kwargs)
-            return policy[0], value[0][0], RNN_state
-        return self._get_dummy_outputs(inputs, RNN_state)
+            return policy[0], value[0][0]
+        return self._get_dummy_outputs(inputs)
 
-    def _get_dummy_outputs(self, input_state, RNN_state):
-        # since I'm not using RNN_state I can just return it for the next node
-        # this will also give the next RNN_state that is required for the next inference call
-        if RNN_state is None:
-            raise RuntimeError("RNN state cannot be None")
-        # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0, RNN_state
+    def _get_dummy_outputs(self, input_state):
+        # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0
         return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), \
-            np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state  # policy and value
-        # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
+            np.random.uniform(low=-1, high=1, size=(1,))[0]  # policy and value
+        # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0
 
     @staticmethod
     def get_terminal_actions_fn(do_action_fn,
@@ -322,14 +331,15 @@ class MCTS_Gumbel:
                 value = 0
                 child_policy = np.ones(len(terminal_mask), dtype=np.float32) / len(terminal_mask)
 
-            self.root = Root(self.game.board.copy(),
+            self.root = Root(None,
                              self.game.action_history.copy(),
                              -self.game.get_next_player(),
                              terminal_actions,
-                             [],
                              child_policy)
             self.root.child_legal_actions = {}
             del self.root.board
+
+            self.root.child_raw_values = terminal_mask
             for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
                 terminal_player = self.game.get_next_player()
                 terminal_node = Node(child_id,
@@ -338,19 +348,17 @@ class MCTS_Gumbel:
                                      -self.game.get_next_player(),
                                      [],
                                      [],
-                                     [],
                                      terminal_player if mask_value == 1 else 0,
                                      parent=self.root)
-                del terminal_node.child_legal_actions
-                del terminal_node.RNN_state, terminal_node.child_logit_priors
+                del terminal_node.child_legal_actions, terminal_node.child_logit_priors
+
                 self.root.children[child_id] = terminal_node
                 self._back_propagate(terminal_node, value)
 
 
 
         else:
-            child_policy, child_value, initial_RNN_state = self._compute_outputs(self.game.get_input_state(),
-                                                                                 [],
+            child_policy, child_value = self._compute_outputs(self.game.get_input_state(),
                                                                                  len(self.game.action_history))
 
             legal_actions, child_logit_prior = self.game.get_legal_actions_policy_MCTS(self.game.board,
@@ -364,12 +372,12 @@ class MCTS_Gumbel:
                              self.game.action_history.copy(),
                              self.game.get_next_player() * -1,  # current player for no moves placed
                              dict(enumerate(legal_actions)),
-                             initial_RNN_state,
                              child_logit_prior)
+
 
     def _expand_with_terminal_actions(self, node, child_index, terminal_parent_board, terminal_parent_action,
                                       terminal_actions,
-                                      terminal_mask):
+                                      terminal_mask: np.ndarray[np.float32]):
         # winning actions must have at least 1 winning action
 
         if 1 in terminal_mask:  # if there is a win, then draw's probability should stay at 0
@@ -396,27 +404,26 @@ class MCTS_Gumbel:
                                node.action_history + [terminal_parent_action],
                                terminal_parent_current_player,
                                child_legal_actions=dict(enumerate(terminal_actions)),
-                               RNN_state=None,
                                child_logit_priors=terminal_parent_prob_prior,
                                is_terminal=None,
                                parent=node)
-        node.children[child_index] = terminal_parent
 
-        terminal_parent.child_values = terminal_mask.astype(np.float32,
-                                                            copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.uint32)
+        node.children[child_index] = terminal_parent
+        terminal_parent.child_values[:] = terminal_mask # terminal mask is already float32
+        # 0 for draws and 1 for wins, thus perfect for child_values, a copy is made with [:]
+        terminal_parent.child_raw_values = terminal_mask # won't be modified after creation, no copy is necessary
         # formality so that we don't get division by 0 when calcing stats
 
-        for child_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
+        for terminal_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
             # ^ isn't needed because we don't need to use it for the children since is terminal
 
-            terminal_child = Node(child_id=child_id,
+            terminal_child = Node(child_id=terminal_id,
                                   board=None,
                                   action_history=terminal_parent.action_history + [terminal_action],
                                   current_player=node.current_player,
                                   # based on node.current_player because node's child's child is the same player as node
                                   child_legal_actions=[None],
-                                  RNN_state=None,
                                   child_logit_priors=None,
                                   is_terminal=node.current_player if mask_value == 1 else 0,
                                   parent=terminal_parent)
@@ -428,8 +435,8 @@ class MCTS_Gumbel:
             del terminal_child.child_values
             del terminal_child.child_visits
             del terminal_child.child_logit_priors
-            del terminal_child.RNN_state
-            terminal_parent.children[child_id] = terminal_child
+            terminal_parent.child_raw_values[terminal_id] = mask_value
+            terminal_parent.children[terminal_id] = terminal_child
         return terminal_parent, -terminal_parent_value, terminal_parent_visits
 
         # negative because the child's POV won, thus the parent's POV lost in this searched path
@@ -468,11 +475,11 @@ class MCTS_Gumbel:
             return self._expand_with_terminal_actions(node, index, child_board, child_action, terminal_actions,
                                                       terminal_mask)
         else:
-            child_policy, child_value, next_RNN_state = self._compute_outputs(
+            child_policy, child_value = self._compute_outputs(
                 self.game.get_input_state_MCTS(child_board,
                                                -node.current_player,
                                                np.array(node.action_history + [child_action])),
-                node.RNN_state, len(node.action_history))
+                len(node.action_history))
 
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
@@ -488,12 +495,12 @@ class MCTS_Gumbel:
                          node.action_history + [child_action],
                          node.current_player * -1,
                          dict(enumerate(child_legal_actions)),
-                         next_RNN_state,
                          child_logit_prior,
                          None,
                          parent=node)
             # we don't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
+            node.child_raw_values[index] = child_value
             node.children[index] = child
 
             if len(node.child_legal_actions) == 0:  # we will never use this parent again for generating children
@@ -504,7 +511,6 @@ class MCTS_Gumbel:
                 # we can delete it because the NN will not evaluate it again thus saving more memory
                 del node.board
                 del node.current_player
-                del node.RNN_state  # we no longer need RNN state
             # negated child_child_values is the child value
         return child, -child_value, 1  # contact Brian if you don't understand why it is -value
 
@@ -534,7 +540,6 @@ class MCTS_Gumbel:
                              self.root.action_history + [child_action],
                              self.root.current_player * -1,
                              [None],
-                             None,
                              None,
                              None,
                              self.root)
@@ -569,7 +574,7 @@ class MCTS_Gumbel:
         current_iteration = 0
         current_phase = 0
         gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
-
+        # print(gumbel_noise)
         logits = self.root.child_logit_priors
         top_gumbel_logits = (logits + gumbel_noise).astype(np.float32, copy=False)
 
@@ -581,13 +586,14 @@ class MCTS_Gumbel:
             chosen_ids, visits_per_child = self.sequential_halving(self.m,
                                                                    iteration_limit,
                                                                    top_gumbel_logits,
-                                                                   q_transform(top_mean_values.copy(), 1, -1.0, 1.0),
+                                                                   # removed the .copy() on top_mean_values
+                                                                   q_transform(top_mean_values, 1, -1.0, 1.0),
                                                                    self.root.child_visits.max(),
                                                                    self.c_visit,
                                                                    self.c_scale,
                                                                    current_phase)
 
-            chosen_ids = np.sort(chosen_ids)
+            # chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
             top_node_ids = top_node_ids[chosen_ids]
@@ -627,16 +633,13 @@ class MCTS_Gumbel:
 
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
 
-        mask = self.root.child_visits > 0
-        mean_child_values = self.root.child_values[mask] / self.root.child_visits[mask]
-        complete_mean_child_values = self.root.child_values.copy()
-        complete_mean_child_values[mask] = mean_child_values
-        pi = compute_pi(complete_mean_child_values,
+        pi = compute_pi(self.root.child_raw_values,
                         self.root.child_logit_priors,
                         self.root.child_visits,
                         self.root.child_visits.max(),
                         self.c_visit, self.c_scale,
-                        self.use_softmax)
+                        self.use_softmax,
+                        -1.0, 1.0)
 
         self.fill_empty_children()
 
@@ -654,7 +657,7 @@ class MCTS_Gumbel:
                                     self.root.visits, child.is_terminal]
         # stochastically sample a move with the weights affected by tau
 
-        move_probs = sorted(move_probs, key=lambda x: x[1], reverse=True)
+        move_probs = sorted(move_probs, key=lambda x: x[-3], reverse=True)
         return self.root.children[top_node_ids[0]].action_history[-1], move_probs
 
     def _set_root(self, child: Node):
@@ -665,26 +668,21 @@ class MCTS_Gumbel:
             if len(child.child_legal_actions) > 0:
                 child_legal_actions = child.child_legal_actions
                 child_current_player = child.current_player
-                child_RNN_state = child.RNN_state
             else:
                 child_legal_actions = child.child_legal_actions  # this is only used as an initialization, will be overwritten
                 child_current_player = None
-                child_RNN_state = None
             child_logit_priors = child.child_logit_priors
         else:
             child_legal_actions = {}  # this is only used as an initialization, will be overwritten
             child_logit_priors = None
             child_current_player = None
-            child_RNN_state = None
 
         new_root = Root(board=self.game.board.copy(),
                         action_history=child.action_history,
                         current_player=child_current_player,
                         child_legal_actions=child_legal_actions,
-                        RNN_state=child_RNN_state,
                         child_logit_priors=child_logit_priors)
 
-        # del new_root.RNN_state # don't need this as child must be evaluated
         if child.is_terminal is None:
             new_root.children = child.children
             new_root.child_values = child.child_values
@@ -720,9 +718,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -811,13 +809,13 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/TRT_cache/model_ctx.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/model.onnx", providers=providers)
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/0/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/7/TRT_cache/model_ctx.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/5/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        # game = Gomoku()
+        game = Gomoku()
         # game.do_action((7, 7))
         # game.do_action((6, 7))
         # game.do_action((7, 6))
@@ -825,7 +823,7 @@ if __name__ == "__main__":
         # game.do_action((7, 5))
         # game.do_action((6, 5))
 
-        game = TicTacToe()
+        # game = TicTacToe()
         # game.do_action((1, 1))
         # game.do_action((0, 0))
         # game.do_action((1, 0))
@@ -840,10 +838,11 @@ if __name__ == "__main__":
                             # None,
                             session,
                             None,
-                            m=9,
-                            c_scale=1.0,
+                            m=64,
+                            c_scale=0.1,
                             c_visit=50.0,
-                            fast_find_win=False)
+                            fast_find_win=False,
+                            activation_fn="stablemax")
         # mcts2 = MCTS_Gumbel(game,
         #              None,
         #              # session,
@@ -857,7 +856,7 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == -1:
-                move, probs = mcts1.run(2000, use_bar=True)
+                move, probs = mcts1.run(500, use_bar=True)
             else:
                 # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
@@ -892,7 +891,6 @@ if __name__ == "__main__":
     # for _ in range(100):
     #     game = TicTacToe()
     #     mcts1 = MCTS(game,
-    #                 RNN_state,
     #                 None,
     #                 c_puct_init=2.5,
     #                 tau=0.0,
@@ -900,7 +898,6 @@ if __name__ == "__main__":
     #                 fast_find_win=False)
     #
     #     mcts2 = MCTS(game,
-    #                 RNN_state,
     #                 None,
     #                 c_puct_init=2.5,
     #                 tau=0.0,
