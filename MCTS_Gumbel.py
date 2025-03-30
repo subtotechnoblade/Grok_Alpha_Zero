@@ -120,9 +120,7 @@ def compute_v_mix(raw_values, q, visits, prob_priors):
                                  0.0))
     # we normalized the weighed q since many actions will have 0 visits and shouldn't be considered
     return ((raw_values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
-@njit(cache=True)
-def rescale_logits(logits):
-    return np.where(logits >= 0, np.log(logits + 1), -np.log(-logits + 1))
+
 @njit(["float32[:](float32[:], float32[:], float32[:], uint32[:], int64, float32, float32, boolean)",
             "float32[:](float32[:], float32[:], float32[:], uint32[:], uint32, float64, float64, boolean)"],
       cache=True)
