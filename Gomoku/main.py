@@ -49,6 +49,13 @@ def Validate_Train_Config(train_config):
         if train_config.get("time_limit") is not None:
             raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
 
+        m = train_config.get("m")
+        s = bin(m).count("1")
+        min_iterations = 2 * m - s - (s == 1)
+        # fancy way of doing f(128) = 128 + 64 + 32 + 16 + 8 + 4 + 2
+        if train_config["iterations"] <= min_iterations: # equal because, its bad performance
+            raise ValueError(f"At minimum there needs to be {min_iterations + 1} iterations for sequential halving to be effective.")
+
     mixed_precision_policy = train_config.get("mixed_precision", None)
     if mixed_precision_policy is not None:
         if mixed_precision_policy == "mixed_bfloat16":
@@ -92,7 +99,7 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
 
     mixed_precision_policy = train_config.get("mixed_precision")
     if mixed_precision_policy is not None:

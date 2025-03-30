@@ -10,11 +10,12 @@ import warnings
 import multiprocessing as mp
 
 from Game_Tester import Game_Tester
+
 from Self_Play import run_self_play
 # would create a folder for the new generation
-
 from Build_Tensorrt import cache_tensorrt
 from Compute_Speed import compute_speed
+
 
 def Validate_Train_Config(train_config):
     import onnxruntime as rt
@@ -48,15 +49,21 @@ def Validate_Train_Config(train_config):
         if train_config.get("time_limit") is not None:
             raise ValueError("time_limit must be None for gumbel alphazero as gumbel uses iteration_limit")
 
+        m = train_config.get("m")
+        s = bin(m).count("1")
+        min_iterations = 2 * m - s - (s == 1)
+        # fancy way of doing f(128) = 128 + 64 + 32 + 16 + 8 + 4 + 2
+        if train_config["iterations"] <= min_iterations: # equal because, its bad performance
+            raise ValueError(f"At minimum there needs to be {min_iterations + 1} iterations for sequential halving to be effective.")
+
     mixed_precision_policy = train_config.get("mixed_precision", None)
     if mixed_precision_policy is not None:
         if mixed_precision_policy == "mixed_bfloat16":
-            raise ValueError(
-                "mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
+            raise ValueError("mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
         elif mixed_precision_policy != "mixed_float16":
             raise ValueError(
                 f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
-    if mixed_precision_policy == "mixed_float16" and train_config["use_gpu"] is False:
+    if mixed_precision_policy == "mixed_bfloat16" and not train_config["use_gpu"]:
         warnings.warn("Using float16 as the compute type for CPU is extremely slow!")
     if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
         raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
@@ -83,7 +90,6 @@ def Print_Stats(folder_path):
         print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
 
 
-
 def Train_NN(game_class, build_model_fn, build_config, train_config, generation, folder_path, save_folder_path):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     import tensorflow as tf
@@ -93,7 +99,7 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
         tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
+            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
 
     mixed_precision_policy = train_config.get("mixed_precision")
     if mixed_precision_policy is not None:
