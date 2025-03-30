@@ -120,8 +120,9 @@ def compute_v_mix(raw_values, q, visits, prob_priors):
                                  0.0))
     # we normalized the weighed q since many actions will have 0 visits and shouldn't be considered
     return ((raw_values + weighted_q * sum_visits) / (sum_visits + 1)).astype(np.float32)
-
-
+@njit(cache=True)
+def rescale_logits(logits):
+    return np.where(logits >= 0, np.log(logits + 1), -np.log(-logits + 1))
 @njit(["float32[:](float32[:], float32[:], float32[:], uint32[:], int64, float32, float32, boolean)",
             "float32[:](float32[:], float32[:], float32[:], uint32[:], uint32, float64, float64, boolean)"],
       cache=True)
@@ -205,7 +206,7 @@ class MCTS_Gumbel:
             self.c_visit = c_visit
 
     @staticmethod
-    # @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
+    @njit("Tuple((int64[:], int64))(int64, int64, float32[:], float32[:], int64, int64, float32, int64)", cache=True)
     def sequential_halving(m, n, gumbel_logits, q_hat, N_b, c_visit, c_scale, phase):
         """
         return the index of the top actions as a generator
@@ -599,8 +600,7 @@ class MCTS_Gumbel:
                                                                    self.c_visit,
                                                                    self.c_scale,
                                                                    current_phase)
-            if visits_per_child == 0:
-                print("sequ gave visits per child == 0")
+
             chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
@@ -666,7 +666,7 @@ class MCTS_Gumbel:
                                     self.root.visits, child.is_terminal]
         # stochastically sample a move with the weights affected by tau
 
-        move_probs = sorted(move_probs, key=lambda x: x[1] + x[4], reverse=True) # ranks based on probs + visits
+        move_probs = sorted(move_probs, key=lambda x: x[1] + x[2] + x[4] + x[5], reverse=True) # ranks based on probs + visits
         return self.root.children[top_node_ids[0]].action_history[-1], move_probs
 
     def _set_root(self, child: Node):
@@ -728,9 +728,9 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Gomoku.Gomoku import Gomoku, build_config, train_config
 
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 
@@ -819,13 +819,13 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/2/model.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/7/TRT_cache/model_ctx.onnx", providers=providers)
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/2/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/3/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/5/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        # game = Gomoku()
+        game = Gomoku()
         # game.do_action((7, 7))
         # game.do_action((6, 7))
         # game.do_action((7, 6))
@@ -833,7 +833,7 @@ if __name__ == "__main__":
         # game.do_action((7, 5))
         # game.do_action((6, 5))
 
-        game = TicTacToe()
+        # game = TicTacToe()
         # game.do_action((1, 1))
         # game.do_action((0, 0))
         # game.do_action((1, 0))
@@ -848,7 +848,7 @@ if __name__ == "__main__":
                             # None,
                             session,
                             None,
-                            m=9,
+                            m=128,
                             c_scale=1.0,
                             c_visit=50.0,
                             fast_find_win=False,
@@ -865,8 +865,8 @@ if __name__ == "__main__":
         print(game.board)
         while winner == -2:
 
-            if game.get_next_player() == -1:
-                move, probs = mcts1.run(50, use_bar=True)
+            if game.get_next_player() == 1:
+                move, probs = mcts1.run(1000, use_bar=True)
             else:
                 # move, probs = mcts2.run(2, use_bar=False)
                 move = game.input_action()
