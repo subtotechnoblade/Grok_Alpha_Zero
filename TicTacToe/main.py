@@ -53,8 +53,8 @@ def Validate_Train_Config(train_config):
         s = bin(m).count("1")
         min_iterations = 2 * m - s - (s == 1)
         # fancy way of doing f(128) = 128 + 64 + 32 + 16 + 8 + 4 + 2
-        if train_config["iterations"] <= min_iterations: # equal because, its bad performance
-            raise ValueError(f"At minimum there needs to be {min_iterations + 1} iterations for sequential halving to be effective.")
+        if train_config["MCTS_iteration_limit"] < min_iterations: # equal because, its bad performance
+            raise ValueError(f"At minimum there needs to be {min_iterations + 1} MCTS iterations for sequential halving to be effective.")
 
     mixed_precision_policy = train_config.get("mixed_precision", None)
     if mixed_precision_policy is not None:
