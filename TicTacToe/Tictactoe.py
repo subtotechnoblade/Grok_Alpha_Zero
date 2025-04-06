@@ -78,9 +78,9 @@ import time
 # house = House("Brian") # this is calling constructor
 # print(f"Ha Ha {house.owner} is the new owner")
 
-build_config = {"num_resnet_layers": 1,
+build_config = {"num_resnet_layers": 2,
 
-                "use_stablemax": True,
+                "use_stablemax": False,
                 "use_grok_fast": True,
                 "use_orthograd": True,
                 "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
@@ -98,8 +98,8 @@ train_config = {
     "num_explore_actions_second": 1,
     # for a random player player -1 almost always wins, so player 1 should try playing the best move
 
-    "use_gpu": True,  # Change this to false to use CPU for self play and inference
-    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
+    "use_gpu": False,  # Change this to false to use CPU for self play and inference
+    "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,
     # if an extremely large model is used, because of memory constraints, set this to True
@@ -116,16 +116,16 @@ train_config = {
     # These params will only be used when use_gumbel is set to True
     "m": 2,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 1.0,
+    "c_scale": 0.15,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.8,  # should be around (10 / average moves per game)
 
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
-    # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
+    # # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 2,  # The previous generation's data that will be used in training
+    "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.9,
     # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
@@ -137,7 +137,7 @@ train_config = {
     "train_batch_size": 512,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 1e-3,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
+    "learning_rate": 7e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
     "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
