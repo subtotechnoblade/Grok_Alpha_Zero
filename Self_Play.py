@@ -60,6 +60,7 @@ class Self_Play:
         else:
             self.mcts1 = MCTS_Gumbel(game=self.game,
                                      session=self.sess,
+                                     use_gumbel_noise=True,
                                      use_njit=self.train_config["use_njit"],
                                      m=self.train_config["m"],
                                      c_visit=self.train_config["c_visit"],
@@ -68,6 +69,7 @@ class Self_Play:
 
             self.mcts2 = MCTS_Gumbel(game=self.game,
                                      session=self.sess,
+                                     use_gumbel_noise=True,
                                      use_njit=self.train_config["use_njit"],
                                      m=self.train_config["m"],
                                      c_visit=self.train_config["c_visit"],
