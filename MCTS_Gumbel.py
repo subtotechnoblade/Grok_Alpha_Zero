@@ -80,9 +80,10 @@ def stablemax(logits):
     return s_x / np.sum(s_x)
 
 
-@njit("float32[:](float32[:])", cache=True)
+@njit("float64[:](float64[:])", cache=True)
 def softmax(logits):
     c = -np.max(logits)  # for numerical stability
+    # can do this because of e ^ x
     exp = np.exp(logits + c)
     return exp / np.sum(exp)
 
@@ -103,7 +104,8 @@ def rescale_q(q_values):
     return (q_values - min_value) / np.maximum(max_value - min_value, np.finfo(np.float32).eps)
 
 
-@njit("float32[:](float32[:], float32, float32, float32)", cache=True, fastmath=True)
+@njit(["float32[:](float32[:], float32, float32, float32)",
+       "float64[:](float64[:], float32, float32, float32)"], cache=True, fastmath=True)
 def sigma(q, N_b, c_visit, c_scale):
     return (c_visit + N_b) * c_scale * q
 
@@ -133,10 +135,14 @@ def compute_pi(raw_values,
                c_scale,
                use_softmax=True):
     if use_softmax:
-        probs = softmax(logits)
+        logits = logits.astype(np.float64)
+        probs = softmax(logits).astype(np.float32)
         completed_q = np.where(visits > 0, q, compute_v_mix(raw_values, q, visits, probs))
         completed_q = rescale_q(completed_q)
-        return softmax(logits + sigma(completed_q, N_b, c_visit, c_scale))
+        x = softmax(logits + sigma(completed_q.astype(np.float64), N_b, c_visit, c_scale)).astype(np.float32)
+        # print((logits + sigma(completed_q.astype(np.float64), N_b, c_visit, c_scale)).dtype)
+        # print(x.dtype)
+        return x
     else:
         probs = stablemax(logits)
         completed_q = np.where(visits > 0, q, compute_v_mix(raw_values, q, visits, probs))
@@ -150,6 +156,7 @@ class MCTS_Gumbel:
     def __init__(self,
                  game,  # the annotation is for testing and debugging
                  session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None,
+                 use_gumbel_noise=False,
                  use_njit=None,
                  m=16,
                  c_visit=50.0,
@@ -171,6 +178,7 @@ class MCTS_Gumbel:
         self.cache_session = isinstance(self.session, Cache_Wrapper)
         self.fast_find_win = fast_find_win
 
+        self.use_gumbel_noise = use_gumbel_noise
         self.use_njit = use_njit if use_njit is not None else hasattr(os, "fork")
         self.m = m
         self.c_visit = c_visit
@@ -229,7 +237,8 @@ class MCTS_Gumbel:
                                 use_softmax=False,
                                 min_value=-1.0,
                                 max_value=1.0):
-        mean_values = np.where(visits > 0, values / visits, min_value).astype(np.float32)
+        mean_values = np.where(visits > 0, values / visits, min_value).astype(np.float32) # ignore divide by 0
+        # thats just np.where being implemeted like that
         q = q_transform(mean_values, visits, min_value, max_value)
 
         pi = compute_pi(raw_values, q, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax)
@@ -579,10 +588,13 @@ class MCTS_Gumbel:
 
         current_iteration = 0
         current_phase = 0
-        gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
+        top_gumbel_logits = self.root.child_logit_priors.copy()
 
-        logits = self.root.child_logit_priors
-        top_gumbel_logits = (logits + gumbel_noise).astype(np.float32, copy=False)
+        if self.use_gumbel_noise:
+            gumbel_noise = np.random.gumbel(loc=0.0, scale=1.0, size=(len(self.root.child_logit_priors),))
+            top_gumbel_logits = (top_gumbel_logits + gumbel_noise).astype(np.float32, copy=False)
+
+
 
         top_node_ids = np.arange(len(self.root.children))
         top_mean_values = self.root.child_values
@@ -664,7 +676,7 @@ class MCTS_Gumbel:
                                     self.root.visits, child.is_terminal]
         # stochastically sample a move with the weights affected by tau
 
-        move_probs = sorted(move_probs, key=lambda x: x[1] + x[2] + x[4] + x[5], reverse=True) # ranks based on probs + visits
+        move_probs = sorted(move_probs, key=lambda x: x[1], reverse=True) # ranks based on probs + visits
         return self.root.children[top_node_ids[0]].action_history[-1], move_probs
 
     def _set_root(self, child: Node):
@@ -817,9 +829,9 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/2/model.onnx", providers=providers)
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/3/TRT_cache/model_ctx.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/5/model.onnx", providers=providers)
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/7/model.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/11/TRT_cache/model_ctx.onnx", providers=providers)
+    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/model.onnx", providers=providers)
 
     winners = [0, 0, 0]
     for game_id in range(1):
@@ -845,18 +857,23 @@ if __name__ == "__main__":
         mcts1 = MCTS_Gumbel(game,
                             # None,
                             session,
+                            True,
                             None,
-                            m=128,
-                            c_scale=1.0,
+                            m=64,
                             c_visit=50.0,
+                            c_scale=0.15,
                             fast_find_win=False,
-                            activation_fn="stablemax")
-        # mcts2 = MCTS_Gumbel(game,
-        #              None,
-        #              # session,
-        #              None,
-        #              m = 9,
-        #              fast_find_win=False)
+                            activation_fn="softmax")
+        mcts2 = MCTS_Gumbel(game,
+                            # None,
+                            session,
+                            True,
+                            None,
+                            m = 64,
+                            c_visit=50.0,
+                            c_scale=0.15,
+                            fast_find_win=False,
+                            activation_fn="softmax")
 
         current_move_num = 0
         winner = -2
@@ -864,11 +881,11 @@ if __name__ == "__main__":
         while winner == -2:
 
             if game.get_next_player() == 1:
-                move, probs = mcts1.run(1000, use_bar=True)
+                move, probs = mcts1.run(2000, use_bar=True)
             else:
-                # move, probs = mcts2.run(2, use_bar=False)
-                move = game.input_action()
-                probs = []
+                move, probs = mcts2.run(2000, use_bar=True)
+                # move = game.input_action()
+                # probs = []
             # legal_actions = game.get_legal_actions()
             # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
             # move = legal_actions[index]
@@ -883,7 +900,7 @@ if __name__ == "__main__":
                 winners[winner + 1] += 1
             if winner == -2:
                 mcts1.prune_tree(move)
-                # mcts2.prune_tree(move)
+                mcts2.prune_tree(move)
         # raise ValueError
     print(winners)
 
