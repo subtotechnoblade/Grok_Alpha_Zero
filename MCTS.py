@@ -75,7 +75,6 @@ class Root(Node):  # inheritance
         self.visits = 0
         # don't need value because it isn't needed in PUCT calculations
         del self.child_id  # saved 24 bytes OMG
-        del self.child_id  # saved 24 bytes OMG
 
 
 class MCTS:
