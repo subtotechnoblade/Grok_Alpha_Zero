@@ -75,6 +75,7 @@ class Root(Node):  # inheritance
         self.visits = 0
         # don't need value because it isn't needed in PUCT calculations
         del self.child_id  # saved 24 bytes OMG
+        del self.child_id  # saved 24 bytes OMG
 
 
 class MCTS:
@@ -310,7 +311,6 @@ class MCTS:
                                      parent=self.root)
                 del terminal_node.child_legal_actions, terminal_node.RNN_state, terminal_node.child_prob_priors
                 self.root.children.append(terminal_node)
-                print("True")
                 self._back_propagate(terminal_node, value)
 
 
@@ -453,6 +453,7 @@ class MCTS:
 
             if self.use_dirichlet:
                 epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
+                epsilon = max(epsilon, 1e-2)
                 child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
 
             child = Node(len(node.children),
