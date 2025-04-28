@@ -20,7 +20,7 @@ class Stable_Categorical_Focal_Crossentropy(tf.keras.Loss):
         loss = -self.alpha * ((1.0 - y_pred) ** self.gamma) * y_true * tf.math.log(y_pred)
         return loss
 class Policy_Loss(tf.keras.Loss):
-    def __init__(self, loss_fn=tf.keras.losses.CategoricalFocalCrossentropy(), **kwargs):
+    def __init__(self, loss_fn=tf.keras.losses.CategoricalCrossentropy(), **kwargs):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
 
