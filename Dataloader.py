@@ -76,6 +76,7 @@ class Create_Train_Test_Split:
 
 class Dataloader(tf.keras.utils.PyDataset):
     def __init__(self, states, policies, values, batch_size, *args, **kwargs):
+        np.random.seed()
         super().__init__(*args, **kwargs)
         self.states = states
         self.policies = policies
@@ -89,7 +90,7 @@ class Dataloader(tf.keras.utils.PyDataset):
         self.on_epoch_end()
 
     def on_epoch_end(self):
-        np.random.shuffle(self.indexes)
+        self.indexes = np.random.permutation(self.num_samples)
 
         num_samples = len(self.indexes)
         if num_samples % self.batch_size == 0:
