@@ -1,6 +1,9 @@
+import os
+
 import tensorflow as tf
 
 from Net.Stablemax import Stablemax
+from Net.Taylor_Softmax import Taylor_Softmax
 from Net.Alpha_Loss import Policy_Loss, Value_Loss, KLD
 from Net.Gumbel_Loss import Policy_Loss_Gumbel, Value_Loss_Gumbel, KLD_Gumbel
 def train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config):
@@ -8,7 +11,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],
               "beta_2": train_config["beta_2"],
-              "weight_decay": 1e-4,
+              # "weight_decay": 1e-2,
               "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
               }
 
@@ -36,9 +39,22 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config,
                   loss={"policy": policy_loss, "value": value_loss},
                   metrics={"policy": kld})
 
+    save_best_model = tf.keras.callbacks.ModelCheckpoint(
+        filepath='Grok_Zero_Train/tmp_best.weights.h5',  # Save path (e.g., .keras, .h5, or directory)
+        monitor='val_loss',  # Monitor validation loss
+        save_best_only=True,  # Save ONLY the best model
+        save_weights_only=True,
+        mode='min',  # 'min' for val_loss (lower = better)
+        verbose=1  # Optional: show message when saving
+    )
+
     model.fit(train_dataloader,
               validation_data=test_dataloader,
-              epochs=train_config["train_epochs"])
+              epochs=train_config["train_epochs"],
+              callbacks=[save_best_model])
+
+    model.load_weights("Grok_Zero_Train/tmp_best.weights.h5")
+    os.remove("Grok_Zero_Train/tmp_best.weights.h5")
     return model
 
 if __name__ == "__main__":
