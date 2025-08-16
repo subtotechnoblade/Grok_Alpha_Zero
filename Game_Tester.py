@@ -180,7 +180,10 @@ class Game_Tester:
 
             anti_shuffled_indexes = np.zeros_like(legal_policy, dtype=np.int32)
             for i, action in enumerate(MCTS_legal_actions):
-                anti_shuffled_indexes[i] = np.where((shuffled_MCTS_legal_actions == action).all(axis=1))[0][0]
+                if len(action.shape) == 0:
+                    anti_shuffled_indexes[i] = np.where((shuffled_MCTS_legal_actions == action))[0][0]
+                else:
+                    anti_shuffled_indexes[i] = np.where((shuffled_MCTS_legal_actions == action).all(axis=1))[0][0]
             if (legal_policy != shuffled_legal_policy[anti_shuffled_indexes]).any():
                 print("Checking shuffle in get_legal_actions_policy_MCTS: Fail")
                 print("The shuffling for legal actions and policy are different")
@@ -294,6 +297,7 @@ class Game_Tester:
     def check_check_win(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[0])
+        winner = self.game.check_win()  # also counts as a warmup
         try:
             winner = self.game.check_win()  # also counts as a warmup
         except AttributeError:
