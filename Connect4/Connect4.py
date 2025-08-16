@@ -14,26 +14,26 @@ train_config = {
 
     # Self Play variables
     "games_per_generation": 1000,  # amount of self play games until we re train the network
-    "max_actions": 150,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 2,  # A good rule of thumb is how long the opening should be for player -1
+    "max_actions": 42,  # Note that this should be less than max actions,
+    "num_explore_actions_first": 1,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 0,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache
+    "max_cache_depth": 4,  # maximum depth in the search of the neural networks outputs we should cache
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 550,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 50,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
 
-    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
+    "use_gumbel": True,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
     # These params will only be used when use_gumbel is set to True
-    "m": 64,  # Number of actions sampled in the first stage of sequential halving
+    "m": 7,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
     "c_scale": 1.0,
 
@@ -56,13 +56,13 @@ train_config = {
     "train_batch_size": 256,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": 2,
-    "learning_rate": 2e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
+    "learning_rate": 5e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
     "decay_lr_after": 5,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 25,  # The number of epochs for training
+    "train_epochs": 15,  # The number of epochs for training
 }
 # # resources
 # print("Please read the comments before you start this project")
@@ -254,7 +254,7 @@ class Connect4:
         # for tictactoe it is "return int(input()), int(input())"
         while True:
             try:
-                action = int(input())
+                action = int(input("Action: "))
                 if abs(np.sum(self.board[:, action])) < 6:
                     return action
                 else:

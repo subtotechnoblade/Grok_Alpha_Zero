@@ -15,7 +15,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     num_filters = build_config["num_filters"]
     # input shape should be (3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
-    x = inputs
+    x = tf.keras.layers.Reshape((6, 7, 1))(inputs)
 
     # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
