@@ -1,123 +1,125 @@
 import numpy as np
 from numba import njit
-# resources
-print("Please read the comments before you start this project")
-print("Some of the examples are printed out, so run this file to see them")
-# differences between lists and arrays.
-# Arrays must be homogenous, meaning that it can only have numbers and defined dimension length
-# examples:
-    # array -> [1, 2, 3] # shape = (3,)
-    # not an array (list) -> [1, 2, 3, "3"] # note that "3" is a string
-    # not an array (list) -> [1, 2, 3, [3, 3]] # note that [3, 3] is another dimension, but not consistent with 1 or 2 or 3
-    # array -> [[1, 2],
-    #           [2, 3],
-    #           [3, 4]] # dimensionality is consistent, shape=(3, 2,)
-    # not an array -> [[1, 2, 3]]
-#                      [4, 5, 6]
-#                      [7, 8]] # this should have 3 numbers but it only has 2
 
 
-# quick refresher on shapes of arrays
-# note that arrays has a shape while lists do not
-# shape defines the amount of elements within that dimension
+# # resources
+# print("Please read the comments before you start this project")
+# print("Some of the examples are printed out, so run this file to see them")
+# # differences between lists and arrays.
+# # Arrays must be homogenous, meaning that it can only have numbers and defined dimension length
+# # examples:
+#     # array -> [1, 2, 3] # shape = (3,)
+#     # not an array (list) -> [1, 2, 3, "3"] # note that "3" is a string
+#     # not an array (list) -> [1, 2, 3, [3, 3]] # note that [3, 3] is another dimension, but not consistent with 1 or 2 or 3
+#     # array -> [[1, 2],
+#     #           [2, 3],
+#     #           [3, 4]] # dimensionality is consistent, shape=(3, 2,)
+#     # not an array -> [[1, 2, 3]]
+# #                      [4, 5, 6]
+# #                      [7, 8]] # this should have 3 numbers but it only has 2
 #
-# an array of shape (3,) -> [1, 1, 1], called a vector
-# an array of shape (1, 3,) -> [[1, 1, 1]] # called a matrix because it has 2 dimensions
-# an array of shape (3, 1,) -> [[1],
-#                               [1],
-#                               [1]] # matrix
-# an array of shape (3, 3) -> [[1, 1, 1],
-#                              [1, 1, 1],
-#                              [1, 1, 1]]
-# explanation: there are three rows within the first dimension and 3 numbers in each row
-# ^ perfect for tic tac toe
-
-# example of creating a zero's matrix
-print("3 by 3 matrix")
-print(np.zeros((3, 3)))
-print("4 by 4 matrix")
-print(np.zeros((4, 4)))
-
-print("\nIndexing")
-# intro to indexing
-# propose we make an array
-                 #[[1, 2, 3],
-                 # [4, 5, 6],
-                 # [7, 8, 9]]
-arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-# or
-arr = np.arange(start=1, stop=10).reshape((3, 3)) # both do the same thing
-print(arr)
-# getting the first row:
-print("First row:")
-first_row = arr[0]
-print(first_row)
-# getting the second row:
-print("Second_row")
-second_row = arr[1]
-print(second_row)
-# getting the third row:
-print("Third row")
-third_row = arr[2] # this is the last row
-print(third_row)
-
-print("Indexing a number from arr")
-print("first element from first row")
-first_element = arr[0][0] # 0->2 and do on, note that these are indexes that start from 0
-print(first_element)
-# or alternatively first_element = arr[0, 0]
-# Note that because there are 2 dimensions to get a number which is in the last dimension, we must
-# access that dimension by indexing 2 times, [0][0]
-# in a 3-dimensional 3D array, you have to index 3 times [0][0][0] to get to a number
-
-
-print("\nManipulating Arrays")
-# You can change the value of an array/row/dimension with
-arr = np.zeros((3, 3))
-
-print("change a single element")
-
-arr[0][0] = 1
-print(arr)
-
-print("change whole row")
-arr = np.zeros((3, 3))
-arr[1] = 1
-print(arr)
-
-print("change whole array")
-arr = np.zeros((3, 3))
-arr[:] = 1
-print(arr)
-
-
-print("\nArithmetic operations with arrays")
-# similarly to manipulating arrays
-# you can:
-print("Multiply only the 3rd element of the first row")
-arr = np.ones((3, 3))
-arr[2][2] *= 2
-print(arr)
-
-print("Multiplying only the second row")
-arr = np.ones((3, 3))
-arr[1] *= 2
-print(arr)
-
-print("Multiplying the whole array")
-arr = np.ones((3, 3))
-arr *= 3
-print(arr)
-print("The operations can be any operations such as +, -, *, /, %, //")
-
-# creating a numpy array from a list -> arr = np.array([1, 2, 3])
-# creating a numpy zeros array -> zeros_arr = np.zeros((3, 3))
-
-# optimizations to consider
-# use integer 8 [-128, 127] rather than float 32 [-3.40282347E+38 to -1.17549435E-38] to save memory
-# (8 bits compared to 32 bits)
-# np.zeros((3, 3), dtype=np.int8) # dtype means data type
-# list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
+#
+# # quick refresher on shapes of arrays
+# # note that arrays has a shape while lists do not
+# # shape defines the amount of elements within that dimension
+# #
+# # an array of shape (3,) -> [1, 1, 1], called a vector
+# # an array of shape (1, 3,) -> [[1, 1, 1]] # called a matrix because it has 2 dimensions
+# # an array of shape (3, 1,) -> [[1],
+# #                               [1],
+# #                               [1]] # matrix
+# # an array of shape (3, 3) -> [[1, 1, 1],
+# #                              [1, 1, 1],
+# #                              [1, 1, 1]]
+# # explanation: there are three rows within the first dimension and 3 numbers in each row
+# # ^ perfect for tic tac toe
+#
+# # example of creating a zero's matrix
+# print("3 by 3 matrix")
+# print(np.zeros((3, 3)))
+# print("4 by 4 matrix")
+# print(np.zeros((4, 4)))
+#
+# print("\nIndexing")
+# # intro to indexing
+# # propose we make an array
+#                  #[[1, 2, 3],
+#                  # [4, 5, 6],
+#                  # [7, 8, 9]]
+# arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+# # or
+# arr = np.arange(start=1, stop=10).reshape((3, 3)) # both do the same thing
+# print(arr)
+# # getting the first row:
+# print("First row:")
+# first_row = arr[0]
+# print(first_row)
+# # getting the second row:
+# print("Second_row")
+# second_row = arr[1]
+# print(second_row)
+# # getting the third row:
+# print("Third row")
+# third_row = arr[2] # this is the last row
+# print(third_row)
+#
+# print("Indexing a number from arr")
+# print("first element from first row")
+# first_element = arr[0][0] # 0->2 and do on, note that these are indexes that start from 0
+# print(first_element)
+# # or alternatively first_element = arr[0, 0]
+# # Note that because there are 2 dimensions to get a number which is in the last dimension, we must
+# # access that dimension by indexing 2 times, [0][0]
+# # in a 3-dimensional 3D array, you have to index 3 times [0][0][0] to get to a number
+#
+#
+# print("\nManipulating Arrays")
+# # You can change the value of an array/row/dimension with
+# arr = np.zeros((3, 3))
+#
+# print("change a single element")
+#
+# arr[0][0] = 1
+# print(arr)
+#
+# print("change whole row")
+# arr = np.zeros((3, 3))
+# arr[1] = 1
+# print(arr)
+#
+# print("change whole array")
+# arr = np.zeros((3, 3))
+# arr[:] = 1
+# print(arr)
+#
+#
+# print("\nArithmetic operations with arrays")
+# # similarly to manipulating arrays
+# # you can:
+# print("Multiply only the 3rd element of the first row")
+# arr = np.ones((3, 3))
+# arr[2][2] *= 2
+# print(arr)
+#
+# print("Multiplying only the second row")
+# arr = np.ones((3, 3))
+# arr[1] *= 2
+# print(arr)
+#
+# print("Multiplying the whole array")
+# arr = np.ones((3, 3))
+# arr *= 3
+# print(arr)
+# print("The operations can be any operations such as +, -, *, /, %, //")
+#
+# # creating a numpy array from a list -> arr = np.array([1, 2, 3])
+# # creating a numpy zeros array -> zeros_arr = np.zeros((3, 3))
+#
+# # optimizations to consider
+# # use integer 8 [-128, 127] rather than float 32 [-3.40282347E+38 to -1.17549435E-38] to save memory
+# # (8 bits compared to 32 bits)
+# # np.zeros((3, 3), dtype=np.int8) # dtype means data type
+# # list of dtypes: [np.bool_, np.int8, np.int16, np.int32, np.int64, np.float16, np.float64]
 
 class Connect4:
     # refer to Guide.py to implement each method, please be careful of what is used and returned
@@ -155,13 +157,15 @@ class Connect4:
         return board
     """
 
-
     def __init__(self):
         # MUST HAVE VARIABLES
         # define your board as a numpy array
-        self.board = np.zeros((6, 7)) #should i use np.array?
+        self.board = np.zeros((6, 7), dtype=np.int8)  # should i use np.array?
         # current player as an int, first player will be -1 second player is 1
-        self.current_player = -1
+        self.next_player = -1
+        # The DEFINITION of next_player is the player that is going to play but hasn't put their move on the board
+        # The DEFINITION of current_player is the player that has just played and their move is on the board
+
         # to swap the current the player -> current_player *= -1 (very handy)
         # action history as a list [action0, action1, ...]
         self.action_history = []
@@ -179,76 +183,77 @@ class Connect4:
         # just know that the illegal moves are removed and the policy which is a probability distribution
         # is re normalized
 
-    def get_current_player(self):
-        # returns the current player
-        return self.current_player
+    def get_next_player(self):
+        # returns the next player
+        return self.next_player
+
+    def input_action(self):
+        # returns an action using input()
+        # for tictactoe it is "return int(input()), int(input())"
+        while True:
+            try:
+                action = int(input())
+                if abs(np.sum(self.board[:, action])) < 6:
+                    return action
+                else:
+                    print("Illegal move")
+            except:
+                print("Try again")
 
     def get_legal_actions(self):
         # returns the all possible legal actions in a list [action1, action2, ..., actionN] given self.board
         # Note that this action will be passed into do_action() and do_action_MCTS
         # MAKE SURE THERE are no duplicates (pretty self explanatory)
-        pass
+        return self.get_legal_actions_MCTS(self.board, self.next_player, np.array(self.action_history))
+
     @staticmethod
-    def get_legal_actions_MCTS(board):
-        # returns the legal actions based given the board parameter
-        pass
+    @njit(cache=True)
+    def get_legal_actions_MCTS(board: np.array, next_player: int, action_history: np.array):
+        legal_actions = []
+        for x in range(7):
+            if np.sum(np.abs(board[:, x])) < 6:
+                legal_actions.append(x)
+        return np.array(legal_actions, dtype=np.int8)
+
     @staticmethod
-    # @njit(cache=True)
-    def get_legal_actions_policy_MCTS(board: np.array, policy: np.array, shuffle=False):
-        """
-        THIS PART IS REALLY HARD FOR BEGINNERS, I RECOMMEND TO SKIP THIS PART UNTIL YOU ARE MORE CONFIDENT
-        :param board: numpy array of the board
-        :param policy: a numpy array of shape = self.policy shape defined in __init__, straight from the neural network's policy head
-        :param shuffle: You might want to shuffle the policy and legal_actions because the last index is where the search starts
-        if it is too hard you don't implement anything much will happen, its just that randomizing might improve convergence just by a but
-        :return: legal_actions as a list [action0, action1, ...], child_prob_prior as a numpy array
+    @njit(cache=True)
+    def get_legal_actions_policy_MCTS(board: np.array,
+                                      current_player: int,
+                                      action_history: np.array,
+                                      policy: np.array,
+                                      normalize=True,
+                                      shuffle=False) -> (np.array, np.array):
+        legal_actions = []
+        for x in range(7):
+            if np.sum(np.abs(board[:, x])) < 6:
+                legal_actions.append(x)
+        legal_actions = np.array(legal_actions, dtype=np.int8)
 
-        In essence, index 0 in legal_actions and child_prob_prior should be the probability of the best move for that legal action
-        so for example in tic tac toe
-        legal_actions =             [0,     1,   2,   3,    4,    5,    6,    7,    8,    9]
-        child_prob_prior / policy = [0.1, 0.1, 0.3, 0.2, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05] (I made these up, shape=(9,))
-        it means that action 0 will have a predicted chance of 10% of being the best move, 1 will have 10%, 2 will have 30% and so on
-        Note that this is a probability distribution, after removing the un wanted actions you have to normalize it to sum up to 1
-        do that with policy /= np.sum(policy)
+        legal_policy = policy[legal_actions]
+        if normalize:
+            legal_policy /= np.sum(legal_policy)
 
-
-        Anyway, if your self.policy shape matches the action shape you can just return the policy without doing anything
-        recommend to use numba njit to speed up this method for MCTS
-        """
-
-        # example with randomization for tictac toe:
-        # assuming policy from the comments above
-        # board = board.reshape((-1)) flatten the 3 by 3 board into a length 9 array
-        # policy = policy.reshape(-1) flatten the policy
-        # policy = policy[board == 0] keep the values that correspond to an empty part of the board
-        # policy /= np.sum(policy) # normalize it
-        # legal_actions = np.argwhere(board == 0) # get the indexes where the board is empty
         # if shuffle:
-        # shuffled_indexes = np.random.permutation(len(legal_actions)) # create random indexes
-        # legal_actions, policy = legal_actions[shuffled_indexes], policy[shuffled_indexes] # index the arrays to shuffled them
-        # return legal_moves, policy
-
-        # MAKE SURE THERE ARE NO DUPLICATES because it is going to increase the tree complexity thus slowing things down
-        # it is also going to give a wrong policy and weird errors might occur
-        # for checking use
-        # assert len(legal_actions) == len(set(legal_action))
-        # set cannot have any duplicates and thus removed so if the lengths are different the there is a problem
-        pass
+        #     random_shuffle = np.random.permutation(len(legal_actions))
+        #     return legal_actions[random_shuffle], legal_policy[random_shuffle]
+        return legal_actions, legal_policy
 
     def do_action(self, action):
         # places the move onto the board
-        action_col = self.board[:,action]
-        empty_row = np.argwhere(action_col == 0)
-        max_index = empty_row[-1][0]
-        self.board[max_index][action] = self.current_player
-        self.current_player *= -1
+        action_col = self.board[:, action]
+        max_index = 5 - np.sum(np.abs(action_col))
+        self.board[max_index][action] = self.next_player
+        self.next_player *= -1
         self.action_history.append(action)
 
     @staticmethod
-    # @njit(cache=True)
-    def do_action_MCTS(board, action, current_player):
+    @njit(cache=True)
+    def do_action_MCTS(board, action, next_player):
         # this is for the monte carlo tree search's
-        pass
+        action_col = board[:, action]
+        max_index = 5 - np.sum(np.abs(action_col))
+        board[max_index][action] = next_player
+        return board
 
     def get_input_state(self):
         # gets the numpy array for the neural network
@@ -257,61 +262,80 @@ class Connect4:
         # RWKV can just take in the board without problem
         # the original alphazero's network required the past boards
         # Uses in the root node of MCTS
-        pass
+        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.int8))
 
     @staticmethod
-    # @njit(cache=True)
-    def get_input_state_MCTS(board):
+    @njit(cache=True)
+    def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
         return board
 
-    def check_win(self):
-        # returns the player who won (-1 or 1), returns 0 if a draw is applicable
-        # return -2 if no player has won / the game hasn't ended
-        rows, cols = len(self.board), len(self.board[0])
+    def check_win(self) -> bool:
+        return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history))
 
-        # check horizontal
-        for i in range(rows - 1, -1, -1):
-            for j in range(cols - 3):
-                if self.board[i][j] !=0:
-                    if self.board[i][j] == self.board[i][j+1] == self.board[i][j+2] == self.board[i][j+3]:
-                        return int(self.board[i][j])
+    @staticmethod
+    @njit(cache=True)
+    def check_win_MCTS(board, current_player, action_history):
+        # all in computer coordinates
+        x = action_history[-1]
 
-        # check vertical
-        for j in range(cols):
-            for i in range(rows - 1 , 1, -1):
-                if self.board[i][j] != 0:
-                    if self.board[i][j] == self.board[i-1][j] == self.board[i-2][j] == self.board[i-3][j]:
-                        return int(self.board[i][j])
 
-        # check diagonal [up]
-        for i in range(rows - 1, 1, -1):
-            for j in range(cols - 3):
-                if self.board[i][j] != 0:
-                    if self.board[i][j] == self.board[i-1][j+1] == self.board[i-2][j+2] == self.board[i-3][j+3]:
-                        return int(self.board[i][j])
+        column = board[:, x]
+        y = min(*np.where(column == current_player))
+        row = board[y]
+        # print(x, y)
 
-        # check diagonal [down]
-        for i in range(rows - 1, 1, -1):
-            for j in range(cols - 1, 2, -1):
-                if self.board[i][j] != 0:
-                    if self.board[i][j] == self.board[i-1][j-1] == self.board[i-2][j-2] == self.board[i-3][j-3]:
-                        return int(self.board[i][j])
+        start_x = max(0, x - 3)
+        end_x = min(6, x + 3)
 
-        # Check for draw (no empty cells)
-        if all(self.board[row][col] != 0 for row in range(rows) for col in range(cols)):
+        # Vertical range (ensure within 0-5)
+        start_y = min(5, y + 3)  # Farthest down
+        end_y = max(0, y - 3)  # Farthest up
+
+
+        # horizonal check
+        count = 0
+        for i in range(start_x, end_x + 1):
+            if row[i] == current_player:
+                count += 1
+                if count == 4:
+                    return current_player
+            else:
+                count = 0
+
+        count = 0
+        for i in range(start_y, end_y - 1, -1):
+            if column[i] == current_player:
+                count += 1
+                if count == 4:
+                    return current_player
+            else:
+                count = 0
+
+        count_d_bl_tr = 0
+        for i in range(-min(x - start_x, start_y - y), min(end_x - x, y - end_y) + 1):
+            if board[y - i, x + i] == current_player:
+                count_d_bl_tr += 1
+                if count_d_bl_tr == 4:
+                    return current_player
+            else:
+                count_d_bl_tr = 0
+
+        count_d_tl_br = 0
+        for i in range(-min(x - start_x, y - end_y), min(end_x - x, start_y - y) + 1):
+            if board[y + i, x + i] == current_player:
+                count_d_tl_br += 1
+                if count_d_tl_br == 4:
+                    return current_player
+            else:
+                count_d_tl_br = 0
+
+        if np.all(board != 0):
             return 0
 
         return -2
 
-
-
-    @staticmethod
-    # @njit(cache=True)
-    def check_win_MCTS(board, action_history, current_player):
-        # Used to check if MCTS has reached a terminal node
-        pass
 
     def compute_policy_improvement(self, statistics):
         # given [[action, probability], ...] compute the new policy which should be of shape=self.policy_shape
@@ -320,9 +344,13 @@ class Connect4:
         # return [0.1, 0.2, ...]
         # note that the coordinate [0, 0] corresponds to index 0 in the flattened board
         # this should map the action and probability to a probability distribution
-        pass
+        policy = np.zeros(7, dtype=np.float32)
+        for action, prob in statistics:
+            policy[action] = prob
+        return policy
+
     @staticmethod
-    #@njit(cache=True)
+    @njit(cache=True)
     def augment_sample(board, policy):
         # optional method to improve convergence
         # rotate the board and flip it using numpy and return those as a list along with the original
@@ -337,6 +365,33 @@ class Connect4:
 
         # Note that this won't be the case for connect4, and ult_tictactoe
 
-        return [board], [policy] # just return [board], [policy] if you don't want to implement this
+        augmented_boards = np.stack((board, np.fliplr(board)))
+        augmented_polices = np.stack((policy, np.fliplr(policy)))
+
+        return augmented_boards, augmented_polices  # just return [board], [policy] if you don't want to implement this
         # don't be lazy, this will help convergence very much
 
+
+if __name__ == "__main__":
+    from Game_Tester import Game_Tester
+
+    tester = Game_Tester(Connect4)
+    tester.test()
+    game = Connect4()
+    # action = 0
+
+    # game.board[6][1] = -1
+    # game.board[5][1] = -1
+    # game.board[4][2] = -1
+    # game.board[3][3] = -1
+
+    # game.board[5][2] = -1
+    # game.board[4][2] = -1
+    # game.board[3][2] = -1
+    # game.board[2][2] = -1
+    #
+    # game.do_action(2)
+    # # game.action_history.append(6)
+    #
+    # print(game.board)
+    # print(game.check_win())
