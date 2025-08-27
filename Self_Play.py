@@ -79,7 +79,8 @@ class Self_Play:
     def play(self):
         board_states = []
         improved_policies = []
-        target_values = []
+        target_q = []
+        target_z = []
 
         actions_count = 0
         winner = -2
@@ -104,22 +105,29 @@ class Self_Play:
                 self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=0)
 
             if self.game.get_next_player() == -1:
-                action, move_probs = self.mcts1.run(
-                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1.0)),
+                action, action_probs = self.mcts1.run(
+                    iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
                     time_limit=self.time_limit,
                     use_bar=False)
             else:
-                action, move_probs = self.mcts2.run(
-                    iteration_limit=int(self.iteration_limit * (1.5 if current_move_num <= 1 else 1.0)),
+                action, action_probs = self.mcts2.run(
+                    iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
                     time_limit=self.time_limit,
                     use_bar=False)
 
-            move_probs = map(lambda x: x[:2],
-                             move_probs)  # This takes the first and seconds element of which is the [action, prob]
-            improved_policy = self.game.compute_policy_improvement(move_probs)
+            improved_policy = self.game.compute_policy_improvement(map(lambda x: x[:2], action_probs)) # This takes the first and seconds element of which is the [action, prob]
             improved_policies.append(improved_policy)
 
-            target_values.append(self.game.get_next_player())  # Important that this is before do_action()
+            if np.array_equal(action_probs[0][0], action):
+                target_q.append(action_probs[0][1])
+            else:
+                # we need to find the q assigned for the played action (because gumbel is a little weird, the 0th action in action probs
+                # isn't always the one that gets played)
+                for i in range(1, len(action_probs)):
+                    if np.array_equal(action_probs[i][0], action):
+                        target_q.append(action_probs[i][1])
+                        break
+            target_z.append(self.game.get_next_player())  # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
 
             if current_move_num == 0 and self.train_config.get("opening_actions", False):
@@ -150,13 +158,18 @@ class Self_Play:
         board_states = np.array(board_states, dtype=self.game.board.dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
 
-        target_values = np.array(target_values, dtype=np.float32).reshape((-1, 1))
-        if winner == target_values[-1][0] == -1:  # if player -1 just won
-            target_values *= -1.0  # Flip it so that the player that won, evaluates to 1 (winner)
+        target_q = np.array(target_q, dtype=np.float32).reshape((-1, 1))
+        target_z = np.array(target_z, dtype=np.float32).reshape((-1, 1))
+
+        if winner == target_z[-1][0] == -1:  # if player -1 just won
+            target_z *= -1.0  # Flip it so that the player that won, evaluates to 1 (winner)
         elif winner == 0:  # if it a draw or
-            target_values[:] = 0.0
+            target_z[:] = 0.0
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
+
+        target_values = (target_z + target_q) /  2 # average the q and z values ((MCTS value + win loss value (-1, 1)) / 2)
+
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
         if augmented_board_states.shape[:2] != augmented_values.shape[:2]:
