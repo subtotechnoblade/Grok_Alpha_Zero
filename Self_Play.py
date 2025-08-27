@@ -119,13 +119,13 @@ class Self_Play:
             improved_policies.append(improved_policy)
 
             if np.array_equal(action_probs[0][0], action):
-                target_q.append(action_probs[0][1])
+                target_q.append(action_probs[0][2])
             else:
                 # we need to find the q assigned for the played action (because gumbel is a little weird, the 0th action in action probs
                 # isn't always the one that gets played)
                 for i in range(1, len(action_probs)):
                     if np.array_equal(action_probs[i][0], action):
-                        target_q.append(action_probs[i][1])
+                        target_q.append(action_probs[i][2])
                         break
             target_z.append(self.game.get_next_player())  # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
@@ -172,9 +172,7 @@ class Self_Play:
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
-        if augmented_board_states.shape[:2] != augmented_values.shape[:2]:
-            print(
-                f"The 0th and 1st dim should the same got: {augmented_board_states.shape[2:]}, {augmented_values.shape[2:]}")
+
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
             game_length = len(self.game.action_history)
