@@ -11,7 +11,7 @@ def cache_tensorrt(game_class,
                    build_config,
                    train_config,
                    folder_path,
-                   warmup_iterations=10):
+                   warmup_iterations=100):
     import onnxruntime as rt
     # uses the generation number to build the generation cache
     game = game_class()
