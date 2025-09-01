@@ -18,6 +18,7 @@ def compute_speed(game_class,
     str_board_shape = convert_shape(board_shape)
 
     onnx_file_path = f"{folder_path}/model.onnx"
+    available_providers = rt.get_available_providers()
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
             max_shape = train_config["num_workers"]
@@ -36,9 +37,13 @@ def compute_speed(game_class,
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
-        else:
+        elif "CUDAExecutionProvider" in available_providers:
             providers = [
                 'CUDAExecutionProvider',
+                'CPUExecutionProvider']
+        elif "DmlExecutionProvider" in available_providers:
+            providers = [
+                'DmlExecutionProvider',
                 'CPUExecutionProvider']
     else:
         providers = ['CPUExecutionProvider']

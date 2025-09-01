@@ -37,7 +37,7 @@ class Self_Play:
         self.time_limit = self.train_config["MCTS_time_limit"]
 
         if train_config["use_gumbel"] is False:
-            dirichlet_epsilon = 0.25 * (1 - (self.generation / self.train_config["total_generations"]))
+            dirichlet_epsilon = 0.25
             self.mcts1: MCTS = MCTS(game=self.game,
                                     session=self.sess,
                                     use_njit=train_config["use_njit"],
@@ -91,7 +91,8 @@ class Self_Play:
 
             c_puct_init = None if self.train_config["use_gumbel"] else self.mcts1.c_puct_init
             if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                tau = 1.0 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
+                tau = 1.0
+                # tau = 1.0 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
 
                 self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=tau)
             else:
@@ -99,7 +100,8 @@ class Self_Play:
 
             if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
                 "num_explore_actions_second"]:
-                tau = 1.0 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
+                tau = 1.0
+                # tau = 1.0 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
                 self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=tau)
             else:
                 self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=0)
@@ -218,6 +220,7 @@ def self_play_task(worker_id,
                    folder_path: str,
                    generation: int):
     np.random.seed()
+    import onnxruntime as rt
     if train_config["use_inference_server"]:
         session = Parallelized_Session(worker_id,
                                        info,
@@ -225,8 +228,6 @@ def self_play_task(worker_id,
                                        output_feed_info, )
     else:
         providers, onnx_path = info
-
-        import onnxruntime as rt  # have to do this because of "spawn" in windows
         session = rt.InferenceSession(onnx_path, providers=providers)
 
     if train_config.get("max_cache_depth") > 0:
@@ -281,7 +282,8 @@ def run_self_play(game_class,
     policy_shape = game.policy_shape
     str_board_shape = convert_shape(inputs_shape)
     del game
-
+    import onnxruntime as rt
+    available_providers = rt.get_available_providers()
     onnx_file_path = f"{folder_path}/model.onnx"
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
@@ -304,10 +306,16 @@ def run_self_play(game_class,
                 'CPUExecutionProvider']
             if train_config.get("mixed_precision") == "mixed_float16":
                 providers[0][1]["trt_fp16_enable"] = True
-        else:
+        elif "CUDAExecutionProvider" in available_providers:
             providers = [
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
+        elif "DmlExecutionProvider" in available_providers:
+            providers = [
+                'DmlExecutionProvider',
+                'CPUExecutionProvider']
+        else:
+            raise RuntimeError("No GPU execution providers available")
     else:
         providers = ['CPUExecutionProvider']
 
