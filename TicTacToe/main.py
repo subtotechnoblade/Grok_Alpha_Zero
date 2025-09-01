@@ -33,7 +33,7 @@ def Validate_Train_Config(train_config):
         raise RuntimeError("Please install tensorrt as onnxruntime doesn't detect TensorrtExecutionProvider")
 
     if train_config["use_gpu"] and not train_config[
-        "use_tensorrt"] and "CUDAExecutionProvider" not in available_providers:
+        "use_tensorrt"] and ("CUDAExecutionProvider" not in available_providers) and "DmlExecutionProvider" not in available_providers:
         raise RuntimeError("Please install CUDA as onnxruntime doesn't detect CUDAExecutionProvider")
 
     if train_config["use_gumbel"]:
@@ -53,7 +53,7 @@ def Validate_Train_Config(train_config):
         s = bin(m).count("1")
         min_iterations = 2 * m - s - (s == 1)
         # fancy way of doing f(128) = 128 + 64 + 32 + 16 + 8 + 4 + 2
-        if train_config["MCTS_iteration_limit"] < min_iterations: # equal because, its bad performance
+        if train_config["MCTS_iteration_limit"] < min_iterations:
             raise ValueError(f"At minimum there needs to be {min_iterations + 1} MCTS iterations for sequential halving to be effective.")
 
     mixed_precision_policy = train_config.get("mixed_precision", None)
@@ -98,8 +98,9 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
 
     gpu_devices = tf.config.list_physical_devices("GPU")
     for device in gpu_devices:
-        tf.config.experimental.set_virtual_device_configuration(device, [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
+        # tf.config.experimental.set_virtual_device_configuration(device, [
+        #     tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
+        tf.config.experimental.set_memory_growth(device, True)
 
     mixed_precision_policy = train_config.get("mixed_precision")
     if mixed_precision_policy is not None:
@@ -115,8 +116,7 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
     train_dataloader, test_dataloader = Create_Dataset(str(Path(folder_path).parent),
-                                                       num_previous_generations=train_config[
-                                                           "num_previous_generations"],
+                                                       num_previous_generations=train_config["num_previous_generations"],
                                                        train_batch_size=train_config["train_batch_size"],
                                                        test_batch_size=train_config["test_batch_size"],
                                                        train_percent=train_config["train_percent"],
@@ -162,6 +162,8 @@ def _initialize_model(game, build_model_fn, build_config, train_config):
     try:
         for device in physical_devices:
             tf.config.experimental.set_memory_growth(device, True)
+            # tf.config.experimental.set_virtual_device_configuration(device, [
+            #     tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
     except:
         # Invalid device or cannot modify virtual devices once initialized.
         pass
@@ -233,6 +235,8 @@ def Run(game_class, build_model_fn, build_config, train_config):
     if not Game_Tester(game_class).test():
         raise ValueError("Tests failed, training cannot continue!")
 
+    if os.path.exists("Grok_Zero_Train/tmp_best.weights.h5"):
+        os.remove("Grok_Zero_Train/tmp_best.weights.h5")
     try:
         current_generation = max([int(Path(path).name) for path in glob("Grok_Zero_Train/*")])
     except:
@@ -251,7 +255,6 @@ def Run(game_class, build_model_fn, build_config, train_config):
             Make_Generation_Folder(0)
 
             Initialize(game_class, build_model_fn, build_config, train_config)
-
     # the main train loop
 
     # make model -> convert to onnx -> cache trt (optional) -> make dataset file
@@ -342,7 +345,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
-    from TicTacToe.Build_Model import build_model
+    from Connect4 import Connect4, build_config, train_config
+    from Build_Model import build_model
 
-    Run(TicTacToe, build_model, build_config, train_config)
+    Run(Connect4, build_model, build_config, train_config)

@@ -33,7 +33,7 @@ def Validate_Train_Config(train_config):
         raise RuntimeError("Please install tensorrt as onnxruntime doesn't detect TensorrtExecutionProvider")
 
     if train_config["use_gpu"] and not train_config[
-        "use_tensorrt"] and "CUDAExecutionProvider" not in available_providers:
+        "use_tensorrt"] and ("CUDAExecutionProvider" not in available_providers) and "DmlExecutionProvider" not in available_providers:
         raise RuntimeError("Please install CUDA as onnxruntime doesn't detect CUDAExecutionProvider")
 
     if train_config["use_gumbel"]:
