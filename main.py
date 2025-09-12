@@ -224,7 +224,7 @@ def Initialize(game_class, build_model_fn, build_config, train_config):  # This 
     if p.exitcode != 0:
         raise RuntimeError("Main process stopped")
 
-    Make_Dataset_File("Connect4/Grok_Zero_Train/0")
+    Make_Dataset_File("Grok_Zero_Train/0")
 
 
 def Run(game_class, build_model_fn, build_config, train_config):
@@ -251,14 +251,14 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
     if current_generation == 0:
 
-        os.makedirs("Connect4/Grok_Zero_Train/0/", exist_ok=True)
+        os.makedirs("Grok_Zero_Train/0/", exist_ok=True)
 
-        if (not os.path.exists("Connect4/Grok_Zero_Train/0/model.weights.h5") or not
-        (os.path.exists("Connect4/Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
-        os.path.exists("Connect4/Grok_Zero_Train/0/model.onnx") or not
+        if (not os.path.exists("Grok_Zero_Train/0/model.weights.h5") or not
+        (os.path.exists("Grok_Zero_Train/0/TRT_cache/model_ctx.onnx") if train_config["use_tensorrt"] else True) or not
+        os.path.exists("Grok_Zero_Train/0/model.onnx") or not
         os.path.exists("Grok_Zero_Train/0/Self_Play_Data.h5")):
             print("Creating necessary files and models!")
-            shutil.rmtree("Connect4/Grok_Zero_Train/")
+            shutil.rmtree("Grok_Zero_Train/")
             Make_Generation_Folder(0)
 
             Initialize(game_class, build_model_fn, build_config, train_config)
