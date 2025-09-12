@@ -23,7 +23,7 @@ train_config = {
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 4,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
-    "num_workers": 4,  # Number of multiprocessing workers used to self play
+    "num_workers": 2,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 100,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
