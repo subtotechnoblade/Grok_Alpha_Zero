@@ -1,32 +1,32 @@
 import numpy as np
 from numba import njit
 
-build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
+build_config = {"num_resnet_layers": 2,  # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
                 "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
-                "use_grok_fast": True,  # from grokfast paper
-                "use_orthograd": True,  # from grokking at the edge of numerica stability
-                "grok_lambda": 4.0,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "use_grok_fast": False,  # from grokfast paper
+                "use_orthograd": False,  # from grokking at the edge of numerica stability
+                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 train_config = {
     "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000,  # amount of self play games until we re train the network
+    "games_per_generation": 2000,  # amount of self play games until we re train the network
     "max_actions": 42,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 1,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 0,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
+    "num_explore_actions_second": 7,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 4,  # maximum depth in the search of the neural networks outputs we should cache
+    "max_cache_depth": 4,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 50,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 100,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -38,31 +38,29 @@ train_config = {
     "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
-    "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.333,  # should be around (10 / average moves per game)
+    "c_puct_init": 2.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 0.5,  # should be around (10 / average moves per given position)
 
-    # "opening_actions": [[[7, 7], 0.2],
-    #                     [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
-    #                     ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    # "opening_actions": [[3, 0.5]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 2,  # The previous generation's data that will be used in training
+    "num_previous_generations": 3,  # The previous generation's data that will be used in training
     "train_percent": 1.0,  # The percent used fr training after the test set is taken
-    "train_decay": 0.6,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.8,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.6,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.33,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
-    "train_batch_size": 256,  # The number of samples in a batch for training in parallel
-    "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
-    "gradient_accumulation_steps": 2,
-    "learning_rate": 5e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
-    "decay_lr_after": 5,  # When the n generations pass,... learning rate will be decreased by lr_decay
+    "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
+    "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
+    "gradient_accumulation_steps": None,
+    "learning_rate": 3e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
+    "decay_lr_after": 15,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "beta_2": 0.995,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15,  # The number of epochs for training
+    "train_epochs": 7,  # The number of epochs for training
 }
 # # resources
 # print("Please read the comments before you start this project")
@@ -255,7 +253,7 @@ class Connect4:
         while True:
             try:
                 action = int(input("Action: "))
-                if abs(np.sum(self.board[:, action])) < 6:
+                if np.sum(abs(self.board[:, action])) < 6:
                     return action
                 else:
                     print("Illegal move")
@@ -327,11 +325,25 @@ class Connect4:
         return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.int8))
 
     @staticmethod
-    @njit(cache=True)
+    # @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
         # Used for retrieving the state for any child nodes (not the root)
         # just return the board from the inputs
-        return board
+        board_state = np.zeros((4, 6, 7), dtype=np.int8)
+        board_state[0] = current_player
+        board_state[-1] = board
+
+        max_length = len(action_history) - 1
+        max_length = min(max_length, 3)
+
+        prev_board = board.copy()
+        for i in range(-1, -max_length - 1, -1):
+            x = action_history[i]
+            y = min(np.where(prev_board[:, x] != 0))[0]
+
+            prev_board[y][x] = 0
+            board_state[i - 1] = prev_board
+        return np.transpose(board_state, [1, 2, 0])
 
     def check_win(self) -> bool:
         return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history))
@@ -437,10 +449,14 @@ class Connect4:
 if __name__ == "__main__":
     from Game_Tester import Game_Tester
 
-    tester = Game_Tester(Connect4)
-    tester.test()
+    # tester = Game_Tester(Connect4)
+    # tester.test()
     game = Connect4()
     # action = 0
+    game.do_action(0)
+    game.do_action(0)
+    game.do_action(0)
+    game.get_input_state()
 
     # game.board[6][1] = -1
     # game.board[5][1] = -1

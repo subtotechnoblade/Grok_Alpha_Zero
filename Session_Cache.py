@@ -7,9 +7,7 @@ class Cache_Wrapper:
         self.path = path
 
         self.finished_lookup = False if max_cache_depth > 0 else 0
-        self.cache = Cache(path,
-                           timeout=100000
-                           )
+        self.cache = Cache(path, timeout=100000)
         self.max_cache_depth = max_cache_depth
 
     def run(self, output_names, input_feed:dict, depth):

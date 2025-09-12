@@ -58,23 +58,17 @@ class Self_Play:
                                     tau=1.0,
                                     fast_find_win=False)
         else:
-            self.mcts1 = MCTS_Gumbel(game=self.game,
-                                     session=self.sess,
-                                     use_gumbel_noise=True,
-                                     use_njit=self.train_config["use_njit"],
-                                     m=self.train_config["m"],
-                                     c_visit=self.train_config["c_visit"],
-                                     c_scale=self.train_config["c_scale"],
-                                     activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
+            self.mcts_gumbel = self.create_MCTS_Gumbel()
 
-            self.mcts2 = MCTS_Gumbel(game=self.game,
-                                     session=self.sess,
-                                     use_gumbel_noise=True,
-                                     use_njit=self.train_config["use_njit"],
-                                     m=self.train_config["m"],
-                                     c_visit=self.train_config["c_visit"],
-                                     c_scale=self.train_config["c_scale"],
-                                     activation_fn="stablemax" if build_config.get("use_stablemax") else "softmax")
+    def create_MCTS_Gumbel(self):
+        return MCTS_Gumbel(game=self.game,
+                                 session=self.sess,
+                                 use_gumbel_noise=True,
+                                 use_njit=self.train_config["use_njit"],
+                                 m=self.train_config["m"],
+                                 c_visit=self.train_config["c_visit"],
+                                 c_scale=self.train_config["c_scale"],
+                                 activation_fn="stablemax" if self.build_config.get("use_stablemax") else "softmax")
 
     def play(self):
         board_states = []
@@ -89,33 +83,36 @@ class Self_Play:
 
             current_move_num = len(self.game.action_history)
 
-            c_puct_init = None if self.train_config["use_gumbel"] else self.mcts1.c_puct_init
-            if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                tau = 1.0
-                # tau = 1.0 - (0.5 * ((current_move_num // 2) / self.train_config["num_explore_actions_first"]))
+            # using normal MCTS
+            if not self.train_config["use_gumbel"]:
+                c_puct_init = self.mcts1.c_puct_init
+                if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
+                    self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=1.0)
+                else:
+                    self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=0)
 
-                self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=tau)
-            else:
-                self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=0)
+                if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
+                    "num_explore_actions_second"]:
+                    self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=1.0)
+                else:
+                    self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=0)
 
-            if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
-                "num_explore_actions_second"]:
-                tau = 1.0
-                # tau = 1.0 - (0.5 * (((current_move_num + 1) // 2) / self.train_config["num_explore_actions_second"]))
-                self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=tau)
-            else:
-                self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=0)
+                if self.game.get_next_player() == -1:
+                    action, action_probs = self.mcts1.run(
+                        iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
+                        time_limit=self.time_limit,
+                        use_bar=False)
+                else:
+                    action, action_probs = self.mcts2.run(
+                        iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
+                        time_limit=self.time_limit,
+                        use_bar=False)
 
-            if self.game.get_next_player() == -1:
-                action, action_probs = self.mcts1.run(
-                    iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
-                    time_limit=self.time_limit,
-                    use_bar=False)
+            # else if we are using gumbel we need to reset the tree class
             else:
-                action, action_probs = self.mcts2.run(
-                    iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
-                    time_limit=self.time_limit,
-                    use_bar=False)
+                action, action_probs = self.mcts_gumbel.run(
+                    iteration_limit=self.iteration_limit,
+                    time_limit=self.time_limit, use_bar=False)
 
             improved_policy = self.game.compute_policy_improvement(map(lambda x: x[:2], action_probs)) # This takes the first and seconds element of which is the [action, prob]
             improved_policies.append(improved_policy)
@@ -129,6 +126,7 @@ class Self_Play:
                     if np.array_equal(action_probs[i][0], action):
                         target_q.append(action_probs[i][2])
                         break
+
             target_z.append(self.game.get_next_player())  # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
 
@@ -149,14 +147,18 @@ class Self_Play:
             winner = self.game.check_win()
 
             if winner == -2:  # or else there will be an error, because you are pruning a winning move
-                create_new_root = self.train_config.get("create_new_root", False)
-                self.mcts1.prune_tree(action, create_new_root)
-                self.mcts2.prune_tree(action, create_new_root)
+                if not self.train_config["use_gumbel"]:
+                    create_new_root = self.train_config.get("create_new_root", False)
+                    self.mcts1.prune_tree(action, create_new_root)
+                    self.mcts2.prune_tree(action, create_new_root)
+                else:
+                    del self.mcts_gumbel
+                    self.mcts_gumbel = self.create_MCTS_Gumbel()
 
             actions_count += 1
             if actions_count == self.train_config["max_actions"]:
-                winner = 0
-        # there is a winner
+                winner = 0 # simple cutoff in case the games get way too long
+
         board_states = np.array(board_states, dtype=self.game.board.dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
 
@@ -334,7 +336,7 @@ def run_self_play(game_class,
                                                        shms,
                                                        providers,
                                                        onnx_file_path,
-                                                       1e-4))
+                                                       5e-5))
         server.start()
 
     lock = mp.Lock()

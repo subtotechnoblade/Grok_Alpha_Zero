@@ -14,7 +14,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config:
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],
               "beta_2": train_config["beta_2"],
-              "weight_decay": 1e-2,
+              # "weight_decay": 1e-4,
               "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
               "epsilon": 1e-15,
               }

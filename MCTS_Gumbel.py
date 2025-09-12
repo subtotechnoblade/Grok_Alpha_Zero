@@ -140,8 +140,6 @@ def compute_pi(raw_values,
         completed_q = np.where(visits > 0, q, compute_v_mix(raw_values, q, visits, probs))
         completed_q = rescale_q(completed_q)
         x = softmax(logits + sigma(completed_q.astype(np.float64), N_b, c_visit, c_scale)).astype(np.float32)
-        # print((logits + sigma(completed_q.astype(np.float64), N_b, c_visit, c_scale)).dtype)
-        # print(x.dtype)
         return x
     else:
         probs = stablemax(logits)
@@ -238,7 +236,7 @@ class MCTS_Gumbel:
                                 min_value=-1.0,
                                 max_value=1.0):
         mean_values = np.where(visits > 0, values / visits, min_value).astype(np.float32) # ignore divide by 0
-        # thats just np.where being implemeted like that
+        # thats just how np.where is implemented
         q = q_transform(mean_values, visits, min_value, max_value)
 
         pi = compute_pi(raw_values, q, logits, visits, N_b, c_visit, c_scale, use_softmax=use_softmax)
@@ -397,12 +395,12 @@ class MCTS_Gumbel:
 
         if 1 in terminal_mask:  # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
-            num_winning_actions = len(terminal_mask == 1)  # get the length of thr array that is equal to 1
+            num_winning_actions = len(terminal_mask == 1)  # get the length of the array that is equal to 1
             terminal_parent_value = num_winning_actions  # the evaluation when we win num_winning_actions
             # terminal_parent_value = 1 # debug
             terminal_parent_visits = num_winning_actions  # we must visits num_winning_actions to win that many times
             # terminal_parent_visits = 1 # debug
-            terminal_parent_prob_prior = terminal_mask.astype(np.float32, copy=False) / num_winning_actions
+            terminal_parent_prob_prior = terminal_mask / num_winning_actions
         else:  # there are only draws
             len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0.0
@@ -424,10 +422,11 @@ class MCTS_Gumbel:
                                parent=node)
 
         node.children[child_index] = terminal_parent
-        terminal_parent.child_values[:] = terminal_mask  # terminal mask is already float32
+
         # 0 for draws and 1 for wins, thus perfect for child_values, a copy is made with [:]
-        terminal_parent.child_raw_values = terminal_mask  # won't be modified after creation, no copy is necessary
+        terminal_parent.child_raw_values[:] = terminal_mask  # won't be modified after creation, no copy is necessary
         # formality so that we don't get division by 0 when calcing stats
+
 
         for terminal_id, (terminal_action, mask_value) in enumerate(zip(terminal_actions, terminal_mask)):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
@@ -484,7 +483,6 @@ class MCTS_Gumbel:
                                                                     child_board,
                                                                     node.current_player,
                                                                     fast_find_win=self.fast_find_win)
-
         if len(terminal_actions) > 0:
             return self._expand_with_terminal_actions(node, index, child_board, child_action, terminal_actions,
                                                       terminal_mask)
@@ -539,6 +537,7 @@ class MCTS_Gumbel:
             node = node.parent
             # ^ does two things, 1. moves up the tree
             # 2. stores the pointer within in the variable rather than indexing twice
+
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
 
@@ -611,7 +610,7 @@ class MCTS_Gumbel:
                                                                    self.c_scale,
                                                                    current_phase)
 
-            chosen_ids = np.sort(chosen_ids)
+            # chosen_ids = np.sort(chosen_ids)
 
             top_gumbel_logits = top_gumbel_logits[chosen_ids]
             top_node_ids = top_node_ids[chosen_ids]
@@ -655,12 +654,12 @@ class MCTS_Gumbel:
         with np.errstate(divide="ignore", invalid="ignore"):
             mean_values = np.where(self.root.child_visits > 0, self.root.child_values / self.root.child_visits, -1.0).astype(np.float32, copy=False)
         pi = compute_pi(self.root.child_raw_values,
-                        q_transform(mean_values, self.root.child_visits, -1.0, 1.0),
+                        q_transform(mean_values, self.root.child_visits, -1.0, 1.0), # perhaps use mean_values
                         self.root.child_logit_priors,
                         self.root.child_visits,
                         self.root.child_visits.max(),
                         self.c_visit, self.c_scale,
-                        self.use_softmax)
+                        True)
 
         self.fill_empty_children()
 
@@ -830,18 +829,50 @@ if __name__ == "__main__":
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
     # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/7/model.onnx", providers=providers)
-    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/11/TRT_cache/model_ctx.onnx", providers=providers)
+    session = rt.InferenceSession("Gomoku/Grok_Zero_Train/4/TRT_cache/model_ctx.onnx", providers=providers)
     # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/model.onnx", providers=providers)
+    game = Gomoku()
+    mcts1 = MCTS_Gumbel(game,
+                        # None,
+                        session,
+                        False,
+                        None,
+                        m=32,
+                        c_visit=50.0,
+                        c_scale=1.0,
+                        fast_find_win=False,
+                        activation_fn="stablemax")
 
     winners = [0, 0, 0]
     for game_id in range(1):
-        game = Gomoku()
-        # game.do_action((7, 7))
-        # game.do_action((6, 7))
-        # game.do_action((7, 6))
-        # game.do_action((6, 6))
-        # game.do_action((7, 5))
-        # game.do_action((6, 5))
+
+        game.do_action((7, 7))
+        mcts1.prune_tree((7, 7))
+
+        game.do_action((6, 7))
+        mcts1.prune_tree((6, 7))
+
+        game.do_action((7, 6))
+        mcts1.prune_tree((7, 6))
+
+        game.do_action((6, 6))
+        mcts1.prune_tree((6, 6))
+
+        game.do_action((7, 5))
+        mcts1.prune_tree((7, 5))
+
+        game.do_action((6, 5))
+        mcts1.prune_tree((6, 5))
+
+        game.do_action((7, 4))
+        mcts1.prune_tree((7, 4))
+
+        game.do_action((6, 4))
+        move, probs = mcts1.run(iteration_limit=1000)
+        mcts1.prune_tree((6, 4))
+
+        # print(game.board)
+        # raise ValueError
 
         # game = TicTacToe()
         # game.do_action((1, 1))
@@ -853,56 +884,47 @@ if __name__ == "__main__":
         #
         # game.do_action((2, 2))
         # game.do_action((0, 1))
+        move, probs = mcts1.run(iteration_limit=1000)
+        print(move, probs)
+        # mcts2 = MCTS_Gumbel(game,
+        #                     # None,
+        #                     session,
+        #                     False,
+        #                     None,
+        #                     m = 64,
+        #                     c_visit=50.0,
+        #                     c_scale=0.15,
+        #                     fast_find_win=False,
+        #                     activation_fn="softmax")
 
-        mcts1 = MCTS_Gumbel(game,
-                            # None,
-                            session,
-                            True,
-                            None,
-                            m=64,
-                            c_visit=50.0,
-                            c_scale=0.15,
-                            fast_find_win=False,
-                            activation_fn="softmax")
-        mcts2 = MCTS_Gumbel(game,
-                            # None,
-                            session,
-                            True,
-                            None,
-                            m = 64,
-                            c_visit=50.0,
-                            c_scale=0.15,
-                            fast_find_win=False,
-                            activation_fn="softmax")
-
-        current_move_num = 0
-        winner = -2
-        print(game.board)
-        while winner == -2:
-
-            if game.get_next_player() == 1:
-                move, probs = mcts1.run(2000, use_bar=True)
-            else:
-                move, probs = mcts2.run(2000, use_bar=True)
-                # move = game.input_action()
-                # probs = []
-            # legal_actions = game.get_legal_actions()
-            # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
-            # move = legal_actions[index]
-
-            game.do_action(move)
-            print(game.board)
-            print(move, probs)
-            current_move_num += 1
-            winner = game.check_win()
-            if winner != -2:
-                # print(winner)
-                winners[winner + 1] += 1
-            if winner == -2:
-                mcts1.prune_tree(move)
-                mcts2.prune_tree(move)
-        # raise ValueError
-    print(winners)
+    #     current_move_num = 0
+    #     winner = -2
+    #     print(game.board)
+    #     while winner == -2:
+    #
+    #         if game.get_next_player() == 1:
+    #             move, probs = mcts1.run(2000, use_bar=True)
+    #         else:
+    #             # move, probs = mcts2.run(2000, use_bar=True)
+    #             move = game.input_action()
+    #             probs = []
+    #         # legal_actions = game.get_legal_actions()
+    #         # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
+    #         # move = legal_actions[index]
+    #
+    #         game.do_action(move)
+    #         print(game.board)
+    #         print(move, probs)
+    #         current_move_num += 1
+    #         winner = game.check_win()
+    #         if winner != -2:
+    #             # print(winner)
+    #             winners[winner + 1] += 1
+    #         if winner == -2:
+    #             mcts1.prune_tree(move)
+    #             # mcts2.prune_tree(move)
+    #     # raise ValueError
+    # print(winners)
 
     # print(game.board)
     # move1, probs1 = mcts1.run(100000, use_bar=False)

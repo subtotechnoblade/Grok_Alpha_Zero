@@ -36,6 +36,13 @@ def Validate_Train_Config(train_config):
         "use_tensorrt"] and ("CUDAExecutionProvider" not in available_providers) and "DmlExecutionProvider" not in available_providers:
         raise RuntimeError("Please install CUDA as onnxruntime doesn't detect CUDAExecutionProvider")
 
+    if train_config["use_tensorrt"] and "TensorrtExecutionProvider" in available_providers:
+        print("Using TensorRT Execution Provider")
+    elif "CUDAExecutionProvider" in available_providers:
+        print("Using CUDA Execution Provider")
+    elif "DmlExecutionProvider" in available_providers:
+        print("Using Direct ML Execution Provider")
+
     if train_config["use_gumbel"]:
         if not train_config.get("m", False):
             raise ValueError("Parameter m is missing in train config")

@@ -82,7 +82,7 @@ class MCTS:
     # will update itself after every move assuming the methods are called in the right order
     def __init__(self,
                  game,  # the annotation is for testing and debugging
-                 session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None,
+                 session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None = None,
                  use_njit=None,
                  c_puct_init: float = 1.25,
                  c_puct_base: float = 19_652,
@@ -94,6 +94,7 @@ class MCTS:
                  ):
         """
         :param game: Your game class
+        :param session: onnruntime session or a wrapper session which uses an onnxruntime session. None defaults to a random policy and value
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
         :param c_puct_base: Don't touch, it's the value that determine how much alpha zero explores deeper down the tree
         :param use_dirichlet: To use dirichlet exploration noise or not
@@ -159,6 +160,8 @@ class MCTS:
         # note that np.log is actually math ln with base e (2.71)
         U = child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (
                 c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
+
+        # U = c_puct_init * child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1))
         PUCT_score = (child_values / child_visits) + U
         return np.argmax(PUCT_score)
 
@@ -206,7 +209,7 @@ class MCTS:
                 kwargs["depth"] = depth
 
             policy, value = self.session.run(**kwargs)
-            return policy[0], value[0][0], RNN_state
+            return policy[0].astype(np.float32, copy=False), value[0][0], RNN_state
         return self._get_dummy_outputs(inputs, RNN_state)
 
     def _get_dummy_outputs(self, input_state, RNN_state):
@@ -217,11 +220,11 @@ class MCTS:
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0, RNN_state
         return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), \
             np.random.uniform(low=-1, high=1, size=(1,))[0], RNN_state  # policy and value
-        # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state
+        # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0, RNN_state\
 
     def _apply_dirichlet(self, legal_policy, epsilon):
-        return (1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(
-            self.dirichlet_alpha * np.ones_like(legal_policy)).astype(np.float32, copy=False)
+        return ((1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(
+            self.dirichlet_alpha * np.ones_like(legal_policy))).astype(np.float32, copy=False)
 
     @staticmethod
     def get_terminal_actions_fn(do_action_fn,
@@ -303,7 +306,7 @@ class MCTS:
                                      self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
                                      self.game.action_history + [terminal_action],
                                      -self.game.get_next_player(),
-                                     deque(), # faster removal from the start index
+                                     deque(),  # faster removal from the start index
                                      [],
                                      [],
                                      terminal_player if mask_value == 1 else 0,
@@ -451,9 +454,13 @@ class MCTS:
                                                                                             child_policy)
 
             if self.use_dirichlet:
-                epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
-                epsilon = max(epsilon, 1e-2)
-                child_prob_prior = self._apply_dirichlet(child_prob_prior, epsilon)
+                # epsilon = self.dirichlet_epsilon * (1.4 ** -len(node.action_history))
+                # epsilon = max(epsilon, 1e-2)
+                child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
+
+            sort_index = np.argsort(child_prob_prior)[::-1]
+            child_prob_prior = child_prob_prior[sort_index]
+            child_legal_actions = child_legal_actions[sort_index]
 
             child = Node(len(node.children),
                          child_board,
@@ -566,7 +573,7 @@ class MCTS:
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior,
                                     self.root.visits, child.is_terminal]
 
-        if self.tau == 0:
+        if self.tau == 0.0:
             prob_weights = np.zeros_like(self.root.child_visits)
             prob_weights[np.argmax(self.root.child_visits)] = 1.0
         else:

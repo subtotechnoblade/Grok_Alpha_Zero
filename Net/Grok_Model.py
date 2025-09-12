@@ -58,6 +58,7 @@ class Ortho_Model(tf.keras.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
@@ -102,8 +103,9 @@ class Ortho_Model(tf.keras.Model):
         for metric in self.metrics:
             if metric.name == "loss":
                 metric.update_state(raw_loss)
-
+        # self.compute_metrics.update_state(x, y, y_pred, raw_loss)
         return self.compute_metrics(x, y, y_pred, raw_loss)
+        # return {"grad": 1.0, **{m.name: m.result() for m in self.metrics}}
 
 
 class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
@@ -159,7 +161,6 @@ class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
 
                     self.grads[i].assign(tf.convert_to_tensor(gradients[i], dtype=tf.float32))
 
-        # updated_gradients = []
         for i in range(len(trainable_vars)):
             if gradients[i] is not None:
                 current_gradients = tf.convert_to_tensor(gradients[i], dtype=tf.float32)
@@ -172,5 +173,4 @@ class Ortho_Grok_Fast_EMA_Model(tf.keras.Model):
         for metric in self.metrics:
             if metric.name == "loss":
                 metric.update_state(raw_loss)
-
         return self.compute_metrics(x, y, y_pred, raw_loss)
