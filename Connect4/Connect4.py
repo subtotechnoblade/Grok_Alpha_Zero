@@ -18,12 +18,12 @@ train_config = {
     "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 7,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
-    "use_gpu": False,  # Change this to False to use CPU for self play and inference
+    "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": False,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
     "max_cache_depth": 1,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
-    "num_workers": 64,  # Number of multiprocessing workers used to self play
+    "num_workers": 2,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
     "MCTS_iteration_limit": 300,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
