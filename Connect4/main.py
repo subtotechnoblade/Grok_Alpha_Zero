@@ -352,7 +352,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from Connect4.Connect4 import Connect4, build_config, train_config
-    from Connect4.Build_Model import build_model
+    from Connect4 import Connect4, build_config, train_config
+    from Build_Model import build_model
 
     Run(Connect4, build_model, build_config, train_config)
