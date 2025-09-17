@@ -3,6 +3,7 @@ import time
 
 from collections import deque
 import numpy as np
+
 np.seterr(all='raise')
 import numba as nb
 from numba import njit
@@ -24,7 +25,7 @@ class Node:
                  board: np.array,
                  action_history: np.array,
                  current_player: int,
-                 child_legal_actions: list[tuple[int]] or list[int] or deque[np.ndarray],
+                 child_legal_actions: deque[np.ndarray],
                  RNN_state: list or list[np.array, ...] or np.array,
                  child_prob_priors: np.array,
                  is_terminal=None,
@@ -162,7 +163,16 @@ class MCTS:
                 c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
 
         # U = c_puct_init * child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1))
-        PUCT_score = (child_values / child_visits) + U
+
+        Q = child_values.copy()
+        mask = child_visits > 0  # to ensure that we dont have divide by 0
+        Q[mask] = child_values[mask] / child_visits[mask]
+
+        PUCT_score = Q + U
+        # print("------------------------")
+        # print(PUCT_score)
+        # print(child_prob_priors)
+        # print(child_visits)
         return np.argmax(PUCT_score)
 
     def _PUCT_select(self) -> Node:
@@ -182,10 +192,10 @@ class MCTS:
                 # THIS RETURNS A CHILD
                 return terminal_nodes[np.random.permutation(len(terminal_nodes))[0]]
 
-            if len(node.child_values) > len(node.children):  # we have to select a node
-                # and return as it is a new unvisited node
-                # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
-                return node  # note that this returns the parent, _expand will create the child node
+            # if len(node.child_values) > len(node.children):  # we have to select a node
+            #     # and return as it is a new unvisited node
+            #     # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
+            #     return node  # note that this returns the parent, _expand will create the child node
             # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
                                                          node.child_values,
@@ -193,6 +203,9 @@ class MCTS:
                                                          parent_visits,
                                                          self.c_puct_init,
                                                          self.c_puct_base)
+
+            if best_index == len(node.children):
+                return node
 
             # change the node pointer to the selected child at best_index
             parent_visits = node.child_visits[best_index]
@@ -245,24 +258,38 @@ class MCTS:
         """
         terminal_index = []  # includes winning and drawing actions
         terminal_mask = []  # a list of 0 and 1
+        # last_actions = action_histories[:, -1]
         # where each index corresponds to a drawing action if 0, and a winning action if 1
         for action_id in range(len(action_histories)):
             # Try every legal action and check if the current player won
             # Very inefficient. There is a better implementation
 
             legal_action = action_histories[action_id][-1]
-            check_win_board = do_action_fn(board.copy(), legal_action, next_player)
+            # legal_action = last_actions[action_id]
 
-            result = check_win_fn(check_win_board, next_player, action_histories[action_id])
-            if result != -2:  # this limits the checks by a lot
-                terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
-                if result == next_player:  # found a winning move
-                    terminal_mask.append(1)
-                    if fast_find_win:
-                        break
-                elif result == 0:  # a drawing move
-                    terminal_mask.append(0)
-        return action_histories[:, -1][np.array(terminal_index, dtype=np.int32)], np.array(terminal_mask, dtype=np.float32)
+            result = check_win_fn(do_action_fn(board.copy(), legal_action, next_player),
+                                  next_player,
+                                  action_histories[action_id])
+            if result == -2:
+                continue
+
+            terminal_index.append(action_id)  # in any case as long as the result != -2, we have a terminal action
+            if result == next_player:  # found a winning move
+                terminal_mask.append(1.0)
+                if fast_find_win:
+                    break
+            else:  # a drawing move
+                terminal_mask.append(0.0)
+
+        if len(terminal_mask) == 0:  # if we dont have terminal actions
+            return np.empty(shape=0, dtype=action_histories.dtype), np.empty(shape=0, dtype=np.float32)
+        # if we do
+        mask_arr = np.array(terminal_mask, dtype=np.float32)
+        terminal_actions = action_histories[:, -1][np.array(terminal_index, dtype=np.int32)]
+
+
+        sort_idx = np.argsort(mask_arr)[::-1]
+        return terminal_actions[sort_idx], mask_arr[sort_idx]
 
     def create_expand_root(self):
         action_history = np.array(self.game.action_history)
@@ -306,7 +333,7 @@ class MCTS:
                                      self.game.do_action_MCTS(self.game.board.copy(), terminal_action, terminal_player),
                                      self.game.action_history + [terminal_action],
                                      -self.game.get_next_player(),
-                                     deque(),  # faster removal from the start index
+                                     deque(),
                                      [],
                                      [],
                                      terminal_player if mask_value == 1 else 0,
@@ -328,6 +355,10 @@ class MCTS:
                                                                                       child_policy)
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
+
+            sorted_idx = np.argsort(child_prob_prior)[::-1]
+            child_prob_prior = child_prob_prior[sorted_idx]
+            legal_actions = legal_actions[sorted_idx]
 
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
@@ -353,7 +384,8 @@ class MCTS:
             terminal_parent_value = 0
             # terminal_parent_visits = 1 # debug
             terminal_parent_visits = len_terminal_moves
-            terminal_parent_prob_prior = np.ones(len_terminal_moves, dtype=np.float32) / len_terminal_moves  # winning policy
+            terminal_parent_prob_prior = np.ones(len_terminal_moves,
+                                                 dtype=np.float32) / len_terminal_moves  # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
             # it's nice to see the some numbers that state that there is a win or loss
         terminal_parent_current_player = node.current_player * -1
@@ -370,7 +402,8 @@ class MCTS:
         node.children.append(terminal_parent)
         del terminal_parent.child_legal_actions
 
-        terminal_parent.child_values = terminal_mask.astype(np.float32, copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values
+        terminal_parent.child_values = terminal_mask.astype(np.float32,
+                                                            copy=False)  # 0 for draws and 1 for wins, thus perfect for child_values
 
         terminal_parent.child_visits = np.ones(len(terminal_mask),
                                                dtype=np.uint32)  # formality so that we don't get division by 0 when calcing stats
@@ -384,7 +417,7 @@ class MCTS:
                                   action_history=terminal_parent.action_history + [terminal_action],
                                   current_player=node.current_player,
                                   # based on node.current_player because node's child's child is the same player as node
-                                  child_legal_actions=[None],
+                                  child_legal_actions=deque(),
                                   RNN_state=None,
                                   child_prob_priors=None,
                                   is_terminal=node.current_player if mask_value == 1 else 0,
@@ -450,7 +483,8 @@ class MCTS:
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board,
                                                                                             -node.current_player,
-                                                                                            np.array(node.action_history),
+                                                                                            np.array(
+                                                                                                node.action_history),
                                                                                             child_policy)
 
             if self.use_dirichlet:
@@ -460,6 +494,8 @@ class MCTS:
 
             sort_index = np.argsort(child_prob_prior)[::-1]
             child_prob_prior = child_prob_prior[sort_index]
+            # print(child_prob_prior)
+            # raise ValueError
             child_legal_actions = child_legal_actions[sort_index]
 
             child = Node(len(node.children),
@@ -503,7 +539,6 @@ class MCTS:
             value *= -1  # negate for the opponent's move
         self.root.visits += visits
 
-
     def run(self, iteration_limit: int or bool = None, time_limit: int or float = None, use_bar=True):
         """
         :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
@@ -539,8 +574,11 @@ class MCTS:
         current_iteration = 0
         start_time = time.time()
 
-        while (iteration_limit is None or current_iteration < iteration_limit) and (
-                time_limit is None or time.time() - start_time < time_limit):
+
+        # 3 conditions to run, iteration limit, time limit, and minimum expanded nodes limit
+        while (((iteration_limit is None or current_iteration < iteration_limit) and (
+                time_limit is None or time.time() - start_time < time_limit))
+               or 0 in self.root.child_visits): #ensures that all nodes are visited
             loop_start_time = time.time()
             node = self._PUCT_select()
 
@@ -564,7 +602,8 @@ class MCTS:
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
 
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                                         self.root.child_visits / np.sum(self.root.child_visits),
+                                                                                         self.root.child_visits / np.sum(
+                                                                                             self.root.child_visits),
                                                                                          self.root.child_values / self.root.child_visits,
                                                                                          # winrate
                                                                                          self.root.child_values,
@@ -657,9 +696,10 @@ if __name__ == "__main__":
     # from Gomoku.Gomoku import Gomoku, build_config, train_config
 
     from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from Connect4.Connect4 import  Connect4
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
-
+    game = Connect4()
     # game = Gomoku()
 
     # game.do_action((7, 7))
@@ -700,29 +740,29 @@ if __name__ == "__main__":
     # print(move, probs)
     #
 
-    max_shape, opt_shape = 12, 12
-    providers = [
-        # ('TensorrtExecutionProvider', {
-        #     # "trt_engine_cache_enable": True,
-        #     # "trt_dump_ep_context_model": True,
-        #     # "trt_builder_optimization_level": 5,
-        #     # "trt_auxiliary_streams": 0,
-        #     # "trt_ep_context_file_path": "Gomoku/Cache/",
-        #     #
-        #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # }),
-        # 'CUDAExecutionProvider',
-        'CPUExecutionProvider'
-    ]
-    # sess_options = rt.SessionOptions()
-    # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
-
-    batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32]}
-
-    batched_outputs_feed_info = {"policy": [-1, 225],
-                                 "value": [-1, 1]}
+    # max_shape, opt_shape = 12, 12
+    # providers = [
+    #     # ('TensorrtExecutionProvider', {
+    #     #     # "trt_engine_cache_enable": True,
+    #     #     # "trt_dump_ep_context_model": True,
+    #     #     # "trt_builder_optimization_level": 5,
+    #     #     # "trt_auxiliary_streams": 0,
+    #     #     # "trt_ep_context_file_path": "Gomoku/Cache/",
+    #     #     #
+    #     #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    #     #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    #     #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    #     # }),
+    #     # 'CUDAExecutionProvider',
+    #     'CPUExecutionProvider'
+    # ]
+    # # sess_options = rt.SessionOptions()
+    # # sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
+    #
+    # batched_inputs_feed_info = {"inputs": [[-1, 15, 15], np.float32]}
+    #
+    # batched_outputs_feed_info = {"policy": [-1, 225],
+    #                              "value": [-1, 1]}
 
     # sess_options = rt.SessionOptions()
     # shms = create_shared_memory(batched_inputs_feed_info, batched_outputs_feed_info, num_workers=1)
@@ -745,13 +785,13 @@ if __name__ == "__main__":
 
     # sess_options.intra_op_num_threads = 2
     # sess_options.inter_op_num_threads = 1
-    session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
-    # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
-
-    winners = [0, 0, 0]
-    for game_id in range(1):
-        game = TicTacToe()
+    # session = rt.InferenceSession("TicTacToe/Grok_Zero_Train/3/model.onnx", providers=providers)
+    # # session = rt.InferenceSession("Gomoku/Grok_Zero_Train/1/TRT_cache/model_ctx.onnx", providers=providers)
+    # # session = rt.InferenceSession("Gomoku/Test_model/9.onnx", providers=providers)
+    #
+    # winners = [0, 0, 0]
+    # for game_id in range(1):
+    #     game = TicTacToe()
         # game.do_action((1, 1))
         # game.do_action((0, 0))
         # game.do_action((1, 0))
@@ -761,51 +801,51 @@ if __name__ == "__main__":
         #
         # game.do_action((2, 2))
         # game.do_action((0, 1))
-        mcts1 = MCTS(game,
-                     # None,
-                     session,
-                     None,
-                     c_puct_init=1.25,
-                     tau=0.0,
-                     use_dirichlet=False,
-                     fast_find_win=False)
-        # mcts2 = MCTS(game,
-        #              None,
-        #              # session,
-        #              None,
-        #              c_puct_init=2.5,
-        #              tau=0.0,
-        #              use_dirichlet=True,
-        #              fast_find_win=False)
-        print(f"Game: {game_id}")
-        current_move_num = 0
-        winner = -2
-        print(game.board)
-        while winner == -2:
-
-            if game.get_next_player() == -1:
-                move, probs = mcts1.run(1, use_bar=False)
-            else:
-                # move, probs = mcts2.run(9, use_bar=False)
-                move = game.input_action()
-                probs = []
-            # legal_actions = game.get_legal_actions()
-            # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
-            # move = legal_actions[index]
-
-            game.do_action(move)
-            print(game.board)
-            print(move, probs)
-            current_move_num += 1
-            winner = game.check_win()
-            if winner != -2:
-                # print(winner)
-                winners[winner + 1] += 1
-            if winner == -2:
-                mcts1.prune_tree(move)
-                # mcts2.prune_tree(move)
-        # raise ValueError
-    print(winners)
+    #     mcts1 = MCTS(game,
+    #                  # None,
+    #                  session,
+    #                  None,
+    #                  c_puct_init=1.25,
+    #                  tau=0.0,
+    #                  use_dirichlet=False,
+    #                  fast_find_win=False)
+    #     # mcts2 = MCTS(game,
+    #     #              None,
+    #     #              # session,
+    #     #              None,
+    #     #              c_puct_init=2.5,
+    #     #              tau=0.0,
+    #     #              use_dirichlet=True,
+    #     #              fast_find_win=False)
+    #     print(f"Game: {game_id}")
+    #     current_move_num = 0
+    #     winner = -2
+    #     print(game.board)
+    #     while winner == -2:
+    #
+    #         if game.get_next_player() == -1:
+    #             move, probs = mcts1.run(1, use_bar=False)
+    #         else:
+    #             # move, probs = mcts2.run(9, use_bar=False)
+    #             move = game.input_action()
+    #             probs = []
+    #         # legal_actions = game.get_legal_actions()
+    #         # index = np.random.choice(np.arange(len(legal_actions)), 1)[0]
+    #         # move = legal_actions[index]
+    #
+    #         game.do_action(move)
+    #         print(game.board)
+    #         print(move, probs)
+    #         current_move_num += 1
+    #         winner = game.check_win()
+    #         if winner != -2:
+    #             # print(winner)
+    #             winners[winner + 1] += 1
+    #         if winner == -2:
+    #             mcts1.prune_tree(move)
+    #             # mcts2.prune_tree(move)
+    #     # raise ValueError
+    # print(winners)
 
     # print(game.board)
     # move1, probs1 = mcts1.run(100000, use_bar=False)
