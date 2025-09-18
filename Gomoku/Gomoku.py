@@ -129,7 +129,6 @@ class Gomoku:
         # [1, 2, 3], [0.1, 0.75, 0.15]
         # [1, 2, 0]
         # [2, 3, 1], [0.8, 0.15, 0.1]
-        print(legal_actions.shape)
         return legal_actions, policy
 
     def do_action(self, action) -> None:
