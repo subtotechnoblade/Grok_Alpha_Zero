@@ -582,7 +582,7 @@ if __name__ == "__main__":
     # from Guide import Gomoku
     # from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
-    from TicTacToe.Tictactoe import TicTacToe
-
-    game_tester = Game_Tester(TicTacToe)
+    # from TicTacToe.Tictactoe import TicTacToe
+    from Connect4.Connect4 import Connect4
+    game_tester = Game_Tester(Connect4)
     game_tester.test()
