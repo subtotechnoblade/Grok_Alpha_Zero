@@ -169,10 +169,6 @@ class MCTS:
         Q[mask] = child_values[mask] / child_visits[mask]
 
         PUCT_score = Q + U
-        # print("------------------------")
-        # print(PUCT_score)
-        # print(child_prob_priors)
-        # print(child_visits)
         return np.argmax(PUCT_score)
 
     def _PUCT_select(self) -> Node:
