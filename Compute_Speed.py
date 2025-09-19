@@ -10,7 +10,7 @@ def compute_speed(game_class,
               build_config,
               train_config,
               folder_path,
-              iterations=5000):
+              iterations=2000):
     import onnxruntime as rt # must do this for windows
 
     game = game_class()
@@ -53,9 +53,9 @@ def compute_speed(game_class,
 
     dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
 
-    for _ in range(100):
+    for _ in range(500):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
-
+    time.sleep(0.1)
     s = time.time()
     for _ in range(iterations):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
