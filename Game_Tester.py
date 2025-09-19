@@ -487,12 +487,13 @@ class Game_Tester:
 
         winner = - 2
         while winner == -2:
-            try:
-                action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
-            except:
-                print("Checking if everything works with MCTS: Fail")
-                print("MCTS doesn't work, might want to test that!")
-                return False
+            action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=True)
+            # try:
+            #     action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=True)
+            # except:
+            #     print("Checking if everything works with MCTS: Fail")
+            #     print("MCTS doesn't work, might want to test that!")
+            #     return False
 
 
             try:
@@ -580,9 +581,9 @@ class Game_Tester:
 if __name__ == "__main__":
     # Example usage
     # from Guide import Gomoku
-    # from Gomoku.Gomoku import Gomoku
+    from Gomoku.Gomoku import Gomoku
     # game_tester = Game_Tester(Gomoku, width=15, height=15)# if you have no game parameters, leave it blank
     # from TicTacToe.Tictactoe import TicTacToe
-    from Connect4.Connect4 import Connect4
-    game_tester = Game_Tester(Connect4)
+    # from Connect4.Connect4 import Connect4
+    game_tester = Game_Tester(Gomoku)
     game_tester.test()

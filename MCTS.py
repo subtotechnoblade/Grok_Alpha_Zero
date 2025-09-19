@@ -179,19 +179,15 @@ class MCTS:
         while True:
 
             if node.children and node.children[0].is_terminal is not None:  # terminal parent
-                if np.sum(
-                        node.child_values) != 0:  # meaning we have winning moves, if it was 0 then all the moves were a draw
+                if np.sum(node.child_values) > 0:
+                    # meaning we have winning moves, if it was 0 then all the moves were a draw
                     terminal_nodes = [terminal_child for terminal_child in node.children if
                                       terminal_child.is_terminal != 0]
                 else:
                     terminal_nodes = node.children
                 # THIS RETURNS A CHILD
-                return terminal_nodes[np.random.permutation(len(terminal_nodes))[0]]
+                return terminal_nodes[np.random.randint(low=0, high=len(terminal_nodes))]
 
-            # if len(node.child_values) > len(node.children):  # we have to select a node
-            #     # and return as it is a new unvisited node
-            #     # THIS RETURNS THE PARENT OF THE CHOSEN CHILD
-            #     return node  # note that this returns the parent, _expand will create the child node
             # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
                                                          node.child_values,
@@ -199,7 +195,6 @@ class MCTS:
                                                          parent_visits,
                                                          self.c_puct_init,
                                                          self.c_puct_base)
-
             if best_index == len(node.children):
                 return node
 
@@ -277,11 +272,10 @@ class MCTS:
             else:  # a drawing move
                 terminal_mask.append(0.0)
 
-        if len(terminal_mask) == 0:  # if we dont have terminal actions
-            return np.empty(shape=0, dtype=action_histories.dtype), np.empty(shape=0, dtype=np.float32)
-        # if we do
-        mask_arr = np.array(terminal_mask, dtype=np.float32)
         terminal_actions = action_histories[:, -1][np.array(terminal_index, dtype=np.int32)]
+        mask_arr = np.array(terminal_mask, dtype=np.float32)
+        if len(terminal_mask) == 0:  # if we don't have terminal actions
+            return terminal_actions, mask_arr
 
 
         sort_idx = np.argsort(mask_arr)[::-1]
@@ -572,17 +566,26 @@ class MCTS:
 
 
         # 3 conditions to run, iteration limit, time limit, and minimum expanded nodes limit
+        fully_visited = False
         while (((iteration_limit is None or current_iteration < iteration_limit) and (
-                time_limit is None or time.time() - start_time < time_limit))
-               or 0 in self.root.child_visits): #ensures that all nodes are visited
+                time_limit is None or time.time() - start_time < time_limit))):
             loop_start_time = time.time()
-            node = self._PUCT_select()
+
+            if not fully_visited and 0 not in self.root.child_visits:
+                fully_visited = True
+            # ensures that all the starting nodes are visited at least once
+            if not fully_visited:
+                node = self.root
+            else:
+                node = self._PUCT_select()
+
 
             if node.is_terminal is not None:
                 value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
                 visits = 1
             else:
                 node, value, visits = self._expand(node)
+
 
             self._back_propagate(node, value, visits)
 
