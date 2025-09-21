@@ -1,23 +1,56 @@
-# Grok_Alpha_Zero
-Slow AlphaZero development, done the right way.
-The strongest AI in history vs stongest programmer in the modern era.
+## AlphaZero General Implementation & Enhancements
+A from scratch, high performance, implementation of DeepMind's Alpha Zero system in Tensorflow, featuring significant architectural and algorithmic improvements for efficiency, scalability, and performance. This project has been a long time dream of mine to complete.
 
-Partially Anti Ian repo
-Only the original Ians beyond this point
+To Henry, thanks for suggesting Alpha Zero to me in grade 10, I would never have come this far. Thank you for showing me my passion and my dream in life. Programming and ML has been the greatest passion I could have ever asked for. It has been a while but I'm nearing completion, I hope this shows you how far I've come from where I started. Again, thank you for showing me my path.
 
-Important files are organized into three categories.
+##🚀 Key Features & Enhancements
+This implementation includes the core AlphaZero algorithm but is significantly enhanced for performance and learning efficiency:
 
-Tutorial and resources:
-Guide.py and game_tester.py
+##🎯 Core Implementation
+General Game Framework: Framework capable of learning multiple perfect information games from scratch through self-play.
 
-Game Class files: 
-Gomoku.py, tictactoe.py, ect.
+Monte Carlo Tree Search (MCTS): The core planning algorithm implemented as an implicit tree with memory efficiency in mind.
 
-Brian's training code: MCTS.py, the Net directory, Self_Play.py
+Residual Networks (ResNet): Standard deep neural network architecture for stable learning of complex value and policy functions.
 
-The rest of the files are test files and are for prototyping
+##⚡ Performance & Scalability
+High-Performance Inference Server: A custom inference server that batches policy/value network requests from multiple MCTS workers. This is drastically more efficient than spawning multiple ONNX runtime instances, minimizing GPU overhead and maximizing throughput.
 
-For more information on implementing a game for Grok_Zero check out Guide.py and its Gomoku example
+Multi-worker Self-Play: Parallel self-play data generation utilizing multiple CPU cores, significantly accelerating training.
+
+Multi-Platform GPU Acceleration: Model exported to ONNX format for fast inference across multiple execution providers:
+
+TensorRT (NVIDIA GPU - Fastest)
+
+CUDA (NVIDIA GPU - Standard)
+
+DirectML (AMD/Intel iGPU - Windows)
+
+CPU (Fallback)
+
+##🧠 Advanced Algorithms & Stabilization
+Implicit MCTS: A memory-optimized MCTS where parent nodes store children's statistics, reducing memory complexity and allowing for faster searches.
+
+MuZero's PUCT Algorithm: An enhanced exploration formula that improves upon the original AlphaZero PUCT for better action selection.
+
+Enhanced Value Training Target: Uses (Z(result) + Q(MCTS value)) / 2 as the training target for the value network. This hybrid target, combining the final game outcome with the MCTS-estimated value, leads to more stable and robust training compared to relying on a pure Z target.
+
+Grokking Techniques: Integrated modern regularization techniques to improve generalization and combat overfitting:
+
+GrokFast: A specific optimizer configuration for fast generalization.
+
+OrthoGrad: Orthogonal gradients for fast generalization.
+
+StableMax: A stabilized version of the softmax function to combat softmax collapse.
+
+🕹️ Implemented Games
+Game	Status	Description
+Tic-Tac-Toe	✅ Complete	Simple validation environment.
+Connect4	✅ Complete	Classic 6x7 board game.
+Gomoku	✅ Complete	5-in-a-row on a 15x15 board.
+Ultimate Tic-Tac-Toe	🔄 In Progress	Complex, strategic variant.
+Chopsticks	🔄 In Progress	Simple perfect-information game.
+
 
 Alpha Zero paper: https://arxiv.org/pdf/1712.01815
 
