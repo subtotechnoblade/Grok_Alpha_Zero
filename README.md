@@ -45,13 +45,13 @@ StableMax: A stabilized version of the softmax function to combat softmax collap
 
 ## 🕹️ Implemented Games
 
-|Game |	Status | Description|
-| --- | --- |
-|Tic-Tac-Toe |	✅ | Complete	Simple validation environment|
-|Connect4	| ✅ | Complete	Classic 6x7 board game|
-|Gomoku	| ✅ | Complete	5-in-a-row on a 15x15 board|
-|Ultimate Tic-Tac-Toe |	🔄 | In Progress	Complex, strategic variant|
-|Chopsticks	| 🔄 | In Progress	Simple perfect-information game|
+|Game |	Status | Description |
+| --- | --- | --- |
+|Tic-Tac-Toe |	✅ | Complete	Simple validation environment |
+|Connect4	| ✅ | Complete	Classic 6x7 board game |
+|Gomoku	| ✅ | Complete	5-in-a-row on a 15x15 board |
+|Ultimate Tic-Tac-Toe |	🔄 | In Progress	Complex, strategic variant |
+|Chopsticks	| 🔄 | In Progress	Simple perfect-information game |
 
 
 Alpha Zero paper: https://arxiv.org/pdf/1712.01815
