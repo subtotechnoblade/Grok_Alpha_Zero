@@ -3,17 +3,17 @@ A from scratch, high performance, implementation of DeepMind's Alpha Zero system
 
 To Henry, thanks for suggesting Alpha Zero to me in grade 10, I would never have come this far. Thank you for showing me my passion and my dream in life. Programming and ML has been the greatest passion I could have ever asked for. It has been a while but I'm nearing completion, I hope this shows you how far I've come from where I started. Again, thank you for showing me my path.
 
-##🚀 Key Features & Enhancements
+## 🚀 Key Features & Enhancements
 This implementation includes the core AlphaZero algorithm but is significantly enhanced for performance and learning efficiency:
 
-##🎯 Core Implementation
+## 🎯 Core Implementation
 General Game Framework: Framework capable of learning multiple perfect information games from scratch through self-play.
 
 Monte Carlo Tree Search (MCTS): The core planning algorithm implemented as an implicit tree with memory efficiency in mind.
 
 Residual Networks (ResNet): Standard deep neural network architecture for stable learning of complex value and policy functions.
 
-##⚡ Performance & Scalability
+## ⚡ Performance & Scalability
 High-Performance Inference Server: A custom inference server that batches policy/value network requests from multiple MCTS workers. This is drastically more efficient than spawning multiple ONNX runtime instances, minimizing GPU overhead and maximizing throughput.
 
 Multi-worker Self-Play: Parallel self-play data generation utilizing multiple CPU cores, significantly accelerating training.
@@ -28,7 +28,7 @@ DirectML (AMD/Intel iGPU - Windows)
 
 CPU (Fallback)
 
-##🧠 Advanced Algorithms & Stabilization
+## 🧠 Advanced Algorithms & Stabilization
 Implicit MCTS: A memory-optimized MCTS where parent nodes store children's statistics, reducing memory complexity and allowing for faster searches.
 
 MuZero's PUCT Algorithm: An enhanced exploration formula that improves upon the original AlphaZero PUCT for better action selection.
@@ -43,13 +43,15 @@ OrthoGrad: Orthogonal gradients for fast generalization.
 
 StableMax: A stabilized version of the softmax function to combat softmax collapse.
 
-🕹️ Implemented Games
-Game	Status	Description
-Tic-Tac-Toe	✅ Complete	Simple validation environment.
-Connect4	✅ Complete	Classic 6x7 board game.
-Gomoku	✅ Complete	5-in-a-row on a 15x15 board.
-Ultimate Tic-Tac-Toe	🔄 In Progress	Complex, strategic variant.
-Chopsticks	🔄 In Progress	Simple perfect-information game.
+## 🕹️ Implemented Games
+
+|Game |	Status | Description|
+| --- | --- |
+|Tic-Tac-Toe |	✅ | Complete	Simple validation environment|
+|Connect4	| ✅ | Complete	Classic 6x7 board game|
+|Gomoku	| ✅ | Complete	5-in-a-row on a 15x15 board|
+|Ultimate Tic-Tac-Toe |	🔄 | In Progress	Complex, strategic variant|
+|Chopsticks	| 🔄 | In Progress	Simple perfect-information game|
 
 
 Alpha Zero paper: https://arxiv.org/pdf/1712.01815
