@@ -53,6 +53,19 @@ StableMax: A stabilized version of the softmax function to combat softmax collap
 |Ultimate Tic-Tac-Toe |	🔄 | In Progress	Complex, strategic variant |
 |Chopsticks	| 🔄 | In Progress	Simple perfect-information game |
 
+# 🏗️ Project Architecture
+```mermaid
+graph TD
+    A[Self-Play Workers CPU xN] -->|Send Batches| B[Inference Server];
+    B -->|Uses| C[ONNX Model];
+    C -->|Runs on| D{TensorRT / CUDA / DML / CPU};
+    B -->|Returns Policy/Value| A;
+    A -->|Generates| E[Game Data, stored in h5py];
+    E -->|Processed| F|Data Preprocessing|; 
+    F --> G[Training Loop];
+    G -->|Updates| H[TensorFlow Model];
+    H -->|Exported to| C;
+```
 
 Alpha Zero paper: https://arxiv.org/pdf/1712.01815
 
