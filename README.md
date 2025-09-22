@@ -61,7 +61,7 @@ graph TD
     C -->|Runs on| D{TensorRT / CUDA / DML / CPU};
     B -->|Returns Policy/Value| A;
     A -->|Generates| E[Game Data, stored in h5py];
-    E -->|Processed| F|Data Preprocessing|; 
+    E -->|Processed| F[Data Preprocessing]; 
     F --> G[Training Loop];
     G -->|Updates| H[TensorFlow Model];
     H -->|Exported to| C;
