@@ -1,10 +1,11 @@
-## AlphaZero General Implementation & Enhancements
+# AlphaZero General Implementation & Enhancements
 A from scratch, high performance, implementation of DeepMind's Alpha Zero system in Tensorflow, featuring significant architectural and algorithmic improvements for efficiency, scalability, and performance. This project has been a long time dream of mine to complete.
 
 To Henry, thanks for suggesting Alpha Zero to me in grade 10, I would never have come this far. Thank you for showing me my passion and my dream in life. Programming and ML has been the greatest passion I could have ever asked for. It has been a while but I'm nearing completion, I hope this shows you how far I've come from where I started. Again, thank you for showing me my path.
 
 ## 🚀 Key Features & Enhancements
 This implementation includes the core AlphaZero algorithm but is significantly enhanced for performance and learning efficiency:
+
 
 ## 🎯 Core Implementation
 General Game Framework: Framework capable of learning multiple perfect information games from scratch through self-play.
@@ -20,38 +21,53 @@ Multi-worker Self-Play: Parallel self-play data generation utilizing multiple CP
 
 Multi-Platform GPU Acceleration: Model exported to ONNX format for fast inference across multiple execution providers:
 
-TensorRT (NVIDIA GPU - Fastest)
+- TensorRT (NVIDIA GPU - Optimized)
+- CUDA (NVIDIA GPU - Standard)
+- DirectML (GPU - Windows)
+- CPU (Fallback)
 
-CUDA (NVIDIA GPU - Standard)
+## 🧩 Implementation Checklist
 
-DirectML (AMD/Intel iGPU - Windows)
+### ✅ Completed Features
 
-CPU (Fallback)
+#### Core Algorithm & MCTS
+- [x] Implicit MCTS Tree Representation (Memory-Optimized)
+- [x] MCTS Node Pruning
+- [x] Hybrid Training Target (Z + Q)/2
 
-## 🧠 Advanced Algorithms & Stabilization
-Implicit MCTS: A memory-optimized MCTS where parent nodes store children's statistics, reducing memory complexity and allowing for faster searches.
+#### Performance & Optimization
+- [x] Numba JIT Acceleration for Critical Functions
+- [x] Multi-Platform ONNX Inference (TensorRT, CUDA, DirectML, CPU)
+- [x] Batch Inference Server for Parallel Workers
+- [x] Neural Network Output Caching
 
-MuZero's PUCT Algorithm: An enhanced exploration formula that improves upon the original AlphaZero PUCT for better action selection.
+#### Infrastructure & Data Management
+- [x] Game Compatibility Test Suite
+- [x] HDF5-Based Experience Replay Buffer
 
-Enhanced Value Training Target: Uses (Z(result) + Q(MCTS value)) / 2 as the training target for the value network. This hybrid target, combining the final game outcome with the MCTS-estimated value, leads to more stable and robust training compared to relying on a pure Z target.
+#### Network Architecture
+- [x] Residual Network (ResNet) Blocks
 
-Grokking Techniques: Integrated modern regularization techniques to improve generalization and combat overfitting:
+#### Training Stabilization Techniques
+- [x] GrokFast Optimization
+- [x] OrthoGrad Regularization
+- [x] StableMax Activation
 
-GrokFast: A specific optimizer configuration for fast generalization.
+### 🔄 In Progress / Planned
 
-OrthoGrad: Orthogonal gradients for fast generalization.
-
-StableMax: A stabilized version of the softmax function to combat softmax collapse.
+#### Parallelization & Gameplay
+- [ ] Virtual Loss for Parallel MCTS (Multi-agent Competition)
+- [ ] Rich Representation from: https://arxiv.org/abs/2310.06110
 
 ## 🕹️ Implemented Games
 
-|Game |	Status | Description |
-| --- | --- | --- |
-|Tic-Tac-Toe |	✅ | Complete	Simple validation environment |
-|Connect4	| ✅ | Complete	Classic 6x7 board game |
-|Gomoku	| ✅ | Complete	5-in-a-row on a 15x15 board |
-|Ultimate Tic-Tac-Toe |	🔄 | In Progress	Complex, strategic variant |
-|Chopsticks	| 🔄 | In Progress	Simple perfect-information game |
+| Game                 | 	Status | Description                                 |
+|----------------------|---------|---------------------------------------------|
+| Tic-Tac-Toe          | 	✅      | Complete	Simple validation environment      |
+| Connect4	            | ✅       | Complete	Classic 6x7 board game             |
+| Gomoku	              | ✅       | Complete	5-in-a-row on a 15x15 board        |
+| Ultimate Tic-Tac-Toe | 	🔄     | In Progress	Complex, strategic variant      |
+| Chopsticks	          | 🔄      | In Progress	Simple perfect-information game |
 
 # 🏗️ Project Architecture
 ```mermaid
@@ -66,31 +82,48 @@ graph TD
     G -->|Updates| H[TensorFlow Model];
     H -->|Exported to| C;
 ```
+## 🚦 Getting Started
 
-Alpha Zero paper: https://arxiv.org/pdf/1712.01815
+### Installation & Training
+Clone the repo:
+```bash
+git clone https://github.com/subtotechnoblade/Grok_Alpha_Zero
+cd Grok_Alpha_Zero
+```
 
-Mu Zero paper: https://arxiv.org/pdf/1911.08265
+### Install dependencies:
+For GPU training:
+```bash
+pip install -r requirements-training-gpu.txt
+```
 
-Gumbel Alpha Zero and Mu Zero: https://openreview.net/forum?id=bERaNdoegnO
+For CPU training:
+```bash
+pip install -r requirements-training-cpu.txt
+```
 
-Residual Network from: https://www.researchgate.net/publication/352720536_Efficiently_Mastering_the_Game_of_NoGo_with_Deep_Reinforcement_Learning_Supported_by_Domain_Knowledge
+### Train Alpha Zero for Connect4
+```bash
+cd Connect4
+python main.py
+```
 
-Monte Carlo Graph Search: https://arxiv.org/pdf/2012.11045
+## Issues
+- numba unable to find the correct cache key. Solution: Delete pycache and restart training. A fix will be introduced later
 
 
+## References & Acknowledgements
 
-Grok Fast paper: https://arxiv.org/abs/2405.20233
+### Core Algorithm Papers
+- **AlphaZero**: Silver, D., et al. (2017, December 5). Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm. https://arxiv.org/abs/1712.01815
+- **MuZero**: Schrittwieser, J., et al. (2020, February 21). Mastering Atari, Go, Chess and Shogi by Planning with a Learned Model. https://arxiv.org/abs/1911.08265
+- **Gumbel AlphaZero/MuZero**: Danihelka, I., et al. (2023, February 13). Policy improvement by planning with Gumbel. OpenReview. https://openreview.net/forum?id=bERaNdoegnO
 
-Grokking at the edge of numerical stability: https://arxiv.org/pdf/2501.04697
+### Network Architecture  
+- **Residual Networks**: He, K., et al. (2015, December 10). Deep Residual Learning for Image Recognition. https://arxiv.org/abs/1512.03385
+- **GARB Networks with attention and Alpha Zero training techniques**: Gao, Yifan & Wu, Lezhou. (2021). Efficiently Mastering the Game of NoGo with Deep Reinforcement Learning Supported by Domain Knowledge. Electronics. 10. 1533. 10.3390/electronics10131533. 
 
+### Grokking Techniques
+- **Grokfast**: Lee, J., et al. (2024, June 5). Grokfast: Accelerated Grokking by Amplifying Slow Gradients. https://arxiv.org/abs/2405.20233
+- **Orthograd & Stablemax**: Prieto, L. et al. (2025, May 19). Grokking at the Edge of Numerical Stability. https://arxiv.org/abs/2501.04697
 
-RWKV-v4 paper: https://arxiv.org/abs/2305.13048
-
-RWKV-v5,6: https://arxiv.org/abs/2404.05892
-
-Should heavily consider:
-Alpha Zero continous action space: https://arxiv.org/abs/1805.09613
-
-Possible Reads: 
-
-Accelerating MCTS: https://arxiv.org/abs/2310.06513
