@@ -99,12 +99,12 @@ class Self_Play:
 
                 if self.game.get_next_player() == -1:
                     action, action_probs = self.mcts1.run(
-                        iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
+                        iteration_limit=int(self.iteration_limit * (2.0 if current_move_num <= 1 else 1.0)),
                         time_limit=self.time_limit,
                         use_bar=False)
                 else:
                     action, action_probs = self.mcts2.run(
-                        iteration_limit=int(self.iteration_limit * (1.0 if current_move_num <= 1 else 1.0)),
+                        iteration_limit=int(self.iteration_limit * (2.0 if current_move_num <= 1 else 1.0)),
                         time_limit=self.time_limit,
                         use_bar=False)
 
@@ -232,7 +232,7 @@ def self_play_task(worker_id,
         providers, onnx_path = info
         session = rt.InferenceSession(onnx_path, providers=providers)
 
-    if train_config.get("max_cache_depth") > 0:
+    if train_config.get("max_cache_depth", 0) not in [None, 0]: # so both 0 and None are excluded
         from Session_Cache import Cache_Wrapper
         session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
@@ -260,7 +260,8 @@ def convert_shape(shape):
 def run_self_play(game_class,
                   build_config,
                   train_config,
-                  folder_path):
+                  folder_path,
+                  per_process_wait_time=1e-3):
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
@@ -284,6 +285,7 @@ def run_self_play(game_class,
     policy_shape = game.policy_shape
     str_board_shape = convert_shape(inputs_shape)
     del game
+
     import onnxruntime as rt
     available_providers = rt.get_available_providers()
     onnx_file_path = f"{folder_path}/model.onnx"
@@ -336,7 +338,7 @@ def run_self_play(game_class,
                                                        shms,
                                                        providers,
                                                        onnx_file_path,
-                                                       5e-5))
+                                                       per_process_wait_time))
         server.start()
 
     lock = mp.Lock()
