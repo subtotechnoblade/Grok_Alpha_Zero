@@ -1,6 +1,7 @@
 import os
 import time
 import numpy as np
+from collections import deque
 
 import multiprocessing as mp
 from multiprocessing.shared_memory import SharedMemory
@@ -108,7 +109,12 @@ class Server:
         self.providers = providers
         self.num_workers = len(self.shms)
         self.file_path = file_path
-        self.wait_time = per_process_wait_time * self.num_workers
+        self.wait_time = per_process_wait_time * self.num_workers if self.num_workers > 1 else 0.0
+        # self.wait_time = 1e-2
+        if self.num_workers > 1:
+            self.past_fills = deque()
+            self.past_wait_times = deque()
+        # since there if there is only 1 worker, we can always wait for it, thus no need to wait
 
         import onnxruntime as rt
         self.sess = rt.InferenceSession(f"{self.file_path}", providers=providers)
@@ -141,6 +147,17 @@ class Server:
         transposition.insert(0, batch_dim)
         transposition.pop(batch_dim + 1)  # literally don't care if it is O(n)
         return transposition
+    def compute_wait_time(self, alpha, avg_request_rate, min_wait=5e-6):
+        if avg_request_rate <= 0:
+            return min_wait
+
+        ratio = alpha * self.num_workers / avg_request_rate
+        if ratio < 1:
+            optimal_t = -np.log(ratio) / avg_request_rate
+        else:
+            optimal_t = min_wait
+        return max(min_wait, min(6e-3, optimal_t))
+
 
     def start(self):
         self.shared_arrs = [np.ndarray(shape=(shm.size // 4), dtype=np.float32, buffer=shm.buf) for shm in self.shms]
@@ -149,9 +166,9 @@ class Server:
             active_indexes = set()
             batched_input_feed = {name: [] for name in self.inputs_feed_info.keys()}
 
-            start_time = time.time()
+            start_time = time.monotonic()
             while len(active_connections) == 0 or (
-                    len(active_connections) < len(self.shared_arrs) and time.time() - start_time <= self.wait_time):
+                    len(active_connections) < len(self.shared_arrs) and time.monotonic() - start_time <= self.wait_time):
                 for i, shared_array in enumerate(self.shared_arrs):
                     if i in active_indexes:
                         continue
@@ -164,6 +181,16 @@ class Server:
                             batched_input_feed[input_name].append(
                                 shared_array[start_index: start_index + arr_len].reshape(arr_shape))
                             start_index += arr_len
+            elapsed_time = time.monotonic() - start_time
+            if self.num_workers > 1:
+                self.past_fills.append(len(active_indexes)) # number of worker's requests collected
+                self.past_wait_times.append(elapsed_time)
+                if len(self.past_wait_times) > 1000: # 400 SMA
+                    self.past_wait_times.popleft()
+                    self.past_fills.popleft()
+                average_request_rate = sum(self.past_fills) / sum(self.past_wait_times)
+                self.wait_time = self.compute_wait_time(0.05, average_request_rate)
+                # print(elapsed_time, len(active_indexes), average_request_rate, self.wait_time)
 
             if len(active_connections) > len(self.shared_arrs):
                 raise ValueError("Too many samples in 1 batch sth went wrong")
