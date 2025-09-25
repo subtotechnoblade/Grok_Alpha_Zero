@@ -484,8 +484,7 @@ class MCTS:
 
             sort_index = np.argsort(child_prob_prior)[::-1]
             child_prob_prior = child_prob_prior[sort_index]
-            # print(child_prob_prior)
-            # raise ValueError
+
             child_legal_actions = child_legal_actions[sort_index]
 
             child = Node(len(node.children),

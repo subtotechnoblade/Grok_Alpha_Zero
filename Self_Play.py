@@ -262,6 +262,7 @@ def run_self_play(game_class,
                   train_config,
                   folder_path,
                   per_process_wait_time=1e-3):
+
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
