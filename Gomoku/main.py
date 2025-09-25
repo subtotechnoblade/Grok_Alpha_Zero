@@ -119,6 +119,7 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
                                                        num_previous_generations=train_config["num_previous_generations"],
                                                        train_batch_size=train_config["train_batch_size"],
                                                        test_batch_size=train_config["test_batch_size"],
+                                                       target_ratio=train_config["target_ratio"],
                                                        train_percent=train_config["train_percent"],
                                                        train_decay=train_config["train_decay"],
                                                        test_percent=train_config["test_percent"],
@@ -211,11 +212,11 @@ def Initialize(game_class, build_model_fn, build_config, train_config):  # This 
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
 
-    p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
-    p.start()
-    p.join()
-    if p.exitcode != 0:
-        raise RuntimeError("Main process stopped")
+    # p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+    # p.start()
+    # p.join()
+    # if p.exitcode != 0:
+    #     raise RuntimeError("Main process stopped")
 
     Make_Dataset_File("Grok_Zero_Train/0")
 
@@ -269,7 +270,6 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
     print(f"Generation: {current_generation} / {train_config['total_generations'] - 1}")
 
-    calculate_speed = False
     if "model.onnx" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         p = mp.Process(target=Create_onnx, args=(game_class, build_model_fn, build_config, train_config,
                                                  f"Grok_Zero_Train/{current_generation}"))
@@ -277,7 +277,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
         p.join()
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
-        calculate_speed = True
+
 
     if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
         p = mp.Process(target=cache_tensorrt,
@@ -286,19 +286,17 @@ def Run(game_class, build_model_fn, build_config, train_config):
         p.join()
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
-        calculate_speed = True
 
-    if calculate_speed:
-        p = mp.Process(target=compute_speed,
-                       args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
-        p.start()
-        p.join()
-        if p.exitcode != 0:
-            raise RuntimeError("Main process stopped")
+    p = mp.Process(target=compute_speed,
+                   args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+    p.start()
+    p.join()
+
+    if p.exitcode != 0:
+        raise RuntimeError("Main process stopped")
 
     if "Self_Play_Data.h5" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
         Make_Dataset_File(f"Grok_Zero_Train/{current_generation}/")
-
         current_generation += 1
 
     for generation in range(current_generation, train_config["total_generations"]):

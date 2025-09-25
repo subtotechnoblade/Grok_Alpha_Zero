@@ -3,10 +3,10 @@ from numba import njit
 
 # This is for building the model
 build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
-                "num_filters": 128,
+                "num_filters": 192,
                 "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
-                "use_grok_fast": False,  # from grokfast paper
-                "use_orthograd": False,  # from grokking at the edge of numerica stability
+                "use_grok_fast": True,  # from grokfast paper
+                "use_orthograd": True,  # from grokking at the edge of numerica stability
                 "grok_lambda": 4.0,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 train_config = {
@@ -14,20 +14,20 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000,  # amount of self play games until we re train the network
+    "games_per_generation": 1500,  # amount of self play games until we re train the network
     "max_actions": 150,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 5,  # A good rule of thumb is how long the opening should be for player -1
+    "num_explore_actions_first": 11,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 5,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 3,  # maximum depth in the search of the neural networks outputs we should cache
+    "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 550,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 750,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -40,28 +40,29 @@ train_config = {
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 2.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.1,  # should be around (10 / average moves per game)
+    "dirichlet_alpha": 0.333,  # should be around (10 / average moves per game)
 
-    # "opening_actions": [[[7, 7], 0.2],
+    # "opening_actions": [[[7, 7], 0.3],
     #                     [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
     #                     ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
-    "train_percent": 1.0,  # The percent used fr training after the test set is taken
+    "target_ratio": 0.4, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
+    "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.6,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
     "test_decay": 0.6,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
-    "train_batch_size": 256,  # The number of samples in a batch for training in parallel
+    "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
-    "gradient_accumulation_steps": 2,
-    "learning_rate": 2e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
+    "gradient_accumulation_steps": None,
+    "learning_rate": 5e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
     "decay_lr_after": 10,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
+    "beta_2": 0.995,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
     "train_epochs": 15,  # The number of epochs for training
 }
