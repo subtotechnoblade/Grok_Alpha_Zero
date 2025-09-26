@@ -3,21 +3,22 @@ from numba import njit
 
 # This is for building the model
 build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
-                "num_filters": 192,
+                "num_filters": 128,
+                "rr_alpha": 0.01,
                 "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": True,  # from grokfast paper
                 "use_orthograd": True,  # from grokking at the edge of numerica stability
-                "grok_lambda": 4.0,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "grok_fast_lambda": 4.0,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 train_config = {
     "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1500,  # amount of self play games until we re train the network
+    "games_per_generation": 500,  # amount of self play games until we re train the network
     "max_actions": 150,  # Note that this should be less than max actions,
     "num_explore_actions_first": 11,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 5,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    "num_explore_actions_second": 6,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
@@ -27,7 +28,7 @@ train_config = {
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 750,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 500,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -58,7 +59,7 @@ train_config = {
     "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 5e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
+    "learning_rate": 1e-2,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
     "decay_lr_after": 10,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing

@@ -17,30 +17,30 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
     x = inputs
 
-    # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
-
-    eyes = tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    eyes = tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal')(x)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
-    # eyes = tf.keras.layers.LayerNormalization()(eyes)
-    # eyes = tf.keras.layers.Activation("relu")(eyes)
+    eyes = tf.keras.layers.Activation("relu")(eyes)
 
     x = eyes
     mul = 1
     for layer_id in range(num_resnet_layers):
         x = ResNet_Block(int(num_filters * mul), (3, 3), strides=(1, 1), padding="same")(x)
 
+    # pre activation
+    policy = tf.keras.layers.BatchNormalization()(x)
+    policy = tf.keras.layers.Activation("relu")(policy)
+    policy = tf.keras.layers.Conv2D(32, (3, 3), padding="same", kernel_initializer='he_normal')(policy)
 
-    policy = tf.keras.layers.Conv2D(32, (1, 1), padding="same")(x)
     policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-
-    policy = tf.keras.layers.Conv2D(8, (3, 3), padding="same")(policy)
-    policy = tf.keras.layers.BatchNormalization()(policy)
-    policy = tf.keras.layers.Activation("relu")(policy)
+    policy = tf.keras.layers.Conv2D(8, (3, 3), padding="same", kernel_initializer='he_normal')(policy)
 
     policy = tf.keras.layers.Reshape((policy.shape[-3] * policy.shape[-2] * policy.shape[-1],))(policy)
 
-    policy = tf.keras.layers.Dense(512)(policy)
+    policy = tf.keras.layers.BatchNormalization()(policy)
+    policy = tf.keras.layers.Activation("relu")(policy)
+    policy = tf.keras.layers.Dense(512, kernel_initializer='he_normal')(policy)
+
     policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
 
@@ -49,6 +49,8 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # policy = tf.keras.layers.Activation("relu")(policy)
 
     policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
+    policy *= build_config["rr_alpha"] # rich representation
+
     if train_config["use_gumbel"]:
         policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy)
     else:
@@ -57,35 +59,39 @@ def build_model(input_shape, policy_shape, build_config, train_config):
         else:
             policy = tf.keras.layers.Activation("softmax", dtype="float64", name="policy")(policy)  # MUST NAME THIS "policy"
 
-    value = tf.keras.layers.Conv2D(32, (1, 1), padding="same")(x)
-    value = tf.keras.layers.BatchNormalization()(value)
+    value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Activation("relu")(value)
-
-    value = tf.keras.layers.Conv2D(8, (3, 3), padding="same")(value)
+    value = tf.keras.layers.Conv2D(32, (3, 3), padding="same", kernel_initializer='he_normal')(value)
 
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
+    value = tf.keras.layers.Conv2D(4, (1, 1), padding="same", kernel_initializer='he_normal')(value)
+
     value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
 
-    value = tf.keras.layers.Dense(256)(value)
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
+    value = tf.keras.layers.Dense(256, kernel_initializer='he_normal')(value)
 
-    value = tf.keras.layers.Dense(128)(value)
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
+    value = tf.keras.layers.Dense(128, kernel_initializer='he_normal')(value)
 
+    value = tf.keras.layers.BatchNormalization()(value)
+    value = tf.keras.layers.Activation("relu")(value)
     value = tf.keras.layers.Dense(1, dtype="float32")(value)  # MUST NAME THIS "value"
+    value *= build_config["rr_alpha"] # rich representation
+
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
     # Must include this as it is necessary to name the outputs
     if build_config["use_grok_fast"] and build_config["use_orthograd"]:
         return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
-                                         lamb=build_config["grok_lambda"],
+                                         lamb=build_config["grok_fast_lambda"],
                                          alpha=0.99)
     elif build_config["use_grok_fast"]:
         return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
-                                   lamb=build_config["grok_lambda"], alpha=0.99)
+                                   lamb=build_config["grok_fast_lambda"], alpha=0.99)
     elif build_config["use_orthograd"]:
         return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:
