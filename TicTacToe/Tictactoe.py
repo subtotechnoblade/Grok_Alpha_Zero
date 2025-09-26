@@ -83,7 +83,7 @@ build_config = {"num_resnet_layers": 2,
                 "use_stablemax": False,
                 "use_grok_fast": True,
                 "use_orthograd": True,
-                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "grok_fast_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
                 }
 
 train_config = {
@@ -116,16 +116,17 @@ train_config = {
     # These params will only be used when use_gumbel is set to True
     "m": 2,  # Number of actions sampled in the first stage of sequential halving
     "c_visit": 50.0,
-    "c_scale": 0.15,
+    "c_scale": 2.0,
 
     # These params will be used when use_gumbel is set to False
     "c_puct_init": 1.25,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.8,  # should be around (10 / average moves per game)
+    "dirichlet_alpha": 1.0,  # should be around (10 / average moves per game)
 
     # "opening_actions": [[[1, 1], 0.4]],  # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
+    "target_ratio": 0.5, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
     "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.9,
     # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
@@ -134,16 +135,16 @@ train_config = {
     # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
-    "train_batch_size": 512,  # The number of samples in a batch for training in parallel
+    "train_batch_size": 128,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
     "learning_rate": 7e-4,  # Depending on how many layers you use. Recommended to be between 1e-3 to 5e-4
-    "decay_lr_after": 4,  # When the n generations pass,... learning rate will be decreased by lr decay
+    "decay_lr_after": 3,  # When the n generations pass,... learning rate will be decreased by lr decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
     "beta_2": 0.99,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.98 to 0.995
     "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15,  # The number of epochs for training
+    "train_epochs": 10,  # The number of epochs for training
 }
 
 
