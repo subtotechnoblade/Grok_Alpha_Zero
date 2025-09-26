@@ -1,19 +1,19 @@
 import numpy as np
 from numba import njit
 
-build_config = {"num_resnet_layers": 2,  # This is the total amount of resnet layers in the model that are used
+build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
-                "use_stablemax": True,  # use stablemax, which will also use stablemax crossentropy
+                "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
                 "use_grok_fast": False,  # from grokfast paper
                 "use_orthograd": False,  # from grokking at the edge of numerica stability
-                "grok_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "grok_fast_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
           }
 train_config = {
     "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 100,  # amount of self play games until we re train the network
+    "games_per_generation": 1000,  # amount of self play games until we re train the network
     "max_actions": 42,  # Note that this should be less than max actions,
     "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 7,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
@@ -22,11 +22,11 @@ train_config = {
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 1,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
+    "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 100,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 250,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux

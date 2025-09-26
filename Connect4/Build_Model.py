@@ -77,11 +77,11 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # Must include this as it is necessary to name the outputs
     if build_config["use_grok_fast"] and build_config["use_orthograd"]:
         return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
-                                         lamb=build_config["grok_lambda"],
+                                         lamb=build_config["grok_fast_lambda"],
                                          alpha=0.99)
     elif build_config["use_grok_fast"]:
         return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
-                                   lamb=build_config["grok_lambda"], alpha=0.99)
+                                   lamb=build_config["grok_fast_lambda"], alpha=0.99)
     elif build_config["use_orthograd"]:
         return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:

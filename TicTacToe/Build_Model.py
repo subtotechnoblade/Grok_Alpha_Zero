@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from Net.Stablemax import Stablemax
 
-from Net.ResNet.ResNet_Block import ResNet_Identity2D, ResNet_Conv2D
+from Net.ResNet.ResNet_Block import ResNet_Block
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 def build_model(input_shape, policy_shape, build_config, train_config):
@@ -14,40 +14,41 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # input shape should be (3, 3)
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs") # the name must be "inputs"
 
-    x = tf.keras.layers.Conv2D(128, (5, 5), padding="same")(inputs)
-    x = tf.keras.layers.Conv2D(64, (3, 3), padding="same")(x)
+    x = tf.keras.layers.Conv2D(128, (5, 5), padding="same", kernel_initializer="he_normal")(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation("gelu")(x)
 
     for _ in range(build_config["num_resnet_layers"]):
-        x = ResNet_Conv2D(64, (3, 3), activation="relu")(x)
-        x = ResNet_Identity2D(64, (3, 3), activation="relu")(x)
+        x = ResNet_Block(64, (3, 3))(x)
 
-    policy = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    policy = tf.keras.layers.Conv2D(8, (1, 1), padding="same", kernel_initializer="he_normal")(x)
     policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Reshape((-1,))(policy)
-    policy = tf.keras.layers.Dense(128)(policy)
+
+    policy = tf.keras.layers.Dense(128, kernel_initializer="he_normal")(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = tf.keras.layers.Dense(64)(policy)
+    policy = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(policy)
 
 
     if train_config["use_gumbel"]:
-        policy = tf.keras.layers.Dense(policy_shape[0])(policy)  # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], kernel_initializer="zeros")(policy)  # NOTE THAT THIS IS A LOGIT not prob
         policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy) # Must enforce float32 on last layer
     else:
-        policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
+        policy = tf.keras.layers.Dense(policy_shape[0], kernel_initializer="zeros", dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
         if build_config["use_stablemax"]:
             policy = Stablemax(dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
         else:
             policy = tf.keras.layers.Activation("softmax", dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
 
 
-    value = tf.keras.layers.Conv2D(2, (1, 1), padding="valid")(x)
+    value = tf.keras.layers.Conv2D(4, (1, 1), padding="same", kernel_initializer="he_normal")(x)
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Reshape((-1,))(value)
 
-    value = tf.keras.layers.Dense(128)(value)
-    value = tf.keras.layers.Dense(64)(value)
+    value = tf.keras.layers.Dense(128, kernel_initializer="he_normal")(value)
+    value = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1)(value)
+    value = tf.keras.layers.Dense(1, kernel_initializer="zeros")(value)
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value) # MUST NAME THIS "value"
     # must enforcce that the computation be float32
 
@@ -57,11 +58,11 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # Grok fast model most likey improves convergence
     if build_config["use_grok_fast"] and build_config["use_orthograd"]:
         return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
-                                         lamb=build_config["grok_lambda"],
+                                         lamb=build_config["grok_fast_lambda"],
                                          alpha=0.99)
     elif build_config["use_grok_fast"]:
         return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
-                                   lamb=build_config["grok_lambda"], alpha=0.99)
+                                   lamb=build_config["grok_fast_lambda"], alpha=0.99)
     elif build_config["use_orthograd"]:
         return Ortho_Model(inputs=inputs, outputs=[policy, value])
     else:
