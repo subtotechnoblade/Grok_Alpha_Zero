@@ -31,8 +31,6 @@ class Self_Play:
         self.folder_path = folder_path
         self.generation = generation
 
-        # red: might not be needed
-
         self.iteration_limit = self.train_config["MCTS_iteration_limit"]
         self.time_limit = self.train_config["MCTS_time_limit"]
 
@@ -172,7 +170,7 @@ class Self_Play:
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
 
-        target_values = (target_z + target_q) /  2 # average the q and z values ((MCTS value + win loss value (-1, 1)) / 2)
+        target_values = 0.75 * target_z + 0.25 * target_q # weighted average of q and z
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
