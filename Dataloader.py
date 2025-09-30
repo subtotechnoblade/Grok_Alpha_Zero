@@ -73,6 +73,8 @@ class Create_Train_Test_Split:
         train_percent = self.train_percent
         test_percent = self.test_percent
 
+        total_games = 0
+
         first_player_wins = 0
         second_player_wins = 0
 
@@ -92,21 +94,21 @@ class Create_Train_Test_Split:
                     else:
                         current_ratio = first_player_wins / (first_player_wins + second_player_wins)
 
-                    if current_ratio < self.target_ratio:
-                        if first_player_winner:
-                            first_player_wins += 1
-                        else:
+                    if first_player_winner:
+                        if current_ratio -0.02  > self.target_ratio:
                             continue
+                        first_player_wins += 1
                     else:
-                        if not first_player_winner:
-                            second_player_wins += 1
-                        else:
+                        if current_ratio + 0.02 < self.target_ratio:
                             continue
+                        second_player_wins += 1
 
 
                     self.states_generation += list(file[f"boards_{game_id}"])
                     self.policies_generation += list(file[f"policies_{game_id}"])
                     self.values_generation += list(file[f"values_{game_id}"])
+
+                    total_games += 1
 
             self.states_generation, self.policies_generation, self.values_generation = np.array(self.states_generation), np.array(self.policies_generation), np.array(self.values_generation)
 
@@ -130,6 +132,12 @@ class Create_Train_Test_Split:
 
             train_percent *= self.train_decay
             test_percent *= self.test_decay
+
+        print("-" * 40)
+        print(f"Avg number of moves: {(len(self.train_values) + len(self.test_values)) / total_games :.02f} | Total Games: {total_games}")
+        print(f"Train stats: Total states {len(self.train_values)}")
+        print(f"Test stats: Total states {len(self.test_values)}")
+        print("-" * 40)
         return (self.train_states, self.train_policies, self.train_values), (self.test_states, self.test_policies, self.test_values)
 
 
@@ -200,7 +208,7 @@ def Create_Dataset(folder_path,
 
 if __name__ == "__main__":
     import time
-    parent_path = "Connect4/Grok_Zero_Train/"
+    parent_path = "Gomoku/Grok_Zero_Train"
     split = Create_Train_Test_Split(parent_path, 3)
     (train_state, train_policies, train_values), (test_states, test_policies, test_values) = split.split()
     # s = time.time()
