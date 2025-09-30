@@ -10,13 +10,13 @@ def train(train_dataloader, test_dataloader, model, learning_rate, build_config:
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     accum_steps = train_config.get("gradient_accumulation_steps")
     if accum_steps is not None and accum_steps >= 2:
-        learning_rate /= accum_steps # this is to counter the gradients being scaled by accum_steps  thus we divide
+        learning_rate /= accum_steps # this is to counter the gradients being scaled by accum_steps thus we divide
     kwargs = {"learning_rate": learning_rate,
               "beta_1": train_config["beta_1"],
               "beta_2": train_config["beta_2"],
               # "weight_decay": 1e-4,
               "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
-              "epsilon": 1e-15,
+              "epsilon": 1e-9,
               }
 
     if train_config["optimizer"].lower() == "adam":
