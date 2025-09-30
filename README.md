@@ -56,7 +56,7 @@ Multi-Platform GPU Acceleration: Model exported to ONNX format for fast inferenc
 ### 🔄 In Progress / Planned
 
 #### Parallelization & Gameplay
-- [ ] Virtual Loss for Parallel MCTS (Multi-agent Competition)
+- [ ] Virtual Loss for Parallel MCTS (Paralleized MCTS)
 - [ ] Rich Representation from: https://arxiv.org/abs/2310.06110
 
 ## 🕹️ Implemented Games
