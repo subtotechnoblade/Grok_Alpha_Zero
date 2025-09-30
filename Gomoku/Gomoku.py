@@ -15,20 +15,20 @@ train_config = {
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 500,  # amount of self play games until we re train the network
+    "games_per_generation": 1000,  # amount of self play games until we re train the network
     "max_actions": 150,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 11,  # A good rule of thumb is how long the opening should be for player -1
+    "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
     "num_explore_actions_second": 6,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 0,  # maximum depth in the search of the neural networks outputs we should cache
+    "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 500,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 1000,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -40,26 +40,26 @@ train_config = {
     "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
-    "c_puct_init": 2.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.333,  # should be around (10 / average moves per game)
+    "c_puct_init": 4,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "dirichlet_alpha": 0.05,  # should be around (10 / average moves per game)
 
     # "opening_actions": [[[7, 7], 0.3],
     #                     [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
     #                     ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 3,  # The previous generation's data that will be used in training
-    "target_ratio": 0.4, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
+    "num_previous_generations": 4,  # The previous generation's data that will be used in training
+    "target_ratio": 0.5, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
     "train_percent": 1.0,  # The percent used for training after the test set is taken
-    "train_decay": 0.6,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.75,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.6,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.75,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
     "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
     "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
     "gradient_accumulation_steps": None,
-    "learning_rate": 1e-2,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
+    "learning_rate": 1e-1,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
     "decay_lr_after": 10,  # When the n generations pass,... learning rate will be decreased by lr_decay
     "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
     "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
@@ -92,7 +92,7 @@ class Gomoku:
 
 
     def get_legal_actions(self) -> np.array:
-        return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history))
+        return self.get_legal_actions_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.uint8))
     @staticmethod
     @njit(cache=True)
     def get_legal_actions_MCTS(board: np.array, current_player:int , action_history: np.array):
@@ -100,7 +100,7 @@ class Gomoku:
         np.argwhere returns the index where the input array is 1 or True, in this case it return the indexes in format [[y, x], ...]
         where the board is empty (board == 0). [:, ::-1] reverses the [[y, x], ...] -> [[x, y], ...]
         """
-        return np.argwhere(board == 0)[:, ::-1]
+        return np.argwhere(board == 0)[:, ::-1].astype(np.uint8)
 
     @staticmethod
     @njit(cache=True)
@@ -119,7 +119,7 @@ class Gomoku:
         # normalize the policy back to a probability distribution
 
         # reverse order of each element from [y, x] -> [x, y]
-        legal_actions = np.argwhere(board == 0)[:, ::-1]  # get the indexes where the board is not filled
+        legal_actions = np.argwhere(board == 0)[:, ::-1].astype(np.uint8)  # get the indexes where the board is not filled
 
         # note that policy should already be flattened
 
@@ -141,7 +141,7 @@ class Gomoku:
         self.board[y][x] = self.next_player  # put the move onto the board
         self.next_player *= -1  # change players to the next player to play
 
-        self.action_history.append(action)
+        self.action_history.append(np.array(action, dtype=np.uint8))
 
     @staticmethod
     @njit(cache=True)
@@ -152,7 +152,7 @@ class Gomoku:
 
 
     def get_input_state(self) -> np.array:
-        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history))
+        return self.get_input_state_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.uint8))
 
     @staticmethod
     @njit(cache=True)
@@ -171,7 +171,7 @@ class Gomoku:
 
         # use -self.current_player because in do_action we change to the next player but here we are checking
         # if the player that just played won so thus the inversion
-        return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.int32),)
+        return self.check_win_MCTS(self.board, -self.next_player, np.array(self.action_history, dtype=np.uint8),)
 
     @staticmethod
     @njit(cache=True, fastmath=True)
@@ -233,7 +233,7 @@ class Gomoku:
         # if np.sum(np.abs(board.flatten())) == 15 * 15:
         #     return 0
         # ^ ostrich algorithm moment
-        # remember that draw is very unlikely, but possible, just improbably
+        # remember that draw is very unlikely, but possible, just improbable
 
         # if there is no winner, and it is not a draw
         return -2
@@ -290,8 +290,14 @@ if __name__ == "__main__":
     from Game_Tester import Game_Tester
     import time
 
-    tester = Game_Tester(Gomoku)
-    tester.test()
+    # tester = Game_Tester(Gomoku)
+    # tester.test()
+
+    game = Gomoku()
+    game.do_action((7, 7))
+    print(game.action_history)
+    print(np.array(game.action_history).dtype)
+
     # game = Gomoku()
     # game.do_action((7, 7))
     # print(game.get_input_state().shape)
