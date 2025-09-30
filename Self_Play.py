@@ -83,17 +83,16 @@ class Self_Play:
 
             # using normal MCTS
             if not self.train_config["use_gumbel"]:
-                c_puct_init = self.mcts1.c_puct_init
                 if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                    self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=1.0)
+                    self.mcts1.update_hyperparams(tau=1.0)
                 else:
-                    self.mcts1.update_hyperparams(c_puct_init=c_puct_init, tau=0)
+                    self.mcts1.update_hyperparams(tau=0)
 
                 if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
                     "num_explore_actions_second"]:
-                    self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=1.0)
+                    self.mcts2.update_hyperparams(tau=1.0)
                 else:
-                    self.mcts2.update_hyperparams(c_puct_init=c_puct_init, tau=0)
+                    self.mcts2.update_hyperparams(tau=0)
 
                 if self.game.get_next_player() == -1:
                     action, action_probs = self.mcts1.run(
