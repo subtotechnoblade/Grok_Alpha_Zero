@@ -485,7 +485,7 @@ class Game_Tester:
                     fast_find_win=False)
         mcts_gumbel = MCTS_Gumbel(self.game, None)
 
-        winner = - 2
+        winner = -2
         while winner == -2:
             try:
                 action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
@@ -493,7 +493,6 @@ class Game_Tester:
                 print("Checking if everything works with MCTS: Fail")
                 print("MCTS doesn't work, might want to test that!")
                 return False
-
 
             try:
                 action, probs = mcts_gumbel.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
