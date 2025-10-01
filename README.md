@@ -33,7 +33,7 @@ Multi-Platform GPU Acceleration: Model exported to ONNX format for fast inferenc
 #### Core Algorithm & MCTS
 - [x] Implicit MCTS Tree Representation (Memory-Optimized)
 - [x] MCTS Node Pruning
-- [x] Hybrid Training Target (Z + Q)/2
+- [x] Hybrid Training Target Z * 0.75 + Q * 0.25
 
 #### Performance & Optimization
 - [x] Numba JIT Acceleration for Critical Functions
@@ -56,7 +56,7 @@ Multi-Platform GPU Acceleration: Model exported to ONNX format for fast inferenc
 ### 🔄 In Progress / Planned
 
 #### Parallelization & Gameplay
-- [ ] Virtual Loss for Parallel MCTS (Multi-agent Competition)
+- [ ] Virtual Loss for Parallel MCTS (Paralleized MCTS)
 - [ ] Rich Representation from: https://arxiv.org/abs/2310.06110
 
 ## 🕹️ Implemented Games
