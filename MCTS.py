@@ -540,13 +540,11 @@ class MCTS:
         #          f"Changing iterations to the default {3 * len(self.game.get_legal_actions())}")
 
         len_legal_actions = len(self.game.get_legal_actions())
-        if len_legal_actions > 0:
+        if len_legal_actions == 1: # if there is only 1 move left
             iteration_limit = 1
-        elif (iteration_limit is not None and (iteration_limit is True or iteration_limit < len(
-                self.game.get_legal_actions()))) and time_limit is None:
+        elif (iteration_limit is not None and (iteration_limit is True or iteration_limit < len_legal_actions)) and time_limit is None:
             iteration_limit = len_legal_actions * 3
-
-        if iteration_limit is None and time_limit is True:
+        elif iteration_limit is None and time_limit is True:
             time_limit = 30.0  # 30 seconds by default
 
         if use_bar:
