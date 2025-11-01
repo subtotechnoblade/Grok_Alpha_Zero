@@ -120,9 +120,9 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
     model.load_weights(f"{folder_path}/model.weights.h5")
 
     try:
-        learning_rate = optimizer_config["learning_rate"](generation)
+        learning_rate = optimizer_config["kwargs"]["learning_rate"](generation)
     except:
-        learning_rate = optimizer_config["learning_rate"]
+        learning_rate = optimizer_config["kwargs"]["learning_rate"]
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
     train_dataloader, test_dataloader = Create_Dataset(str(Path(folder_path).parent),

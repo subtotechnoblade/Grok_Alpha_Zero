@@ -19,7 +19,8 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
         learning_rate /= accum_steps # this is to counter the gradients being scaled by accum_steps thus we divide
 
     optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
-    optimizer = optimizer(optimizer["kwargs"])
+    optimizer_config["kwargs"]["learning_rate"] = learning_rate # this is to overwrite learning rate in kwargs if it was a function
+    optimizer = optimizer(**optimizer_config["kwargs"])
 
     # order matters, grads -> orthograd -> grokfast EMA filter -> optimizer
     # orthograd(grokfast_EMA(base_optimizer))
@@ -57,7 +58,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
 
     model.fit(train_dataloader,
               validation_data=test_dataloader,
-              epochs=train_config["train_epochs"],
+              epochs=optimizer_config["train_epochs"],
               callbacks=[save_best_model])
 
     model.load_weights("Grok_Zero_Train/tmp_best.weights.h5")

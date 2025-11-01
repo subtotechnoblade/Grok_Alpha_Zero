@@ -7,6 +7,8 @@ build_config = {"num_resnet_layers": 4,  # This is the total amount of resnet la
                 "rr_alpha": 0.05,
 
                 "mixed_precision": None,  # None for no mixed precision, else mixed_float16 for float16
+
+                "use_stablemax": False
           }
 
 train_config = {
@@ -66,6 +68,7 @@ optimizer_config = {
     "optimizer": "muon", # ["adam", "nadam", "muon"]
     # will be passed directly into the optimizer
     "gradient_accumulation_steps": None,
+    "train_epochs": 7,  # The number of epochs for training
     "kwargs":{
         "learning_rate": lr_schedule,
         "weight_decay": 0.0,
@@ -73,14 +76,12 @@ optimizer_config = {
         "adam_beta_2": 0.995,  # beta_2 for adam/nadam for muon
         "muon_beta": 0.95,
         "caution": False,
-        "train_epochs": 7, # The number of epochs for training
-
         "exclude_layers": ["policy_2", "value_3"]
     },
 
     "use_grokfast": True,
     "grokfast_lambda": 5.0,
-    "use_ortho_grad": True,
+    "use_orthograd": True,
 }
 
 class Gomoku:
