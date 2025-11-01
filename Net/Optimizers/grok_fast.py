@@ -3,8 +3,8 @@ from keras.src.optimizers import optimizer
 import tensorflow as tf
 
 class Grokfast_EMA(optimizer.Optimizer):
-    def __init__(self, base_optimizer, alpha=0.99, lamb=5.0, name="grokfast_EMA", **kwargs):
-        super().__init__(learning_rate=1.0, name=name, **kwargs)
+    def __init__(self, base_optimizer, alpha=0.99, lamb=5.0, **kwargs):
+        super().__init__(learning_rate=1.0, name="Grokfast_EMA_" +base_optimizer.name, **kwargs)
         self.base_optimizer = base_optimizer
         self.alpha = alpha
         self.lamb = lamb

@@ -3,8 +3,8 @@ from keras.src.optimizers import optimizer
 import tensorflow as tf
 
 class Orthograd(optimizer.Optimizer):
-    def __init__(self, base_optimizer, name="ortho_grad", **kwargs):
-        super().__init__(learning_rate=1.0, name=name, **kwargs)
+    def __init__(self, base_optimizer, **kwargs):
+        super().__init__(learning_rate=1.0, name="Orthograd_" + base_optimizer.name, **kwargs)
         self.base_optimizer = base_optimizer
 
     def build(self, variables):
