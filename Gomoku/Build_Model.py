@@ -85,21 +85,10 @@ def build_model(input_shape, policy_shape, configs):
 
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
-    # Must include this as it is necessary to name the outputs
-    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
-        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
-                                         lamb=build_config["grok_fast_lambda"],
-                                         alpha=0.99)
-    elif build_config["use_grok_fast"]:
-        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
-                                   lamb=build_config["grok_fast_lambda"], alpha=0.99)
-    elif build_config["use_orthograd"]:
-        return Ortho_Model(inputs=inputs, outputs=[policy, value])
-    else:
-        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+    return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 if __name__ == "__main__":
-    from Gomoku import Gomoku, build_config, train_config
+    from Gomoku import Gomoku, build_config, train_config, optimizer_config
     game = Gomoku()
-    model = build_model(game.get_input_state().shape, game.policy_shape, build_config,train_config)
+    model = build_model(game.get_input_state().shape, game.policy_shape, (build_config, train_config, optimizer_config))
     model.summary()
