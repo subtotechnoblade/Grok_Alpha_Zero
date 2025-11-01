@@ -6,7 +6,7 @@ class Adam(optimizer.Optimizer):
                  beta_1=0.9,
                  beta_2=0.995,
                  weight_decay=0.004,
-                 caution=True,
+                 caution=False,
                  epsilon=1e-8,
                  name="adam",
                  **kwargs):
