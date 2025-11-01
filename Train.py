@@ -9,6 +9,8 @@ from Net.Gumbel_Loss import Policy_Loss_Gumbel, Value_Loss_Gumbel, KLD_Gumbel
 from Net.Optimizers.adam import Adam
 from Net.Optimizers.nadam import Nadam
 from Net.Optimizers.muon import Muon
+from Net.Optimizers.ortho_grad import Orthograd
+from Net.Optimizers.grok_fast import Grokfast_EMA
 def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict]):
     build_config, train_config, optimizer_config = configs
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
@@ -18,6 +20,14 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
 
     optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
     optimizer = optimizer(optimizer["kwargs"])
+
+    # order matters, grads -> orthograd -> grokfast EMA filter -> optimizer
+    # orthograd(grokfast_EMA(base_optimizer))
+    if optimizer_config["use_grokfast"]:
+        optimizer = Grokfast_EMA(optimizer, lamb=optimizer_config["grokfast_lambda"])
+
+    if optimizer_config["use_orthograd"]:
+        optimizer = Orthograd(optimizer)
 
     if not train_config["use_gumbel"]:
         policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32")

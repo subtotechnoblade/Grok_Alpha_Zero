@@ -2,29 +2,28 @@ import numpy as np
 from numba import njit
 
 # This is for building the model
-build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
+build_config = {"num_resnet_layers": 4,  # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
-                "rr_alpha": 0.01,
-                "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
-                "use_grok_fast": True,  # from grokfast paper
-                "use_orthograd": True,  # from grokking at the edge of numerica stability
-                "grok_fast_lambda": 4.0,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+                "rr_alpha": 0.05,
+
+                "mixed_precision": None,  # None for no mixed precision, else mixed_float16 for float16
           }
+
 train_config = {
     "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
     # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
 
     # Self Play variables
-    "games_per_generation": 1000,  # amount of self play games until we re train the network
+    "games_per_generation": 2000,  # amount of self play games until we re train the network
     "max_actions": 150,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 6,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    "num_explore_actions_first": 6,  # A good rule of thumb is how long the opening should be for player -1
+    "num_explore_actions_second": 4,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache
+    "max_cache_depth": None,  # maximum depth in the search of the neural networks outputs we should cache
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
@@ -40,32 +39,48 @@ train_config = {
     "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
-    "c_puct_init": 4,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    "c_puct_init": 4.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
     "dirichlet_alpha": 0.05,  # should be around (10 / average moves per game)
 
-    # "opening_actions": [[[7, 7], 0.3],
-    #                     [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
-    #                     ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
+    "opening_actions": [[[7, 7], 0.333],
+                        # [[6, 6], 0.05], [[7, 6], 0.05], [[8, 6], 0.05], [[6, 7], 0.05], [[8, 7], 0.05], [[6, 8], 0.05], [[7, 8], 0.05], [[8, 8], 0.05]
+                        ], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 4,  # The previous generation's data that will be used in training
-    "target_ratio": 0.5, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
+    "target_ratio": None, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
     "train_percent": 1.0,  # The percent used for training after the test set is taken
-    "train_decay": 0.75,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.15,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.75,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.02,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
     "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
     "test_batch_size": 256,  # If none, then train_batch_size will be used for the test batch size
+}
+def lr_schedule(generation):
+    lr_decay = 0.2 ** (generation // 15) # 15 is decay after
+    return 4e-3 * lr_decay
+
+
+optimizer_config = {
+    "optimizer": "muon", # ["adam", "nadam", "muon"]
+    # will be passed directly into the optimizer
     "gradient_accumulation_steps": None,
-    "learning_rate": 1e-1,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
-    "decay_lr_after": 10,  # When the n generations pass,... learning rate will be decreased by lr_decay
-    "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
-    "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.995,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
-    "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 15,  # The number of epochs for training
+    "kwargs":{
+        "learning_rate": lr_schedule,
+        "weight_decay": 0.0,
+        "adam_beta_1": 0.9,  # beta_1 for adam/nadam for muon
+        "adam_beta_2": 0.995,  # beta_2 for adam/nadam for muon
+        "muon_beta": 0.95,
+        "caution": False,
+        "train_epochs": 7, # The number of epochs for training
+
+        "exclude_layers": ["policy_2", "value_3"]
+    },
+
+    "use_grokfast": True,
+    "grokfast_lambda": 5.0,
+    "use_ortho_grad": True,
 }
 
 class Gomoku:
@@ -290,13 +305,13 @@ if __name__ == "__main__":
     from Game_Tester import Game_Tester
     import time
 
-    # tester = Game_Tester(Gomoku)
-    # tester.test()
+    tester = Game_Tester(Gomoku)
+    tester.test()
 
-    game = Gomoku()
-    game.do_action((7, 7))
-    print(game.action_history)
-    print(np.array(game.action_history).dtype)
+    # game = Gomoku()
+    # game.do_action((7, 7))
+    # print(game.action_history)
+    # print(np.array(game.action_history).dtype)
 
     # game = Gomoku()
     # game.do_action((7, 7))
