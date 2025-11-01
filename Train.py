@@ -8,26 +8,16 @@ from Net.Gumbel_Loss import Policy_Loss_Gumbel, Value_Loss_Gumbel, KLD_Gumbel
 
 from Net.Optimizers.adam import Adam
 from Net.Optimizers.nadam import Nadam
-def train(train_dataloader, test_dataloader, model, learning_rate, build_config: dict, train_config:dict):
+from Net.Optimizers.muon import Muon
+def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict]):
+    build_config, train_config, optimizer_config = configs
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
-    accum_steps = train_config.get("gradient_accumulation_steps")
+    accum_steps = optimizer_config.get("gradient_accumulation_steps")
     if accum_steps is not None and accum_steps >= 2:
         learning_rate /= accum_steps # this is to counter the gradients being scaled by accum_steps thus we divide
-    kwargs = {"learning_rate": learning_rate,
-              "beta_1": train_config["beta_1"],
-              "beta_2": train_config["beta_2"],
-              "weight_decay": 0.004,
-              "gradient_accumulation_steps": train_config["gradient_accumulation_steps"],
-              "epsilon": 1e-8,
-              }
 
-    if train_config["optimizer"].lower() == "adam":
-        # optimizer = tf.keras.optimizers.Adam(**kwargs)
-        optimizer = Adam(**kwargs)
-    elif train_config["optimizer"].lower() == "adamw":
-        optimizer = Adam(**kwargs)
-    elif train_config["optimizer"].lower() == "nadam":
-        optimizer = Nadam(**kwargs)
+    optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
+    optimizer = optimizer(optimizer["kwargs"])
 
     if not train_config["use_gumbel"]:
         policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32")

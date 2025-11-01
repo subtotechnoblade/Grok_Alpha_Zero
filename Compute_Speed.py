@@ -7,11 +7,11 @@ def convert_shape(shape):
         str_shape += f"{dim}x"
     return str_shape[:-1]
 def compute_speed(game_class,
-              build_config,
-              train_config,
+              configs,
               folder_path,
               iterations=2000):
     import onnxruntime as rt # must do this for windows
+    build_config, train_config, optimizer_config = configs
 
     game = game_class()
     board_shape = game.board.shape

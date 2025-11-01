@@ -85,23 +85,24 @@ class Create_Train_Test_Split:
 
                 generation = file_path.split("/")[-2]
 
-                random_sampler = np.random.permutation(num_games)
-                for game_id in tqdm(random_sampler, desc=f"Collecting data from gen: {generation}"):
+                # random_sampler = np.random.permutation(num_games)
+                for game_id in tqdm(range(num_games), desc=f"Collecting data from gen: {generation}"):
                     first_player_winner = len(file[f"values_{game_id}"]) % 2 == 1 # if the winner is the first player
 
-                    if first_player_wins + second_player_wins == 0:
-                        current_ratio = 0.0
-                    else:
-                        current_ratio = first_player_wins / (first_player_wins + second_player_wins)
+                    if self.target_ratio is not None:
+                        if first_player_wins + second_player_wins == 0:
+                            current_ratio = 0.0
+                        else:
+                            current_ratio = first_player_wins / (first_player_wins + second_player_wins)
 
-                    if first_player_winner:
-                        if current_ratio -0.02  > self.target_ratio:
-                            continue
-                        first_player_wins += 1
-                    else:
-                        if current_ratio + 0.02 < self.target_ratio:
-                            continue
-                        second_player_wins += 1
+                        if first_player_winner:
+                            if current_ratio -0.02  > self.target_ratio:
+                                continue
+                            first_player_wins += 1
+                        else:
+                            if current_ratio + 0.02 < self.target_ratio:
+                                continue
+                            second_player_wins += 1
 
 
                     self.states_generation += list(file[f"boards_{game_id}"])
@@ -130,11 +131,14 @@ class Create_Train_Test_Split:
             self.train_policies += list(self.policies_generation[train_indexes])
             self.train_values += list(self.values_generation[train_indexes])
 
-            train_percent *= self.train_decay
-            test_percent *= self.test_decay
+            train_percent -= self.train_decay
+            test_percent -= self.test_decay
+
+            train_percent = max(train_percent, 0.0)
+            test_percent = max(test_percent, 0.0)
 
         print("-" * 40)
-        print(f"Avg number of moves: {(len(self.train_values) + len(self.test_values)) / total_games :.02f} | Total Games: {total_games}")
+        # print(f"Total Games: {total_games}")
         print(f"Train stats: Total states {len(self.train_values)}")
         print(f"Test stats: Total states {len(self.test_values)}")
         print("-" * 40)

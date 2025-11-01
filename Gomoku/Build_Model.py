@@ -7,9 +7,10 @@ from Net.Stablemax import Stablemax
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 
-def build_model(input_shape, policy_shape, build_config, train_config):
+def build_model(input_shape, policy_shape, configs):
     # Since this is just and example for Gomoku
     # feel free to copy and modify
+    build_config, train_config, optimizer_config = configs
 
     num_resnet_layers = build_config["num_resnet_layers"]
     num_filters = build_config["num_filters"]
@@ -39,7 +40,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = tf.keras.layers.Dense(512, kernel_initializer='he_normal')(policy)
+    policy = tf.keras.layers.Dense(512, kernel_initializer='he_normal', name="policy_1")(policy)
 
     policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
@@ -48,8 +49,8 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     # policy = tf.keras.layers.BatchNormalization()(policy)
     # policy = tf.keras.layers.Activation("relu")(policy)
 
-    policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
-    policy *= build_config["rr_alpha"] # rich representation
+    policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32", name="policy_2")(policy) # NOTE THAT THIS IS A LOGIT not prob
+    # policy *= build_config["rr_alpha"] # rich representation
 
     if train_config["use_gumbel"]:
         policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy)
@@ -71,16 +72,16 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(256, kernel_initializer='he_normal')(value)
+    value = tf.keras.layers.Dense(256, kernel_initializer='he_normal', name="value_1")(value)
 
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(128, kernel_initializer='he_normal')(value)
+    value = tf.keras.layers.Dense(128, kernel_initializer='he_normal', name="value_2")(value)
 
     value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1, dtype="float32")(value)  # MUST NAME THIS "value"
-    value *= build_config["rr_alpha"] # rich representation
+    value = tf.keras.layers.Dense(1, dtype="float32", name="value_3")(value)  # MUST NAME THIS "value"
+    # value *= build_config["rr_alpha"] # rich representation
 
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 

@@ -8,12 +8,13 @@ def convert_shape(shape):
     return str_shape[:-1]
 
 def cache_tensorrt(game_class,
-                   build_config,
-                   train_config,
+                   configs,
                    folder_path,
                    warmup_iterations=100):
     import onnxruntime as rt
     # uses the generation number to build the generation cache
+    build_config, train_config, optimizer_config = configs
+
     game = game_class()
     board_shape = game.board.shape
     str_board_shape = convert_shape(board_shape)

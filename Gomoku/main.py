@@ -17,7 +17,8 @@ from Build_Tensorrt import cache_tensorrt
 from Compute_Speed import compute_speed
 
 
-def Validate_Train_Config(train_config):
+def Validate_Configs(configs):
+    build_config, train_config, optimizer_config = configs
     import onnxruntime as rt
     if train_config["total_generations"] <= 0:
         raise ValueError("Total generations can't less than or equal to zero")
@@ -56,7 +57,7 @@ def Validate_Train_Config(train_config):
         if train_config["MCTS_iteration_limit"] < min_iterations:
             raise ValueError(f"At minimum there needs to be {min_iterations + 1} MCTS iterations for sequential halving to be effective.")
 
-    mixed_precision_policy = train_config.get("mixed_precision", None)
+    mixed_precision_policy = build_config.get("mixed_precision", None)
     if mixed_precision_policy is not None:
         if mixed_precision_policy == "mixed_bfloat16":
             raise ValueError("mixed_bfloat16 isn't supported, its not because of me, blame tf2onnx for not supporting it, I have no workaround")
@@ -65,9 +66,14 @@ def Validate_Train_Config(train_config):
                 f"mixed_precision param is invalid got: {mixed_precision_policy}, should be None, mixed_float16, mixed_bfloat16")
     if mixed_precision_policy == "mixed_bfloat16" and not train_config["use_gpu"]:
         warnings.warn("Using float16 as the compute type for CPU is extremely slow!")
-    if train_config["optimizer"].lower() not in ["adam", "adamw", "nadam"]:
-        raise ValueError(f"Optimizer must be either Adam, AdamW, or Nadam got {train_config['optimizer']}.")
-
+    if optimizer_config["optimizer"].lower() not in ["adam", "nadam", "muon"]:
+        raise ValueError(f"Optimizer must be either adam, nadam, or muon got {optimizer_config['optimizer']}.")
+    try:
+        learning_rate = optimizer_config["kwargs"]["learning_rate"](0)
+    except:
+        learning_rate = optimizer_config["kwargs"]["learning_rate"]
+    if not (isinstance(learning_rate, int) or isinstance(learning_rate, float)):
+        raise ValueError("learning rate must be an int or float, if it is a schedule it must return an int or float")
 
 def Make_Generation_Folder(generation):
     os.makedirs(f"Grok_Zero_Train/{generation}/", exist_ok=False)
@@ -90,7 +96,7 @@ def Print_Stats(folder_path):
         print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
 
 
-def Train_NN(game_class, build_model_fn, build_config, train_config, generation, folder_path, save_folder_path):
+def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_folder_path):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     import tensorflow as tf
     from Dataloader import Create_Dataset
@@ -102,17 +108,21 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
         #     tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
         tf.config.experimental.set_memory_growth(device, True)
 
-    mixed_precision_policy = train_config.get("mixed_precision")
+    build_config, _, _ = configs
+
+    mixed_precision_policy = build_config.get("mixed_precision")
     if mixed_precision_policy is not None:
         policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
         tf.keras.mixed_precision.set_global_policy(policy)
 
     game = game_class()
-    model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    model = build_model_fn(game.get_input_state().shape, game.policy_shape, configs)
     model.load_weights(f"{folder_path}/model.weights.h5")
 
-    lr_decay = train_config["lr_decay"] ** (generation // train_config["decay_lr_after"])
-    learning_rate = train_config["learning_rate"] * lr_decay
+    try:
+        learning_rate = optimizer_config["learning_rate"](generation)
+    except:
+        learning_rate = optimizer_config["learning_rate"]
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")
     train_dataloader, test_dataloader = Create_Dataset(str(Path(folder_path).parent),
@@ -124,13 +134,15 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
                                                        train_decay=train_config["train_decay"],
                                                        test_percent=train_config["test_percent"],
                                                        test_decay=train_config["test_decay"], )
-    model = train(train_dataloader, test_dataloader, model, learning_rate, build_config, train_config)
+    model = train(train_dataloader, test_dataloader, model, learning_rate, configs)
     Make_Generation_Folder(generation + 1)
     model.save_weights(f"{save_folder_path}/model.weights.h5")
 
 
-def Create_onnx(game_class, build_model_fn, build_config, train_config, folder_path):
+def Create_onnx(game_class, build_model_fn, configs, folder_path):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    build_config, _, _ = configs
+
     import tensorflow as tf
     from To_Onnx import convert_to_onnx
 
@@ -145,18 +157,20 @@ def Create_onnx(game_class, build_model_fn, build_config, train_config, folder_p
     print("Converting tensorflow model to onnx\n")
     input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs")]
 
-    mixed_precision_policy = train_config.get("mixed_precision")
+    mixed_precision_policy = build_config.get("mixed_precision")
     if mixed_precision_policy is not None:
         policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
         tf.keras.mixed_precision.set_global_policy(policy)
-    infer_model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    infer_model = build_model_fn(game.get_input_state().shape, game.policy_shape, configs)
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
 
 
-def _initialize_model(game, build_model_fn, build_config, train_config):
+def _initialize_model(game, build_model_fn, configs):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    build_config, _, _ = configs
+
     import tensorflow as tf
 
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -168,16 +182,17 @@ def _initialize_model(game, build_model_fn, build_config, train_config):
     except:
         # Invalid device or cannot modify virtual devices once initialized.
         pass
-    mixed_precision_policy = train_config.get("mixed_precision")
+    mixed_precision_policy = build_config.get("mixed_precision")
     if mixed_precision_policy is not None:
         policy = tf.keras.mixed_precision.Policy(mixed_precision_policy)
         tf.keras.mixed_precision.set_global_policy(policy)
-    train_model = build_model_fn(game.get_input_state().shape, game.policy_shape, build_config, train_config)
+    train_model = build_model_fn(game.get_input_state().shape, game.policy_shape, configs)
     train_model.summary()
     train_model.save_weights("Grok_Zero_Train/0/model.weights.h5")
 
 
-def Initialize(game_class, build_model_fn, build_config, train_config):  # This must be ran with a mp.Process
+def Initialize(game_class, build_model_fn, configs):  # This must be ran with a mp.Process
+    build_config, train_config, optimizer_config = configs
     # test the game class before anything is done
     print("\n*************Initiating*************\n")
     game = game_class()
@@ -192,38 +207,33 @@ def Initialize(game_class, build_model_fn, build_config, train_config):  # This 
         print("L BOZO")
 
     print("Initializing the model\n")
-    p = mp.Process(target=_initialize_model, args=(game, build_model_fn, build_config, train_config))
+    p = mp.Process(target=_initialize_model, args=(game, build_model_fn, configs))
     p.start()
     p.join()
     if p.exitcode != 0:
         raise RuntimeError("Main process stopped")
 
     p = mp.Process(target=Create_onnx,
-                   args=(game_class, build_model_fn, build_config, train_config, "Grok_Zero_Train/0"))
+                   args=(game_class, build_model_fn, configs, "Grok_Zero_Train/0"))
     p.start()
     p.join()
     if p.exitcode != 0:
         raise RuntimeError("Main process stopped")
 
     if train_config["use_tensorrt"]:
-        p = mp.Process(target=cache_tensorrt, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
+        p = mp.Process(target=cache_tensorrt, args=(game_class, configs, "Grok_Zero_Train/0"))
         p.start()
         p.join()
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
-
-    # p = mp.Process(target=compute_speed, args=(game_class, build_config, train_config, "Grok_Zero_Train/0"))
-    # p.start()
-    # p.join()
-    # if p.exitcode != 0:
-    #     raise RuntimeError("Main process stopped")
-
     Make_Dataset_File("Grok_Zero_Train/0")
 
 
-def Run(game_class, build_model_fn, build_config, train_config):
+def Run(game_class, build_model_fn, configs):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    p = mp.Process(target=Validate_Train_Config, args=(train_config,))
+
+    build_config, train_config, optimizer_config = configs
+    p = mp.Process(target=Validate_Configs, args=(configs,))
     p.start()
     p.join()
     if p.exitcode != 0:
@@ -255,7 +265,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
             shutil.rmtree("Grok_Zero_Train/")
             Make_Generation_Folder(0)
 
-            Initialize(game_class, build_model_fn, build_config, train_config)
+            Initialize(game_class, build_model_fn, configs)
     # the main train loop
 
     # make model -> convert to onnx -> cache trt (optional) -> make dataset file
@@ -271,7 +281,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
     print(f"Generation: {current_generation} / {train_config['total_generations'] - 1}")
 
     if "model.onnx" not in os.listdir(f"Grok_Zero_Train/{current_generation}"):
-        p = mp.Process(target=Create_onnx, args=(game_class, build_model_fn, build_config, train_config,
+        p = mp.Process(target=Create_onnx, args=(game_class, build_model_fn, configs,
                                                  f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
@@ -281,14 +291,14 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
     if "TRT_cache" not in os.listdir(f"Grok_Zero_Train/{current_generation}") and train_config["use_tensorrt"]:
         p = mp.Process(target=cache_tensorrt,
-                       args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+                       args=(game_class, configs, f"Grok_Zero_Train/{current_generation}"))
         p.start()
         p.join()
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
 
     p = mp.Process(target=compute_speed,
-                   args=(game_class, build_config, train_config, f"Grok_Zero_Train/{current_generation}"))
+                   args=(game_class, configs, f"Grok_Zero_Train/{current_generation}"))
     p.start()
     p.join()
 
@@ -302,12 +312,12 @@ def Run(game_class, build_model_fn, build_config, train_config):
     for generation in range(current_generation, train_config["total_generations"]):
         if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
             shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
-        run_self_play(game_class, build_config, train_config, f"Grok_Zero_Train/{generation}")
+        run_self_play(game_class, configs, f"Grok_Zero_Train/{generation}")
         if os.path.exists(f"Grok_Zero_Train/{generation}/Cache"):
             shutil.rmtree(f"Grok_Zero_Train/{generation}/Cache")
         Print_Stats(f"Grok_Zero_Train/{generation}")
 
-        p = mp.Process(target=Train_NN, args=(game_class, build_model_fn, build_config, train_config, generation,
+        p = mp.Process(target=Train_NN, args=(game_class, build_model_fn, configs, generation,
                                               f"Grok_Zero_Train/{generation}", f"Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
@@ -316,7 +326,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
         p = mp.Process(target=Create_onnx,
                        args=(
-                           game_class, build_model_fn, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           game_class, build_model_fn, configs, f"Grok_Zero_Train/{generation + 1}"))
         p.start()
         p.join()
         if p.exitcode != 0:
@@ -324,14 +334,14 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
         if train_config["use_tensorrt"]:
             p = mp.Process(target=cache_tensorrt,
-                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           args=(game_class, configs, f"Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
             if p.exitcode != 0:
                 raise RuntimeError("Main process stopped")
 
             p = mp.Process(target=compute_speed,
-                           args=(game_class, build_config, train_config, f"Grok_Zero_Train/{generation + 1}"))
+                           args=(game_class, configs, f"Grok_Zero_Train/{generation + 1}"))
             p.start()
             p.join()
             if p.exitcode != 0:
@@ -343,7 +353,7 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from Gomoku import Gomoku, build_config, train_config
+    from Gomoku import Gomoku, build_config, train_config, optimizer_config
     from Build_Model import build_model
 
-    Run(Gomoku, build_model, build_config, train_config)
+    Run(Gomoku, build_model, (build_config, train_config, optimizer_config))
