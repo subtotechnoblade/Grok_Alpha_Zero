@@ -37,7 +37,7 @@ class Self_Play:
         if train_config["use_gumbel"] is False:
             dirichlet_epsilon = 0.25
             self.mcts1: MCTS = MCTS(game=self.game,
-                                    session=self.sess,
+                                    session=self.sess if self.generation > 0 else None,
                                     use_njit=train_config["use_njit"],
                                     c_puct_init=self.train_config["c_puct_init"],
                                     use_dirichlet=True,
@@ -47,7 +47,7 @@ class Self_Play:
                                     fast_find_win=False)
 
             self.mcts2: MCTS = MCTS(game=self.game,
-                                    session=self.sess,
+                                    session=self.sess if self.generation > 0 else None,
                                     use_njit=train_config["use_njit"],
                                     c_puct_init=self.train_config["c_puct_init"],
                                     use_dirichlet=True,
@@ -96,12 +96,12 @@ class Self_Play:
 
                 if self.game.get_next_player() == -1:
                     action, action_probs = self.mcts1.run(
-                        iteration_limit=int(self.iteration_limit * (2.0 if current_move_num <= 1 else 1.0)),
+                        iteration_limit=int(self.iteration_limit * 1.5),
                         time_limit=self.time_limit,
                         use_bar=False)
                 else:
                     action, action_probs = self.mcts2.run(
-                        iteration_limit=int(self.iteration_limit * (2.0 if current_move_num <= 1 else 1.0)),
+                        iteration_limit=int(self.iteration_limit * 1.5),
                         time_limit=self.time_limit,
                         use_bar=False)
 
@@ -137,7 +137,7 @@ class Self_Play:
                 sample_actions = np.array(sample_actions)
 
                 idx = np.random.choice(len(sample_actions), size=1, p=weights, replace=False)[0]
-                action = sample_actions[idx]
+                action = np.array(sample_actions[idx])
 
             self.game.do_action(action)
 
@@ -169,7 +169,7 @@ class Self_Play:
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
 
-        target_values = 0.75 * target_z + 0.25 * target_q # weighted average of q and z
+        target_values = 0.5 * (target_z + target_q)  # weighted average of q and z
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
@@ -220,18 +220,20 @@ def self_play_task(worker_id,
                    generation: int):
     np.random.seed()
     import onnxruntime as rt
-    if train_config["use_inference_server"]:
-        session = Parallelized_Session(worker_id,
-                                       info,
-                                       input_feed_info,
-                                       output_feed_info, )
-    else:
-        providers, onnx_path = info
-        session = rt.InferenceSession(onnx_path, providers=providers)
+    session = None
+    if generation > 0:
+        if train_config["use_inference_server"]:
+            session = Parallelized_Session(worker_id,
+                                           info,
+                                           input_feed_info,
+                                           output_feed_info, )
+        else:
+            providers, onnx_path = info
+            session = rt.InferenceSession(onnx_path, providers=providers)
 
-    if train_config.get("max_cache_depth", 0) not in [None, 0]: # so both 0 and None are excluded
-        from Session_Cache import Cache_Wrapper
-        session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
+        if train_config.get("max_cache_depth", 0) not in [None, 0]: # so both 0 and None are excluded
+            from Session_Cache import Cache_Wrapper
+            session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
     task = Self_Play(game_class(),
                      session,
                      build_config,
@@ -255,11 +257,10 @@ def convert_shape(shape):
 
 
 def run_self_play(game_class,
-                  build_config,
-                  train_config,
+                  configs,
                   folder_path,
                   per_process_wait_time=1e-3):
-
+    build_config, train_config, optimizer_config = configs
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
@@ -306,7 +307,7 @@ def run_self_play(game_class,
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
-            if train_config.get("mixed_precision") == "mixed_float16":
+            if build_config.get("mixed_precision") == "mixed_float16":
                 providers[0][1]["trt_fp16_enable"] = True
         elif "CUDAExecutionProvider" in available_providers:
             providers = [
