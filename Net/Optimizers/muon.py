@@ -4,6 +4,7 @@ from keras.src.optimizers import optimizer
 import re
 
 
+# based on https://kellerjordan.github.io/posts/muon/
 class Muon(optimizer.Optimizer):
     def __init__(self,
                  learning_rate=1e-3,
@@ -12,7 +13,6 @@ class Muon(optimizer.Optimizer):
                  weight_decay=0.004,
                  exclude_layers=[],
                  exclude_embeddings=True,
-                 caution=False,
                  nesterov=True,  # uses nesterov momentum in muon
                  adam_beta_1=0.90,
                  adam_beta_2=0.995,
@@ -21,12 +21,12 @@ class Muon(optimizer.Optimizer):
                  muon_b=-4.7750,
                  muon_c=2.0315,
                  ns_steps=5,
-                 epsilon=1e-7,
+                 epsilon=1e-8,
+                 name="Muon",
                  **kwargs):
-        super().__init__(learning_rate=learning_rate, weight_decay=weight_decay, **kwargs)
+        super().__init__(learning_rate=learning_rate, name=name, **kwargs)
         self.adam_lr_ratio = adam_lr_ratio
         self.use_nadam = use_nadam
-        self.caution = caution
         self.weight_decay = weight_decay
 
         self.exclude_layers = exclude_layers
@@ -86,12 +86,8 @@ class Muon(optimizer.Optimizer):
 
     def apply_weight_decay(self, variable, learning_rate):
         weight_decay = ops.cast(self.weight_decay, dtype=variable.dtype)
+        learning_rate = ops.cast(learning_rate, dtype=variable.dtype)
         variable.assign_sub(learning_rate * weight_decay * variable)
-
-    def apply_caution(self, update, gradient, learning_rate, epsilon):
-        mask = ops.where(update * gradient > 0, 1.0, 0.0)
-        scaled_lr = learning_rate * (mask / (ops.mean(mask) + epsilon))
-        return update * mask * scaled_lr
 
     def auto_transpose(self, X):  # transposes the last two axis regardless of the dim in front
         if X.ndim == 2:
@@ -130,6 +126,7 @@ class Muon(optimizer.Optimizer):
         muon_m.assign(muon_m_update)
 
         update = gradient + muon_m_update * muon_beta if self.nesterov else muon_m_update
+        # for some reason, using grad * (1 - beta) + update * beta doesn't work
 
         is_reshaped = False
         if update.ndim > 2:
@@ -148,11 +145,7 @@ class Muon(optimizer.Optimizer):
         if is_reshaped:
             update = tf.reshape(update, shape)
 
-        if self.caution:
-            epsilon = ops.cast(self.epsilon, variable.dtype)
-            final_u = self.apply_caution(update, gradient, learning_rate, epsilon)
-        else:
-            final_u = update * learning_rate
+        final_u = update * learning_rate
 
         return final_u
 
@@ -182,10 +175,7 @@ class Muon(optimizer.Optimizer):
         else:
             u = m_hat / (ops.sqrt(v_hat) + epsilon)
 
-        if self.caution:
-            final_u = self.apply_caution(u, gradient, learning_rate, epsilon)
-        else:
-            final_u = u * learning_rate
+        final_u = u * learning_rate
 
         m.assign(m_update)
         v.assign(v_update)
@@ -200,11 +190,11 @@ class Muon(optimizer.Optimizer):
         if self.muon_momentums[self._get_variable_index(variable)] is not None:
             update = self.muon_update(variable, gradient, muon_learning_rate)
             variable.assign_sub(update)
-            # self.apply_weight_decay(variable, muon_learning_rate)
+            self.apply_weight_decay(variable, muon_learning_rate)
         else:
             update = self.adam_update(variable, gradient, adam_learning_rate)
             variable.assign_sub(update)
-            # self.apply_weight_decay(variable, adam_learning_rate)
+            self.apply_weight_decay(variable, adam_learning_rate)
 
     def get_config(self):
         config = super().get_config()
@@ -220,11 +210,10 @@ class Muon(optimizer.Optimizer):
             "adam_beta_1": self.adam_beta_1,
             "adam_beta_2": self.adam_beta_2,
 
-            "muon_beta":  self.muon_beta,
-            "muon_a":  self.muon_a,
-            "muon_b":  self.muon_b,
-            "muon_c":  self.muon_c,
+            "muon_beta": self.muon_beta,
+            "muon_a": self.muon_a,
+            "muon_b": self.muon_b,
+            "muon_c": self.muon_c,
             "ns_steps": self.ns_steps,
-            "caution": self.caution,
             "epsilon": self.epsilon,
         })

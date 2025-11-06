@@ -1,24 +1,23 @@
 from keras.src import ops
 from keras.src.optimizers import optimizer
+
+
 class Adam(optimizer.Optimizer):
     def __init__(self,
                  learning_rate=1e-3,
                  beta_1=0.9,
                  beta_2=0.995,
                  weight_decay=0.004,
-                 caution=False,
                  epsilon=1e-8,
-                 name="adam",
+                 name="Adam",
                  **kwargs):
         super().__init__(learning_rate=learning_rate,
                          weight_decay=weight_decay,
-                         name=name, **kwargs)
+                         name=name,
+                         **kwargs)
         self.beta_1 = beta_1
         self.beta_2 = beta_2
         self.epsilon = epsilon
-
-        self.caution = caution
-
 
     def build(self, variables):
         super().build(variables)
@@ -28,7 +27,6 @@ class Adam(optimizer.Optimizer):
         for var in variables:
             self._momentums.append(self.add_variable_from_reference(var, "momentum"))
             self._velocities.append(self.add_variable_from_reference(var, "velocity"))
-
 
     def update_step(self, gradient, variable, learning_rate):
         if gradient is None:
@@ -41,7 +39,6 @@ class Adam(optimizer.Optimizer):
 
         its = ops.cast(self.iterations + 1, variable.dtype)
 
-
         m = self._momentums[self._get_variable_index(variable)]
         v = self._velocities[self._get_variable_index(variable)]
 
@@ -49,18 +46,13 @@ class Adam(optimizer.Optimizer):
 
         v_update = beta_2 * v + (1 - beta_2) * ops.square(gradient)
 
-        #bias correction
+        # bias correction
         m_hat = m_update / (1.0 - ops.power(beta_1, its))
         v_hat = v_update / (1.0 - ops.power(beta_2, its))
 
         u = m_hat / (ops.sqrt(v_hat) + epsilon)
 
-        if self.caution:
-            mask = ops.where(u * gradient > 0, 1.0, 0.0)
-            scaled_lr = learning_rate * (mask / (ops.mean(mask) + epsilon))
-            final_u = u * mask * scaled_lr
-        else:
-            final_u = u * learning_rate
+        final_u = u * learning_rate
 
         variable.assign_sub(final_u)
 
@@ -74,5 +66,4 @@ class Adam(optimizer.Optimizer):
             "beta_1": self.beta_1,
             "beta_2": self.beta_2,
             "epsilon": self.epsilon,
-            "caution": self.caution
         })
