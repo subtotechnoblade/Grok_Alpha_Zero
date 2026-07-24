@@ -1,4 +1,5 @@
 from pathlib import Path
+from warnings import warn
 import h5py as h5
 import numpy as np
 from numba import njit
@@ -79,15 +80,40 @@ class Create_Train_Test_Split:
         second_player_wins = 0
 
         for file_path in self.files:
-            self.states_generation, self.policies_generation, self.values_generation = [], [], []
             with h5.File(file_path, mode="r") as file:
-                num_games = (len(file.keys()) - 1) // 3
-
                 generation = file_path.split("/")[-2]
 
-                # random_sampler = np.random.permutation(num_games)
+                # Self_Play writes one game as `augmentations` CONSECUTIVE dataset triples,
+                # so dataset_id = game_id * augmentations + k (2 per game for connect4,
+                # 8 for gomoku). game_stats[2] counts unaugmented games, so we can recover it.
+                num_datasets = (len(file.keys()) - 1) // 3
+                num_games = int(file["game_stats"][2])
+
+                if num_games <= 0 or num_datasets % num_games != 0:
+                    warn(f"gen {generation}: {num_datasets} dataset triples for {num_games} games. "
+                         f"Treating every dataset as its own game, the test split may leak.")
+                    num_games, augmentations = num_datasets, 1
+                else:
+                    augmentations = num_datasets // num_games
+
+                # The split has to happen over GAMES, not over pooled positions. Splitting
+                # positions puts a board in train and its own mirror/rotation in test, so
+                # val_loss just tracks train loss and ModelCheckpoint(save_best_only) can
+                # never detect overfitting.
+                shuffled_game_ids = np.random.permutation(num_games)
+                num_test_games = int(test_percent * num_games)
+
+                test_game_ids = set(shuffled_game_ids[:num_test_games].tolist())
+                remaining_game_ids = shuffled_game_ids[num_test_games:]
+                train_game_ids = set(remaining_game_ids[:int(train_percent * len(remaining_game_ids))].tolist())
+
                 for game_id in tqdm(range(num_games), desc=f"Collecting data from gen: {generation}"):
-                    first_player_winner = len(file[f"values_{game_id}"]) % 2 == 1 # if the winner is the first player
+                    is_test = game_id in test_game_ids
+                    if not is_test and game_id not in train_game_ids:
+                        continue  # dropped by train_percent / test_percent for this generation
+
+                    first_dataset_id = game_id * augmentations
+                    first_player_winner = len(file[f"values_{first_dataset_id}"]) % 2 == 1 # if the winner is the first player
 
                     if self.target_ratio is not None:
                         if first_player_wins + second_player_wins == 0:
@@ -104,33 +130,20 @@ class Create_Train_Test_Split:
                                 continue
                             second_player_wins += 1
 
+                    if is_test:
+                        states, policies, values = self.test_states, self.test_policies, self.test_values
+                    else:
+                        states, policies, values = self.train_states, self.train_policies, self.train_values
 
-                    self.states_generation += list(file[f"boards_{game_id}"])
-                    self.policies_generation += list(file[f"policies_{game_id}"])
-                    self.values_generation += list(file[f"values_{game_id}"])
+                    # every augmentation of a game follows that game into the same split
+                    for dataset_id in range(first_dataset_id, first_dataset_id + augmentations):
+                        states += list(file[f"boards_{dataset_id}"])
+                        policies += list(file[f"policies_{dataset_id}"])
+                        values += list(file[f"values_{dataset_id}"])
 
                     total_games += 1
 
-            self.states_generation, self.policies_generation, self.values_generation = np.array(self.states_generation), np.array(self.policies_generation), np.array(self.values_generation)
-
-            shuffle_indexes = np.random.permutation(len(self.states_generation))
-            self.states_generation = self.states_generation[shuffle_indexes]
-            self.policies_generation = self.policies_generation[shuffle_indexes]
-            self.values_generation = self.values_generation[shuffle_indexes]
-
-            num_actions = len(self.states_generation)
-            test_indexes = np.random.choice(np.arange(num_actions), size=int(test_percent * num_actions), replace=False)
-            self.test_states += list(self.states_generation[test_indexes])
-            self.test_policies += list(self.policies_generation[test_indexes])
-            self.test_values += list(self.values_generation[test_indexes])
-
-
-            train_indexes = np.asarray(list(set(range(num_actions)) - set(test_indexes)))
-            train_indexes = np.random.choice(train_indexes, size=int(train_percent * len(train_indexes)), replace=False)
-            self.train_states += list(self.states_generation[train_indexes])
-            self.train_policies += list(self.policies_generation[train_indexes])
-            self.train_values += list(self.values_generation[train_indexes])
-
+            # no shuffle here on purpose, Dataloader.on_epoch_end reshuffles every epoch
             train_percent -= self.train_decay
             test_percent -= self.test_decay
 

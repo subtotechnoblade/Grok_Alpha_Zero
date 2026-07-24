@@ -12,7 +12,7 @@ from numba import njit
 # players are represented with -1 and 1 <- this rule cannot change
 # game board must be a numpy array
 
-# This is the default model build config and will be passed to Build_Model.py
+# This is the default model build config and will be passed to Gomoku_Build_Model_Time_Parallel.py
 build_config = {"embed_size": 32, # this is the vector for RWKV
           "num_heads": 2, # this must be a factor of embed_size or else an error will be raised
           "token_shift_hidden_dim": 32, # this is in the RWKV paper

@@ -1,6 +1,7 @@
 import onnxruntime as rt
 from Connect4 import Connect4
 from MCTS import MCTS
+from MCTS_Gumbel import MCTS_Gumbel
 providers = [
     ('TensorrtExecutionProvider', {
         # "trt_engine_cache_enable": True,
@@ -16,23 +17,32 @@ providers = [
     # 'CUDAExecutionProvider',
     'CPUExecutionProvider'
 ]
-session = rt.InferenceSession("Grok_Zero_Train/7/TRT_cache/model_ctx.onnx", providers=providers)
+# session = rt.InferenceSession("Grok_Zero_Train/3/TRT_cache/model_ctx.onnx", providers=providers)
+session = rt.InferenceSession("Grok_Zero_Train/3/model.onnx", providers=providers)
 
 
 game = Connect4()
 print(game.board)
-mcts = MCTS(game, session,
-            c_puct_init=1.25,
+mcts = MCTS(game,
+            session,
+            # session=None,
+            c_puct_init=3.5,
+            use_dirichlet=False,
+            use_njit=True,
             tau=0.0)
+#
+# mcts = MCTS_Gumbel(game, session,
+#                    use_gumbel_noise=False,
+#             m=7, c_scale=1.0)
 
-human_first_player = False
 
+human_first_player = 0
 winner = -2
 while winner == -2:
-    if human_first_player and game.get_next_player() == -1:
+    if game.get_next_player() == (-1 if human_first_player else 1):
         action = game.input_action()
     else:
-        action, probs = mcts.run(5000)
+        action, probs = mcts.run(1000)
         print(action, probs)
     game.do_action(action)
 
@@ -43,5 +53,21 @@ while winner == -2:
     mcts.prune_tree(action)
 
 
+# import pygame as pg
+#
+#
+# class Connect4_GUI:
+#     def __init__(self):
+#         self.game = Connect4()
+#
+#
+#     def update(self):
+#
+#
+#         pass
+#     def render(self, events):
+#
+#
+# def run()
 
 

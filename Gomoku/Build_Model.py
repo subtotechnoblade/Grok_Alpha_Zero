@@ -18,7 +18,7 @@ def build_model(input_shape, policy_shape, configs):
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
     x = inputs
 
-    eyes = tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal')(x)
+    eyes = tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal', name="eyes")(x)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 

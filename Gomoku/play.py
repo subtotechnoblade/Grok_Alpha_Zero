@@ -144,8 +144,9 @@ def human_move(position, input_board):
 w, h = 15, 15
 
 game = Gomoku()
-# game.put((6, 6))
-# game.put((7, 7))
+# game.do_action((7, 7))
+# game.do_action((7, 8))
+# game.do_action((8, 8))
 # game.put((8, 6))
 # game.put((7, 6))
 # game.put((7, 5))
@@ -157,7 +158,6 @@ game = Gomoku()
 # game.put((8, 9))
 # game.put((7, 8))
 # game.put((8, 10))
-# game.put((8, 8))
 # game.put((8, 4))
 # game.put((6, 8))
 # game.put((9, 3))
@@ -190,22 +190,22 @@ game = Gomoku()
 
 
 providers = [
-    ('TensorrtExecutionProvider', {
-        # "trt_engine_cache_enable": True,
-        # "trt_dump_ep_context_model": True,
-        # "trt_builder_optimization_level": 5,
-        # "trt_auxiliary_streams": 0,
-        # "trt_ep_context_file_path": "Gomoku/Cache/",
-        #
-        # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    }),
+    # ('TensorrtExecutionProvider', {
+    #     # "trt_engine_cache_enable": True,
+    #     # "trt_dump_ep_context_model": True,
+    #     # "trt_builder_optimization_level": 5,
+    #     # "trt_auxiliary_streams": 0,
+    #     # "trt_ep_context_file_path": "Gomoku/Cache/",
+    #     #
+    #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    # }),
     # 'CUDAExecutionProvider',
     'CPUExecutionProvider'
 ]
-session = rt.InferenceSession("Grok_Zero_Train/6/TRT_cache/model_ctx.onnx", providers=providers)
-# session = rt.InferenceSession("Grok_Zero_Train/3/model.onnx")
+# session = rt.InferenceSession("Grok_Zero_Train/15/TRT_cache/model_ctx.onnx", providers=providers)
+session = rt.InferenceSession("Grok_Zero_Train/15/model.onnx")
 # mcts = MCTS_Gumbel(game,
 #                     # None,
 #                     session,
@@ -219,14 +219,14 @@ session = rt.InferenceSession("Grok_Zero_Train/6/TRT_cache/model_ctx.onnx", prov
 mcts = MCTS(game,
             # None,
             session,
-            None,
-            c_puct_init=2.5,
+            True,
+            c_puct_init=4.0,
             tau=0.0,
-            dirichlet_alpha=0.333,
-            use_dirichlet=False,
+            dirichlet_alpha=0.05,
+            use_dirichlet=0,
             fast_find_win=False)
 
-total_iterations = 2000
+total_iterations = 1000
 time_limit = None
 
 move_list = []
@@ -240,7 +240,7 @@ mode = 1
 # mode 3, human_player_move = 1, for human against human
 
 # mode 1 for the bottom
-human_player_move = 1
+human_player_move = 2
 # 1 for human becoming the first move
 # 2 for human to become the second move
 # 3 for AI to play against itself

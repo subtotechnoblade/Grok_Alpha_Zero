@@ -1,12 +1,11 @@
 import numpy as np
 from numba import njit
 
-build_config = {"num_resnet_layers": 3,  # This is the total amount of resnet layers in the model that are used
+build_config = {"num_resnet_layers": 4,  # This is the total amount of resnet layers in the model that are used
                 "num_filters": 128,
                 "use_stablemax": False,  # use stablemax, which will also use stablemax crossentropy
-                "use_grok_fast": False,  # from grokfast paper
-                "use_orthograd": False,  # from grokking at the edge of numerica stability
-                "grok_fast_lambda": 4.5,  # This is for grok fast, won't be used if model is Grok_Fast_EMA_Model
+
+                "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
           }
 train_config = {
     "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
@@ -15,18 +14,22 @@ train_config = {
     # Self Play variables
     "games_per_generation": 1000,  # amount of self play games until we re train the network
     "max_actions": 42,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 8,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 7,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
+    "num_explore_actions_second": 3,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
+    # ^ these two together set how many PLIES are sampled at tau=1: first + second.
+    # alpha zero used ~15% of the average game length (30 plies out of ~200). Self play
+    # averages ~32 plies here, so 6 plies is ~19%. At the old 8/7 it was 15 plies = 47%,
+    # which meant most games opened off the centre column and were drawn by construction
 
     "use_gpu": True,  # Change this to False to use CPU for self play and inference
     "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
     # change this to False to use CUDAExecutionProvider
     "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 2,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
+    "max_cache_depth": 1,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
     "num_workers": 8,  # Number of multiprocessing workers used to self play
 
     # MCTS variables
-    "MCTS_iteration_limit": 250,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
+    "MCTS_iteration_limit": 450,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
     # True defaults to iteration_limit = 3 * len(starting legal actions)
     "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
     "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
@@ -38,30 +41,58 @@ train_config = {
     "c_scale": 1.0,
 
     # These params will be used when use_gumbel is set to False
-    "c_puct_init": 2.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    "dirichlet_alpha": 0.5,  # should be around (10 / average moves per given position)
+    "c_puct_init": 1.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
+    # ^ this controls WIDTH, not "go check that one line". Search depth is roughly
+    # ln(iterations) / ln(effective branching factor), so spreading visits costs depth.
+    # measured from the gen 9 policy targets the search was hedging over 2.53 moves,
+    # which is only ~7 plies of sight at 675 iterations. root dirichlet noise is the
+    # mechanism for reconsidering a move the prior dismissed, not c_puct
+    "dirichlet_alpha": 1.33,  # should be around (10 / average moves per given position)
+
+    "q_weight": 0.5,  # value target = (1 - q_weight) * z + q_weight * q
+    # 0.0 is the original alpha zero target (final outcome only, noisy),
+    # 1.0 is the search's own root Q (suffers from the horizon effect), 0.5 averages them
 
     # "opening_actions": [[3, 0.5]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 3,  # The previous generation's data that will be used in training
+    "num_previous_generations": 5,  # The previous generation's data that will be used in training
+    "target_ratio": None,
     "train_percent": 1.0,  # The percent used fr training after the test set is taken
-    "train_decay": 0.8,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
+    "train_decay": 0.2,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.33,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
+    "test_decay": 0.03,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
 
-    "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
     "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
     "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
-    "gradient_accumulation_steps": None,
-    "learning_rate": 3e-4,  # Depending on how many layers you use. Recommended to be between 5e-4 to 1e-5 or even lower
-    "decay_lr_after": 15,  # When the n generations pass,... learning rate will be decreased by lr_decay
-    "lr_decay": 0.75,  # multiplies this to learning rate every decay_lr_after
-    "beta_1": 0.9,  # DO NOT TOUCH unless you know what you are doing
-    "beta_2": 0.995,  # DO NOT TOUCH. This determines whether it groks or not. Hovers between 0.985 to 0.995
-    "optimizer": "Nadam",  # optimizer options are ["Adam", "AdamW", "Nadam"]
-    "train_epochs": 7,  # The number of epochs for training
 }
+
+def lr_schedule(generation):
+    lr_decay = 0.2 ** (generation // 25)  # 1e-2 -> 2e-3 -> 4e-4 -> 8e-5 over 100 generations
+    return 1e-2 * lr_decay
+
+
+optimizer_config = {
+    "optimizer": "muon", # ["adam", "nadam", "muon"]
+    # will be passed directly into the optimizer
+    "gradient_accumulation_steps": None,
+    "train_epochs": 8,  # The number of epochs for training
+    # ^ connect4 augments 2x, so 8 epochs is 16 gradient exposures per unique position per
+    # generation. Now that the val split is honest, ModelCheckpoint(save_best_only) really
+    # does pick the best epoch, so this is a compute bound rather than an overfitting bound
+    "kwargs": {
+        "learning_rate": lr_schedule,
+        "weight_decay": 1e-4,
+        "use_nadam": False,
+        "adam_beta_1": 0.9,  # beta_1 for adam/nadam for muon
+        "adam_beta_2": 0.995,  # beta_2 for adam/nadam for muon
+        "muon_beta": 0.95,
+        "exclude_layers": ["eyes", "policy_1",  "value_1"]
+    },
+    "use_orthograd": True,
+}
+
+
 # # resources
 # print("Please read the comments before you start this project")
 # print("Some of the examples are printed out, so run this file to see them")
@@ -334,7 +365,7 @@ class Connect4:
         board_state[-1] = board
 
         max_length = len(action_history) - 1
-        max_length = min(max_length, 3)
+        max_length = min(max_length, 2)
 
         prev_board = board.copy()
         for i in range(-1, -max_length - 1, -1):
@@ -439,7 +470,7 @@ class Connect4:
 
         # Note that this won't be the case for connect4, and ult_tictactoe
 
-        augmented_boards = np.stack((board, np.fliplr(board)))
+        augmented_boards = np.stack((board, board[:, :, ::-1, :].copy()))
         augmented_polices = np.stack((policy, np.fliplr(policy)))
 
         return augmented_boards, augmented_polices  # just return [board], [policy] if you don't want to implement this
@@ -456,8 +487,11 @@ if __name__ == "__main__":
     game.do_action(0)
     game.do_action(0)
     game.do_action(0)
-    game.get_input_state()
-
+    game.do_action(0)
+    # print(game.board)
+    # game.get_input_state()
+    print(game.get_input_state().transpose(2, 1, 0))
+    # print(game.get_input_state().shape)
     # game.board[6][1] = -1
     # game.board[5][1] = -1
     # game.board[4][2] = -1

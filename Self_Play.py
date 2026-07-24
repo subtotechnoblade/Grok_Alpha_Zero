@@ -169,7 +169,10 @@ class Self_Play:
         # else the player that played was 1, and won which is 1, thus no need to invert
         # augmentation
 
-        target_values = 0.5 * (target_z + target_q)  # weighted average of q and z
+        # weighted average of q and z. q alone suffers from the horizon effect, z alone is
+        # too noisy; q_weight = 0.5 is the even average from the oracle blog post
+        q_weight = self.train_config.get("q_weight", 0.5)
+        target_values = (1.0 - q_weight) * target_z + q_weight * target_q
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)

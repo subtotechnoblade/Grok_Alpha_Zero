@@ -7,9 +7,8 @@ from Net.Stablemax import Stablemax
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 
 
-def build_model(input_shape, policy_shape, build_config, train_config):
-    # Since this is just and example for Gomoku
-    # feel free to copy and modify
+def build_model(input_shape, policy_shape, configs):
+    build_config, train_config, optimizer_config = configs
 
     num_resnet_layers = build_config["num_resnet_layers"]
     num_filters = build_config["num_filters"]
@@ -19,7 +18,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     # reshaped_inputs = tf.keras.layers.Reshape((*input_shape, 1))(x)
 
-    eyes = tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer="he_normal")(inputs)
+    eyes = tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer="he_normal", name="eyes")(inputs)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("gelu")(eyes)
 
@@ -49,8 +48,10 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     policy = tf.keras.layers.Activation("relu")(policy)
 
     policy = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(policy)
+    policy = tf.keras.layers.BatchNormalization()(policy)
+    policy = tf.keras.layers.Activation("relu")(policy)
 
-    policy = tf.keras.layers.Dense(policy_shape[0], kernel_initializer='zeros', bias_initializer='zeros', dtype="float32")(policy) # NOTE THAT THIS IS A LOGIT not prob
+    policy = tf.keras.layers.Dense(policy_shape[0], kernel_initializer='zeros', bias_initializer='zeros', dtype="float32", name="policy_1")(policy) # NOTE THAT THIS IS A LOGIT not prob
     if train_config["use_gumbel"]:
         policy = tf.keras.layers.Activation("linear", dtype="float32", name="policy")(policy)
     else:
@@ -71,21 +72,10 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     value = tf.keras.layers.Activation("relu")(value)
 
     value = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(value)
-    value = tf.keras.layers.Dense(1, kernel_initializer='zeros', bias_initializer='zeros', dtype="float32")(value)  # MUST NAME THIS "value"
+    value = tf.keras.layers.Dense(1, kernel_initializer='zeros', bias_initializer='zeros', dtype="float32", name="value_1")(value)  # MUST NAME THIS "value"
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
-    # Must include this as it is necessary to name the outputs
-    if build_config["use_grok_fast"] and build_config["use_orthograd"]:
-        return Ortho_Grok_Fast_EMA_Model(inputs=inputs,outputs=[policy, value],
-                                         lamb=build_config["grok_fast_lambda"],
-                                         alpha=0.99)
-    elif build_config["use_grok_fast"]:
-        return Grok_Fast_EMA_Model(inputs=inputs, outputs=[policy, value],
-                                   lamb=build_config["grok_fast_lambda"], alpha=0.99)
-    elif build_config["use_orthograd"]:
-        return Ortho_Model(inputs=inputs, outputs=[policy, value])
-    else:
-        return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+    return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 if __name__ == "__main__":
     from Connect4 import Connect4, build_config, train_config

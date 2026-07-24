@@ -11,29 +11,31 @@ from Net.Optimizers.nadam import Nadam
 from Net.Optimizers.muon import Muon
 from Net.Optimizers.ortho_grad import Orthograd
 from Net.Optimizers.grok_fast import Grokfast_EMA
+
+
 def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict]):
     build_config, train_config, optimizer_config = configs
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
     accum_steps = optimizer_config.get("gradient_accumulation_steps")
     if accum_steps is not None and accum_steps >= 2:
-        learning_rate /= accum_steps # this is to counter the gradients being scaled by accum_steps thus we divide
+        learning_rate /= accum_steps  # this is to counter the gradients being scaled by accum_steps thus we divide
 
     optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
-    optimizer_config["kwargs"]["learning_rate"] = learning_rate # this is to overwrite learning rate in kwargs if it was a function
+    optimizer_config["kwargs"]["learning_rate"] = learning_rate  # this is to overwrite learning rate in kwargs if it was a function
     optimizer = optimizer(**optimizer_config["kwargs"])
 
     # order matters, grads -> orthograd -> grokfast EMA filter -> optimizer
     # orthograd(grokfast_EMA(base_optimizer))
-    if optimizer_config["use_grokfast"]:
+    if optimizer_config.get("use_grokfast", False):
         optimizer = Grokfast_EMA(optimizer, lamb=optimizer_config["grokfast_lambda"])
 
-    if optimizer_config["use_orthograd"]:
+    if optimizer_config.get("use_orthograd", False):
         optimizer = Orthograd(optimizer)
 
-    if not train_config["use_gumbel"]:
+    if not train_config.get("use_gumbel", False):
         policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32")
     else:
-        if build_config["use_stablemax"]:
+        if build_config.get("use_stablemax", False):
             activation_fn = Stablemax(dtype="float32")
         else:
             activation_fn = tf.keras.layers.Activation("softmax", dtype="float64")
@@ -41,7 +43,6 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
         policy_loss, value_loss, kld = (Policy_Loss_Gumbel(activation_fn=activation_fn, dtype="float64"),
                                         Value_Loss_Gumbel(dtype="float64"),
                                         KLD_Gumbel(activation_fn=activation_fn, dtype="float64"))
-
 
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
@@ -65,8 +66,10 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
     os.remove("Grok_Zero_Train/tmp_best.weights.h5")
     return model
 
+
 if __name__ == "__main__":
     from pathlib import Path
+
     folder_path = "TicTacToe/Grok_Zero_Train/1"
 
     from TicTacToe.Build_Model import build_model
@@ -76,8 +79,3 @@ if __name__ == "__main__":
     game = TicTacToe()
     model = build_model(game.get_input_state().shape, game.policy_shape, build_config)
     # train(model, 5e-4, train_config,  str(Path(folder_path).parent), False)
-
-
-
-
-

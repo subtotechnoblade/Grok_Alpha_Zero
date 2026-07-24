@@ -8,7 +8,6 @@ from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA
 def build_model(input_shape, policy_shape, build_config, train_config):
     import os
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    # Since this is just and example for Gomoku
     # feel free to copy and modify
 
     # input shape should be (3, 3)
@@ -26,6 +25,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
     policy = tf.keras.layers.Reshape((-1,))(policy)
 
     policy = tf.keras.layers.Dense(128, kernel_initializer="he_normal")(policy)
+    policy = tf.keras.layers.BatchNormalization()(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
     policy = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(policy)
 
@@ -47,6 +47,7 @@ def build_model(input_shape, policy_shape, build_config, train_config):
 
     value = tf.keras.layers.Dense(128, kernel_initializer="he_normal")(value)
     value = tf.keras.layers.Dense(64, kernel_initializer="he_normal")(value)
+    value = tf.keras.layers.BatchNormalization()(value)
     value = tf.keras.layers.Activation("relu")(value)
     value = tf.keras.layers.Dense(1, kernel_initializer="zeros")(value)
     value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value) # MUST NAME THIS "value"

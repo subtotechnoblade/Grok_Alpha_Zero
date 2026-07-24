@@ -1,0 +1,41 @@
+# Training runs: self play datasets, model weights, onnx exports, tensorrt engines.
+# One generation folder holds Self_Play_Data.h5 + model.weights.h5 + model.onnx + TRT_cache,
+# so a full run is tens of GB. Never commit these.
+Grok_Zero_Train/
+
+# Per generation scratch, created and torn down by Self_Play / main
+Cache/
+TRT_cache/
+
+# Model artifacts, in case a run ever writes outside Grok_Zero_Train.
+# Use `git add -f <path>` if you ever deliberately want to track one.
+*.h5
+*.onnx
+*.engine
+*.trt
+*.npy
+*.npz
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Numba caches from njit(cache=True)
+*.nbi
+*.nbc
+numba_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Editors
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

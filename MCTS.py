@@ -236,8 +236,10 @@ class MCTS:
 
     def _get_dummy_outputs(self, input_state):
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0
-        return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), \
-            np.random.uniform(low=-1, high=1, size=(1,))[0]  # policy and value
+        return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), 0.0
+        # random policy gives generation 0 a diverse prior, but the value must be 0.0.
+        # a random leaf value backs pure noise up the tree, so generation 0's search was
+        # weaker than a plain "look for forced wins inside the tree" search
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0,
 
     def _apply_dirichlet(self, legal_policy, epsilon):
@@ -341,7 +343,9 @@ class MCTS:
                 del terminal_node.child_legal_actions, terminal_node.child_prob_priors
 
                 self.root.children.append(terminal_node)
-                self._back_propagate(terminal_node, value)
+                self._back_propagate(terminal_node, 1.0 if mask_value == 1 else 0.0)
+                # ^ back propagate each child's OWN outcome. Using the shared `value` gave
+                # drawing moves a winrate of 1.0 whenever any winning move existed
         else:
             child_policy, child_value = self._compute_outputs(self.game.get_input_state(),
                                                                                  len(self.game.action_history))
@@ -370,7 +374,7 @@ class MCTS:
 
         if 1 in terminal_mask:  # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
-            num_winning_actions = len(terminal_mask == 1)  # get the length of thr array that is equal to 1
+            num_winning_actions = int(np.sum(terminal_mask))  # get the length of the array that is equal to 1
             terminal_parent_value = num_winning_actions  # the evaluation when we win num_winning_actions
             terminal_parent_visits = num_winning_actions  # we must visits num_winning_actions to win that many times
             terminal_parent_prob_prior = terminal_mask / num_winning_actions
@@ -478,8 +482,12 @@ class MCTS:
                                                                                             np_arr_action_history,
                                                                                             child_policy)
 
-            if self.use_dirichlet:
-                child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
+            # Dirichlet noise is a ROOT-only mechanism in alpha zero. Mixing 25% noise into
+            # every interior node's prior degrades the search that produces the training
+            # target (worst on gomoku: dirichlet_alpha=0.05 over ~220 moves is near one-hot,
+            # so a uniformly random move gets a ~25% prior at every single node).
+            # if self.use_dirichlet:
+            #     child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
 
             sort_index = np.argsort(child_prob_prior)[::-1]
             child_prob_prior = child_prob_prior[sort_index]
@@ -633,6 +641,13 @@ class MCTS:
             child_legal_actions = [0]  # this is only used as an initialization, will be overwritten
             child_prob_priors = None
             child_current_player = None
+
+        # Now that the noise no longer gets baked in during _expand, the re-used subtree
+        # arrives here with clean priors. Re-draw the root noise on every move, which is
+        # exactly where alpha zero applies it. NOTE: do not re-sort, self.children is
+        # already ordered to match these priors.
+        if child.is_terminal is None and self.use_dirichlet:
+            child_prob_priors = self._apply_dirichlet(child_prob_priors, self.dirichlet_epsilon)
 
         new_root = Root(board=self.game.board.copy(),
                         action_history=child.action_history,

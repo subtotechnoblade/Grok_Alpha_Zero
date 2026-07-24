@@ -20,6 +20,12 @@ class Grokfast_EMA(optimizer.Optimizer):
     def update_step(self, gradient, variable, learning_rate):
         if gradient is None:
             return
+
+        # Only THIS optimizer's apply() runs, so the wrapped optimizer's step counter
+        # never ticks. Without syncing it, the base optimizer's Adam bias correction is
+        # frozen at t = 1 forever (1 - beta_1^t = 0.1, 1 - beta_2^t = 0.005).
+        self.base_optimizer.iterations.assign(self.iterations)
+
         ema_grad = self.ema_grads[self._var_key(variable)]
         filtered_grad = self.filter_gradient(ema_grad, gradient)
         self.base_optimizer.update_step(filtered_grad, variable, self.base_optimizer.learning_rate)
@@ -30,3 +36,4 @@ class Grokfast_EMA(optimizer.Optimizer):
             "base_optimizer": self.base_optimizer,
             "alpha": self.alpha,
             "lamb": self.lamb})
+        return config

@@ -27,7 +27,12 @@ class Muon(optimizer.Optimizer):
         super().__init__(learning_rate=learning_rate, name=name, **kwargs)
         self.adam_lr_ratio = adam_lr_ratio
         self.use_nadam = use_nadam
-        self.weight_decay = weight_decay
+        # NOT self.weight_decay. Keras' BaseOptimizer runs its own _apply_weight_decay()
+        # inside apply() whenever self.weight_decay is not None, which would decay twice on
+        # top of the manual apply_weight_decay() in update_step below. The manual one is the
+        # one to keep, because it is the only path that still runs when this optimizer is
+        # wrapped by Orthograd/Grokfast (then only the wrapper's apply() fires, never ours).
+        self.muon_weight_decay = weight_decay
 
         self.exclude_layers = exclude_layers
         self.exclude_embeddings = exclude_embeddings
@@ -85,7 +90,7 @@ class Muon(optimizer.Optimizer):
                 self.adam_velocities.append(None)
 
     def apply_weight_decay(self, variable, learning_rate):
-        weight_decay = ops.cast(self.weight_decay, dtype=variable.dtype)
+        weight_decay = ops.cast(self.muon_weight_decay, dtype=variable.dtype)
         learning_rate = ops.cast(learning_rate, dtype=variable.dtype)
         variable.assign_sub(learning_rate * weight_decay * variable)
 
@@ -130,20 +135,34 @@ class Muon(optimizer.Optimizer):
 
         is_reshaped = False
         if update.ndim > 2:
-            shape = ops.shape(update)
+            # Keras/TF conv kernels are (kh, kw, in_channels, out_channels), while Muon
+            # (and Keller's reference impl) expects the fan-out axis FIRST, as PyTorch
+            # stores it: (out_channels, in_channels, kh, kw).
+            # Flattening with the raw shape[0] would orthogonalize a (kh, kh*kw*in*out)
+            # matrix, i.e. rank <= kernel height. Move the last axis to the front first.
+            ndim = len(update.shape)
+            update = ops.transpose(update, axes=[ndim - 1, *range(ndim - 1)])
+            shape = update.shape  # (out_channels, kh, kw, in_channels)
             update = ops.reshape(update, (shape[0], -1))
             is_reshaped = True
 
         update = self.zeropower_via_newtonschulz5(update)
 
-        grad_shape = tf.shape(gradient)
-        d_in = ops.cast(grad_shape[-1], dtype=tf.float32)
-        d_out = ops.cast(grad_shape[-2], dtype=tf.float32)
-        scaling_factor = 0.2 * ops.sqrt(ops.maximum(1.0, d_out / d_in))
+        # d_out / d_in must describe the fan-out / fan-in of the variable, not raw axes.
+        # For every Keras variable the LAST axis is the fan-out axis (Dense: (in, out),
+        # Conv2D: (kh, kw, in, out)), so fan-in is the product of all remaining axes.
+        # This reproduces the PyTorch-layout semantics the formula was written for.
+        grad_shape = gradient.shape
+        d_out = float(grad_shape[-1])
+        d_in = 1.0
+        for dim in grad_shape[:-1]:
+            d_in *= float(dim)
+        scaling_factor = 0.2 * max(1.0, d_out / d_in) ** 0.5
         update *= scaling_factor
 
         if is_reshaped:
-            update = tf.reshape(update, shape)
+            update = ops.reshape(update, shape)
+            update = ops.transpose(update, axes=[*range(1, ndim), 0])
 
         final_u = update * learning_rate
 
@@ -203,7 +222,7 @@ class Muon(optimizer.Optimizer):
             "adam_lr_ratio": self.adam_lr_ratio,
             "use_nadam": self.use_nadam,
             "nesterov": self.nesterov,
-            "weight_decay": self.weight_decay,
+            "weight_decay": self.muon_weight_decay,
             "exclude_layers": self.exclude_layers,
             "exclude_embeddings": self.exclude_embeddings,
 
@@ -217,3 +236,4 @@ class Muon(optimizer.Optimizer):
             "ns_steps": self.ns_steps,
             "epsilon": self.epsilon,
         })
+        return config
