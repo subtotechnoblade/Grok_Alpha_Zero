@@ -108,7 +108,7 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
         #     tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5700)])
         tf.config.experimental.set_memory_growth(device, True)
 
-    build_config, _, _ = configs
+    build_config, train_config, optimizer_config = configs
 
     mixed_precision_policy = build_config.get("mixed_precision")
     if mixed_precision_policy is not None:
@@ -121,7 +121,7 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
 
     try:
         learning_rate = optimizer_config["kwargs"]["learning_rate"](generation)
-    except:
+    except TypeError:
         learning_rate = optimizer_config["kwargs"]["learning_rate"]
 
     print(f"Started training for generation: {generation} using lr = {learning_rate}!")

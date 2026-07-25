@@ -68,8 +68,13 @@ train_config = {
 }
 
 def lr_schedule(generation):
-    lr_decay = 0.2 ** (generation // 25)  # 1e-2 -> 2e-3 -> 4e-4 -> 8e-5 over 100 generations
-    return 1e-2 * lr_decay
+    lr_decay = 0.2 ** (generation // 25)  # 3e-3 -> 6e-4 -> 1.2e-4 -> 2.4e-5 over 100 generations
+    return 3e-3 * lr_decay
+    # base was 1e-2. See tmp/exp_c_seeds_lr.py and tmp/exp_d_lr_curves.py: over 3 seeds the
+    # best val loss basin is flat from 1e-3 to 3e-3 and degrades hard by 1e-2 (2.63 -> 2.89).
+    # That held BEFORE the muon reshape fix too, so 1e-2 was always too hot. The fix makes
+    # trunk steps ~6x larger at the same nominal lr, which is a second reason to come down.
+    # Caveat: measured on a 6k position / 6 epoch proxy, not a full generation.
 
 
 optimizer_config = {
@@ -89,7 +94,14 @@ optimizer_config = {
         "muon_beta": 0.95,
         "exclude_layers": ["eyes", "policy_1",  "value_1"]
     },
-    "use_orthograd": True,
+    "use_orthograd": False,
+    # OrthoGrad removes the component of the gradient parallel to W, to stop the weights
+    # inflating. It cannot do that here. Every conv feeds a BatchNorm, which makes the loss
+    # scale invariant in that kernel, so the gradient is ALREADY perpendicular to W
+    # (measured cos = 0.00000) and there is nothing to project out. The norm still grows
+    # because perpendicular steps add in quadrature, sqrt(|W0|^2 + N*d^2), which no
+    # projection can prevent. Measured on CIFAR-10, 3 seeds, paired: Orthograd(Muon) was
+    # worse on every seed. See tmp/REPORT.md section 1.
 }
 
 

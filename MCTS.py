@@ -375,13 +375,13 @@ class MCTS:
         if 1 in terminal_mask:  # if there is a win, then draw's probability should stay at 0
             # ^ this is essentially O(1), because for any NORMAL connect N game there usually is only 1-5 possible ways to win
             num_winning_actions = int(np.sum(terminal_mask))  # get the length of the array that is equal to 1
-            terminal_parent_value = num_winning_actions  # the evaluation when we win num_winning_actions
-            terminal_parent_visits = num_winning_actions  # we must visits num_winning_actions to win that many times
+            terminal_parent_value = 1
+            terminal_parent_visits = 1
             terminal_parent_prob_prior = terminal_mask / num_winning_actions
         else:  # there are only draws
             len_terminal_moves = len(terminal_actions)
             terminal_parent_value = 0
-            terminal_parent_visits = len_terminal_moves
+            terminal_parent_visits = 1
             terminal_parent_prob_prior = np.ones(len_terminal_moves,
                                                  dtype=np.float32) / len_terminal_moves  # winning policy
             # ^ this is just a formality, it really not needed, but when getting the stats
@@ -445,17 +445,16 @@ class MCTS:
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
-        action_history = np.array(self.game.action_history)
+        child_action_history = node.action_history + [child_action]
+        action_history = np.array(child_action_history, dtype=child_action.dtype)
         legal_actions = self.game.get_legal_actions_MCTS(child_board,
                                                          -node.current_player,
                                                          action_history)
-        if self.game.action_history:
-            repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
-            repeated_action_history[:] = action_history
-            future_action_histories = np.concatenate((repeated_action_history,
-                                                      np.expand_dims(legal_actions, 1)), axis=1)
-        else:
-            future_action_histories = np.expand_dims(legal_actions, 1)
+
+        repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
+        repeated_action_history[:] = action_history
+        future_action_histories = np.concatenate((repeated_action_history,
+                                                  np.expand_dims(legal_actions, 1)), axis=1)
 
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
@@ -467,25 +466,26 @@ class MCTS:
         if len(terminal_actions) > 0:
             return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
         else:
-            child_action_history = node.action_history + [child_action]
-            np_arr_action_history = np.array(child_action_history, dtype=child_action.dtype)
             child_policy, child_value, = self._compute_outputs(
                 self.game.get_input_state_MCTS(child_board,
                                                -node.current_player,
-                                               np_arr_action_history),
+                                               action_history),
                                                len(node.action_history))
+            # ^ that depth argument is the PARENT's ply count, but the state being evaluated
+            # is the child, one ply deeper. create_expand_root passes the depth of the state
+            # it actually evaluates, so the two disagree by one: Cache_Wrapper's
+            # max_cache_depth ends up storing one ply deeper here than the name suggests.
+            # Harmless today because the cache is keyed by the state bytes and depth only
+            # gates WHETHER we store, never what we look up. Pick one convention when the
+            # cache gets reworked.
 
             # note that child policy is the probabilities for the children of child
             # because we store the policy with the parent rather than in the children
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board,
                                                                                             -node.current_player,
-                                                                                            np_arr_action_history,
+                                                                                            action_history,
                                                                                             child_policy)
 
-            # Dirichlet noise is a ROOT-only mechanism in alpha zero. Mixing 25% noise into
-            # every interior node's prior degrades the search that produces the training
-            # target (worst on gomoku: dirichlet_alpha=0.05 over ~220 moves is near one-hot,
-            # so a uniformly random move gets a ~25% prior at every single node).
             # if self.use_dirichlet:
             #     child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
 
