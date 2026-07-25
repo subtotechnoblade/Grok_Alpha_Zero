@@ -130,8 +130,15 @@ class Muon(optimizer.Optimizer):
         muon_m_update = muon_beta * muon_m + gradient * (1 - muon_beta)
         muon_m.assign(muon_m_update)
 
-        update = gradient + muon_m_update * muon_beta if self.nesterov else muon_m_update
-        # for some reason, using grad * (1 - beta) + update * beta doesn't work
+        update = (1 - muon_beta) * gradient + muon_beta * muon_m_update if self.nesterov else muon_m_update
+        # Matches Keller's reference: torch's `grad.lerp_(momentum, beta)` is exactly
+        # (1 - beta) * grad + beta * momentum. The old form here was `grad + beta * momentum`,
+        # which is NOT a rescaling of it - newton-schulz normalises magnitude away, so only
+        # direction matters, and at beta=0.95 the two differ a lot:
+        #     reference:  0.05*g + 0.95*m  proportional to  g + 19m
+        #     old:        1.00*g + 0.95*m  proportional to  g +  0.95m
+        # i.e. the old version weighted the raw gradient ~20x more heavily against momentum,
+        # making this behave like a much lower-momentum Muon.
 
         is_reshaped = False
         if update.ndim > 2:
