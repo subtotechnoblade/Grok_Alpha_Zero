@@ -1,0 +1,17 @@
+# Inference only on CPU: play.py, self play, Game_Tester, Compute_Speed.
+# No tensorflow, so you cannot train or export a model with this - it consumes an
+# existing model.onnx. Works on windows and linux.
+#
+#   pip install -r requirements-inference-cpu.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+tqdm == 4.70.0
+
+# self play writes its dataset with h5py, drop it if you only run play.py
+h5py == 3.16.0
+
+# only needed by <game>/play.py
+pygame == 2.6.1
+
+onnxruntime == 1.22.0

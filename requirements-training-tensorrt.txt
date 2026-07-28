@@ -1,0 +1,35 @@
+# Training with TensorRT / CUDA self play inference. NVIDIA GPU required.
+# Works on windows and on linux / WSL.
+#
+# Gives you TensorrtExecutionProvider AND CUDAExecutionProvider, so this covers
+# both train_config["use_tensorrt"] = True and False.
+#
+# The nvidia CUDA and cuDNN runtimes come from the onnxruntime-gpu [cuda,cudnn]
+# extras, so there is no separate CUDA Toolkit install and no admin rights
+# needed. Verified working with CUDA runtime 12.9 and cuDNN 9.24 even though the
+# ORT docs list 12.0-12.8.
+#
+# DO NOT pass --only-binary=:all: with this file. tensorrt-cu12 is an sdist stub
+# that pulls the real tensorrt_cu12_libs / tensorrt_cu12_bindings wheels, so
+# that flag makes it fail with "no matching distribution".
+#
+#   pip install -r requirements-training-tensorrt.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+h5py == 3.16.0
+tqdm == 4.70.0
+
+# model building, training and onnx export.
+# TF 2.10 was the last release with native windows GPU support, so training runs
+# on CPU on windows no matter what. On linux [and-cuda] gives GPU training.
+tensorflow == 2.18.0 ; sys_platform == "win32"
+tensorflow[and-cuda] == 2.18.0 ; sys_platform != "win32"
+tf2onnx == 1.17.0
+onnx == 1.17.0
+onnxoptimizer == 0.4.2
+
+# self play inference.
+# ORT 1.22 pairs with TensorRT 10.9 - keep these two in step if you bump either.
+onnxruntime-gpu[cuda,cudnn] == 1.22.0
+tensorrt-cu12 == 10.9.0.34

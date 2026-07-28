@@ -1,0 +1,32 @@
+# Training with DirectML self play inference. WINDOWS ONLY.
+#
+# DirectML runs on any DX12 adapter, so this covers both the RTX 2060 and the
+# AMD 760M igpu. On a machine with more than one, DirectML picks the discrete
+# card by default - set train_config["dml_device_id"] to pin it.
+#
+# Note that tensorflow is CPU only here: TF 2.10 was the last release with
+# native windows GPU support, so TRAINING runs on CPU regardless. Only self play
+# inference is accelerated. That is fine - self play, not training, is the
+# bottleneck, and it is measurably NOT gpu bound anyway.
+#
+# For connect4 sized models DirectML is the fastest option we measured below
+# batch ~28, beating TensorRT on per call latency. For gomoku sized models
+# TensorRT fp16 wins by ~3x - use requirements-training-tensorrt.txt there.
+#
+#   pip install -r requirements-training-directml.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+h5py == 3.16.0
+tqdm == 4.70.0
+
+# model building, training and onnx export
+tensorflow == 2.18.0
+tf2onnx == 1.17.0
+onnx == 1.17.0
+onnxoptimizer == 0.4.2
+
+# self play inference
+# NEVER install onnxruntime or onnxruntime-gpu alongside this. All three ship the
+# same `onnxruntime` python package and silently overwrite each other.
+onnxruntime-directml == 1.22.0
