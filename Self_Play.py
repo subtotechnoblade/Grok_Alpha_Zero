@@ -1,16 +1,20 @@
 import os
 import time
+from pathlib import Path
+
 import h5py as h5
 import numpy as np
 
 from tqdm import tqdm
+from warnings import warn
 
 import multiprocessing as mp
 
 from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
 
-from Client_Server import Parallelized_Session, start_server, convert_to_single_info, create_shared_memory
+from Client_Server import (Parallelized_Session, start_server, convert_to_single_info,
+                           create_shared_memory, create_events)
 
 
 class Self_Play:
@@ -36,25 +40,15 @@ class Self_Play:
 
         if train_config["use_gumbel"] is False:
             dirichlet_epsilon = 0.25
-            self.mcts1: MCTS = MCTS(game=self.game,
-                                    session=self.sess if self.generation > 0 else None,
-                                    use_njit=train_config["use_njit"],
-                                    c_puct_init=self.train_config["c_puct_init"],
-                                    use_dirichlet=True,
-                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                                    dirichlet_epsilon=dirichlet_epsilon,
-                                    tau=1.0,
-                                    fast_find_win=False)
-
-            self.mcts2: MCTS = MCTS(game=self.game,
-                                    session=self.sess if self.generation > 0 else None,
-                                    use_njit=train_config["use_njit"],
-                                    c_puct_init=self.train_config["c_puct_init"],
-                                    use_dirichlet=True,
-                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
-                                    dirichlet_epsilon=dirichlet_epsilon,
-                                    tau=1.0,
-                                    fast_find_win=False)
+            self.mcts: MCTS = MCTS(game=self.game,
+                                   session=self.sess if self.generation > 0 else None,
+                                   use_njit=train_config["use_njit"],
+                                   c_puct_init=self.train_config["c_puct_init"],
+                                   use_dirichlet=True,
+                                   dirichlet_alpha=self.train_config["dirichlet_alpha"],
+                                   dirichlet_epsilon=dirichlet_epsilon,
+                                   tau=1.0,
+                                   fast_find_win=False)
         else:
             self.mcts_gumbel = self.create_MCTS_Gumbel()
 
@@ -83,27 +77,20 @@ class Self_Play:
 
             # using normal MCTS
             if not self.train_config["use_gumbel"]:
-                if current_move_num % 2 == 0 and current_move_num // 2 < self.train_config["num_explore_actions_first"]:
-                    self.mcts1.update_hyperparams(tau=1.0)
+                # One tree now serves both players, so tau is chosen per ply rather than by
+                # picking between two objects. Same schedule as before: player -1 explores
+                # for its first num_explore_actions_first moves, player 1 for its first
+                # num_explore_actions_second, and current_move_num parity says whose turn it is.
+                if current_move_num % 2 == 0:
+                    explore = current_move_num // 2 < self.train_config["num_explore_actions_first"]
                 else:
-                    self.mcts1.update_hyperparams(tau=0)
+                    explore = (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]
+                self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
-                if (current_move_num + 1) % 2 == 0 and (current_move_num + 1) // 2 < self.train_config[
-                    "num_explore_actions_second"]:
-                    self.mcts2.update_hyperparams(tau=1.0)
-                else:
-                    self.mcts2.update_hyperparams(tau=0)
-
-                if self.game.get_next_player() == -1:
-                    action, action_probs = self.mcts1.run(
-                        iteration_limit=int(self.iteration_limit * 1.5),
-                        time_limit=self.time_limit,
-                        use_bar=False)
-                else:
-                    action, action_probs = self.mcts2.run(
-                        iteration_limit=int(self.iteration_limit * 1.5),
-                        time_limit=self.time_limit,
-                        use_bar=False)
+                action, action_probs = self.mcts.run(
+                    iteration_limit=int(self.iteration_limit * 1.5),
+                    time_limit=self.time_limit,
+                    use_bar=False)
 
             # else if we are using gumbel we need to reset the tree class
             else:
@@ -146,8 +133,7 @@ class Self_Play:
             if winner == -2:  # or else there will be an error, because you are pruning a winning move
                 if not self.train_config["use_gumbel"]:
                     create_new_root = self.train_config.get("create_new_root", False)
-                    self.mcts1.prune_tree(action, create_new_root)
-                    self.mcts2.prune_tree(action, create_new_root)
+                    self.mcts.prune_tree(action, create_new_root)
                 else:
                     del self.mcts_gumbel
                     self.mcts_gumbel = self.create_MCTS_Gumbel()
@@ -220,8 +206,17 @@ def self_play_task(worker_id,
                    train_config: dict,
                    lock: mp.Lock,
                    folder_path: str,
-                   generation: int):
-    np.random.seed()
+                   generation: int,
+                   num_games: int,
+                   progress,
+                   stats_q,
+                   request_ready=None,
+                   response_ready=None):
+    # This worker lives for the whole generation and plays num_games of them. Everything
+    # before the loop is paid ONCE instead of once per game: the process spawn, the
+    # session, the numba warm up, and the memo below.
+    np.random.seed()  # once per PROCESS. Never per game: pointless at best, and a fixed
+    # value here would correlate every worker's games with each other.
     import onnxruntime as rt
     session = None
     if generation > 0:
@@ -229,23 +224,39 @@ def self_play_task(worker_id,
             session = Parallelized_Session(worker_id,
                                            info,
                                            input_feed_info,
-                                           output_feed_info, )
+                                           output_feed_info,
+                                           request_ready,
+                                           response_ready, )
         else:
             providers, onnx_path = info
             session = rt.InferenceSession(onnx_path, providers=providers)
 
         if train_config.get("max_cache_depth", 0) not in [None, 0]: # so both 0 and None are excluded
             from Session_Cache import Cache_Wrapper
-            session = Cache_Wrapper(session, folder_path + "/Cache", train_config["max_cache_depth"])
-    task = Self_Play(game_class(),
-                     session,
-                     build_config,
-                     train_config,
-                     lock,
-                     folder_path,
-                     generation)
+            session = Cache_Wrapper(session, train_config["max_cache_depth"])
+            # Wrapped ONCE here, so this single memo is shared by every game this worker
+            # plays AND by the whole search inside each game (Self_Play hands the same
+            # session object to both trees). That sharing is the point, not an accident.
 
-    task.play()
+    for _ in range(num_games):
+        Self_Play(game_class(),
+                  session,
+                  build_config,
+                  train_config,
+                  lock,
+                  folder_path,
+                  generation).play()
+        # a fresh Self_Play per game is intended, it owns self.game and mutates it
+        with progress.get_lock():
+            progress.value += 1
+
+    # Hand the memo stats to the parent rather than printing here: the tqdm bar is live
+    # in the parent and its \r redraws overwrite anything a worker writes to the terminal.
+    # Always put exactly one item so the parent knows how many to expect.
+    if generation > 0 and train_config.get("max_cache_depth", 0) not in [None, 0]:
+        stats_q.put((worker_id, session.stats()))
+    else:
+        stats_q.put((worker_id, None))
 
     if train_config["use_inference_server"]:
         info.close()
@@ -274,11 +285,8 @@ def run_self_play(game_class,
         print(f"Finished generating {train_config['games_per_generation']} games!")
         return
 
-    generation = int(folder_path.split("/")[-1])
+    generation = int(Path(folder_path).name)  # separator agnostic, see Dataloader
     num_workers = train_config["num_workers"]
-    if num_workers > mp.cpu_count() // 2 and mp.get_start_method() == "spawn":
-        num_workers = mp.cpu_count() // 2
-
     if num_games_left < num_workers:
         num_workers = num_games_left
 
@@ -310,15 +318,23 @@ def run_self_play(game_class,
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
-            if build_config.get("mixed_precision") == "mixed_float16":
+            # inference precision is independent of the TRAINING precision policy. falling
+            # back to the old mixed_precision gate keeps games without the key unchanged
+            if train_config.get("trt_fp16",
+                                build_config.get("mixed_precision") == "mixed_float16"):
                 providers[0][1]["trt_fp16_enable"] = True
         elif "CUDAExecutionProvider" in available_providers:
             providers = [
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
         elif "DmlExecutionProvider" in available_providers:
+            # on a machine with more than one DX12 adapter, DirectML picks one for you.
+            # measured here: device 0 is the 760M igpu, device 1 is the rtx 2060, and the
+            # default lands on the 2060. Set dml_device_id in train_config to pin it
+            dml_device_id = train_config.get("dml_device_id")
             providers = [
-                'DmlExecutionProvider',
+                ('DmlExecutionProvider', {"device_id": dml_device_id})
+                if dml_device_id is not None else 'DmlExecutionProvider',
                 'CPUExecutionProvider']
         else:
             raise RuntimeError("No GPU execution providers available")
@@ -333,79 +349,92 @@ def run_self_play(game_class,
         f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
     bar = tqdm(total=num_games_left, desc="Generating self play games")
     shms = []
+    request_ready, response_events = None, [None] * num_workers
     if train_config["use_inference_server"]:
         shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
+        request_ready, response_events = create_events(num_workers)
         server = mp.Process(target=start_server, args=(batched_input_feed_info,
                                                        batched_output_feed_info,
                                                        shms,
                                                        providers,
                                                        onnx_file_path,
-                                                       per_process_wait_time))
+                                                       per_process_wait_time,
+                                                       request_ready,
+                                                       response_events))
         server.start()
 
     lock = mp.Lock()
+    progress = mp.Value("i", 0)
+    stats_q = mp.Queue()
+
+    # Split the work up front. Workers now live for the whole generation, so there is no
+    # respawning and no worker id recycling: worker i owns shm slot i for its entire life,
+    # which is exactly the invariant Parallelized_Session wants.
+    shares = [num_games_left // num_workers + (i < num_games_left % num_workers)
+              for i in range(num_workers)]
+
     jobs = []
+    for worker_id in range(num_workers):
+        worker = mp.Process(target=self_play_task,
+                            args=(worker_id,
+                                  shms[worker_id] if train_config["use_inference_server"] else [providers,
+                                                                                                onnx_file_path],
+                                  game_class,
+                                  convert_to_single_info(batched_input_feed_info),
+                                  convert_to_single_info(batched_output_feed_info),
+                                  build_config,
+                                  train_config,
+                                  lock,
+                                  folder_path,
+                                  generation,
+                                  shares[worker_id],
+                                  progress,
+                                  stats_q,
+                                  request_ready,
+                                  response_events[worker_id]),
+                            name=f"{worker_id}")
+        worker.start()
+        jobs.append(worker)
 
-    for _ in range(num_games_left):
-        if len(jobs) < num_workers:
-            worker_id = len(jobs)
-            worker = mp.Process(target=self_play_task,
-                                args=(worker_id,
-                                      shms[worker_id] if train_config["use_inference_server"] else [providers,
-                                                                                                    onnx_file_path],
-                                      game_class,
-                                      convert_to_single_info(batched_input_feed_info),
-                                      convert_to_single_info(batched_output_feed_info),
-                                      build_config,
-                                      train_config,
-                                      lock,
-                                      folder_path,
-                                      generation),
-                                name=f"{worker_id}")
-            worker.start()
-            jobs.append(worker)
+    last = 0
+    while any(worker.is_alive() for worker in jobs):
+        time.sleep(0.25)  # the old loop polled is_alive() with no sleep, pinning a core
+        current = progress.value
+        if current > last:
+            bar.update(current - last)
+            last = current
 
-    while num_games_left > 0:
-        if len(jobs) == num_workers:
-            alive_jobs = []
-            dead_worker_ids = []
+        if train_config["use_inference_server"] and not server.is_alive():
+            # Without this the run hangs forever: Parallelized_Session.run spins on the
+            # shared memory flag with no timeout, so a dead server leaves every worker
+            # burning a core while still reporting is_alive() == True.
             for worker in jobs:
-                if worker.is_alive():
-                    alive_jobs.append(worker)
-                else:
-                    dead_worker_ids.append(int(worker.name))
-                    worker.join()
-                    if worker.exitcode != 0:
-                        server.terminate()
-                        for shm in shms:
-                            shm.unlink()
-                        raise RuntimeError("Main process stopped as self play worker ran into an error")
-                    num_games_left -= 1
-                    bar.update(1)
+                worker.terminate()
+            for shm in shms:
+                shm.unlink()
+            raise RuntimeError("Inference server died mid generation, self play cannot continue")
+    bar.update(progress.value - last)
+    bar.close()
 
-            if len(alive_jobs) != len(jobs) and num_games_left - len(alive_jobs) > 0:
-                for dead_worker_id in dead_worker_ids:
-                    new_worker = mp.Process(target=self_play_task, args=(dead_worker_id,
-                                                                         shms[dead_worker_id] if train_config[
-                                                                             "use_inference_server"] else [providers,
-                                                                                                           onnx_file_path],
-                                                                         game_class,
-                                                                         convert_to_single_info(batched_input_feed_info),
-                                                                         convert_to_single_info(batched_output_feed_info),
-                                                                         build_config,
-                                                                         train_config,
-                                                                         lock,
-                                                                         folder_path,
-                                                                         generation),
-                                            name=f"{dead_worker_id}")
-                    new_worker.start()
-                    alive_jobs.append(new_worker)
-                jobs = alive_jobs
+    # Drain before joining: a process that has queued items does not exit until they are
+    # flushed, and the bar is closed now so these lines will not be overwritten.
+    memo_stats = []
+    for _ in range(len(jobs)):
+        try:
+            worker_id, s = stats_q.get(timeout=10)
+            if s is not None:
+                memo_stats.append((worker_id, s))
+        except Exception:
+            break  # a crashed worker never reported, the exitcode check below handles it
+    for worker_id, s in sorted(memo_stats):
+        print(f"worker {worker_id}: memo {s['hits']} hits / {s['misses']} misses "
+              f"({s['hit_rate']:.1%} hit rate), {s['entries']} entries")
 
     for worker in jobs:
         worker.join()
         if worker.exitcode != 0:
-            server.terminate()
+            if train_config["use_inference_server"]:
+                server.terminate()
             for shm in shms:
                 shm.unlink()
             raise RuntimeError("Main process stopped as self play worker ran into an error")
@@ -415,29 +444,34 @@ def run_self_play(game_class,
         for shm in shms:
             shm.unlink()
 
+    with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
+        games_played = int(file["game_stats"][2])
+    if games_played < train_config["games_per_generation"]:
+        warn(f"Generation ended {train_config['games_per_generation'] - games_played} games short. "
+             f"Re-running this generation will top it up.")
+
 
 if __name__ == "__main__":
-    from diskcache import Cache
     import os
     import shutil
     import time
 
     # os.environ["NUMBA_CACHE_DIR"] = "numba_cache/"
     # Testing code for validation
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from Gomoku.game import Gomoku
+    # from Gomoku.config import build_config, train_config
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config, train_config
     from Game_Tester import Game_Tester
 
     folder_path = "TicTacToe/Grok_Zero_Train/0"
-    cache = Cache(folder_path + "/Cache")
-    cache.close()
     # Game_Tester(TicTacToe).test()
 
     if os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         os.remove(f"{folder_path}/Self_Play_Data.h5")
 
     if os.path.exists(f"{folder_path}/Cache"):
-        shutil.rmtree(f"{folder_path}/Cache")
+        shutil.rmtree(f"{folder_path}/Cache")  # stale folder from the old disk cache
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "w", libver="latest") as file:
         # file.create_dataset(f"max_actions", maxshape=(1,), dtype=np.uint32, data=np.zeros(1,))

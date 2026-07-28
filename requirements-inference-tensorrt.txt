@@ -1,0 +1,28 @@
+# Inference only on TensorRT / CUDA. NVIDIA GPU required. Windows or linux / WSL.
+# Gives TensorrtExecutionProvider AND CUDAExecutionProvider.
+# No tensorflow, so this consumes an existing model.onnx rather than producing one.
+#
+# Best option for larger models: on gomoku, TensorRT fp16 is ~3x DirectML at
+# batch 32 and fp16 buys 2.4x over fp32. On connect4 the model is too small to
+# benefit and DirectML wins below batch ~28.
+#
+# DO NOT pass --only-binary=:all: with this file. tensorrt-cu12 is an sdist stub
+# that pulls the real tensorrt_cu12_libs / tensorrt_cu12_bindings wheels, so
+# that flag makes it fail with "no matching distribution".
+#
+#   pip install -r requirements-inference-tensorrt.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+tqdm == 4.70.0
+
+# self play writes its dataset with h5py, drop it if you only run play.py
+h5py == 3.16.0
+
+# only needed by <game>/play.py
+pygame == 2.6.1
+
+# ORT 1.22 pairs with TensorRT 10.9 - keep these two in step if you bump either.
+# The [cuda,cudnn] extras ship the nvidia runtimes, no CUDA Toolkit install needed.
+onnxruntime-gpu[cuda,cudnn] == 1.22.0
+tensorrt-cu12 == 10.9.0.34

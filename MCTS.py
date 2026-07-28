@@ -42,8 +42,11 @@ class Node:
         self.children: list[Node] = []  # a list of node objects which are the children aka resulting future actions
 
         self.child_legal_actions = child_legal_actions  # a list of actions, [action1, action2, ...], will be deleted when completely popped
-        self.child_visits = np.zeros(len(child_legal_actions),dtype=np.uint32)  # not sure if float32 or uint32 would be better for speed
-        self.child_values = np.zeros(len(child_legal_actions), dtype=np.float32)
+        # python lists, not numpy arrays: back propagation does ~20 scalar
+        # increments per simulation and numpy scalar += costs ~30x a list.
+        # _PUCT_select converts to arrays for the jitted PUCT kernel.
+        self.child_visits = [0] * len(child_legal_actions)
+        self.child_values = [0.0] * len(child_legal_actions)
         self.child_prob_priors = child_prob_priors
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
@@ -101,6 +104,7 @@ class MCTS:
         self.session = session
         self.cache_session = isinstance(self.session, Cache_Wrapper)
         self.fast_find_win = fast_find_win
+        self._in_buf = None  # reused inference input buffer, see _fill_buf
 
         self.use_njit = use_njit if use_njit is not None else hasattr(os, "fork")
         self.c_puct_init = c_puct_init  # determined experimentally
@@ -198,7 +202,7 @@ class MCTS:
         while True:
 
             if node.children and node.children[0].is_terminal is not None:  # terminal parent
-                if np.sum(node.child_values) > 0:
+                if sum(node.child_values) > 0:
                     # meaning we have winning moves, if it was 0 then all the moves were a draw
                     terminal_nodes = [terminal_child for terminal_child in node.children if
                                       terminal_child.is_terminal != 0]
@@ -209,8 +213,8 @@ class MCTS:
 
             # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
-                                                         node.child_values,
-                                                         node.child_visits,
+                                                         np.asarray(node.child_values, dtype=np.float32),
+                                                         np.asarray(node.child_visits, dtype=np.uint32),
                                                          parent_visits,
                                                          self.c_puct_init,
                                                          self.c_puct_base)
@@ -225,7 +229,7 @@ class MCTS:
         if self.session is not None:
             kwargs = {
                 "output_names": ["policy", "value"],
-                "input_feed": {"inputs": np.expand_dims(inputs.astype(dtype=np.float32, copy=False), 0)}
+                "input_feed": {"inputs": self._fill_buf(inputs)}
             }
             if self.cache_session:
                 kwargs["depth"] = depth
@@ -233,6 +237,15 @@ class MCTS:
             policy, value = self.session.run(**kwargs)
             return policy[0].astype(np.float32, copy=False), value[0][0]
         return self._get_dummy_outputs(inputs)
+
+    def _fill_buf(self, inputs):
+        # np.expand_dims allocates on every call. reusing one buffer is safe because
+        # every consumer copies before returning: onnxruntime copies into the session,
+        # Parallelized_Session into shared memory, Cache_Wrapper keys on .tobytes()
+        if self._in_buf is None or self._in_buf.shape[1:] != inputs.shape:
+            self._in_buf = np.empty((1, *inputs.shape), dtype=np.float32)
+        self._in_buf[0] = inputs
+        return self._in_buf
 
     def _get_dummy_outputs(self, input_state):
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0
@@ -301,10 +314,11 @@ class MCTS:
                                                          -self.game.get_next_player(),
                                                          action_history)
         if self.game.action_history:
-            repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
-            repeated_action_history[:] = action_history
-            future_action_histories = np.concatenate((repeated_action_history,
-                                                      np.expand_dims(legal_actions, 1)), axis=1)
+            future_action_histories = np.empty(
+                (len(legal_actions), action_history.shape[0] + 1),
+                dtype=action_history.dtype)
+            future_action_histories[:, :-1] = action_history
+            future_action_histories[:, -1] = legal_actions
         else:
             future_action_histories = np.expand_dims(legal_actions, 1)
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
@@ -354,7 +368,8 @@ class MCTS:
                                                                                       -self.game.get_next_player(),
                                                                                       np.array(self.game.action_history),
                                                                                       # dtype is automatically inferred
-                                                                                      child_policy)
+                                                                                      child_policy,
+                                                                          True, False)  # pass numba defaults, omitting them is 27x slower
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
 
@@ -399,10 +414,9 @@ class MCTS:
         node.children.append(terminal_parent)
         del terminal_parent.child_legal_actions
 
-        terminal_parent.child_values = terminal_mask  # 0 for draws and 1 for wins, thus perfect for child_values
+        terminal_parent.child_values = [float(v) for v in terminal_mask]  # 0 for draws and 1 for wins, thus perfect for child_values
 
-        terminal_parent.child_visits = np.ones(len(terminal_mask),
-                                               dtype=np.uint32)  # formality so that we don't get division by 0 when calcing stats
+        terminal_parent.child_visits = [1] * len(terminal_mask)  # formality so that we don't get division by 0 when calcing stats
 
         for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
@@ -451,10 +465,11 @@ class MCTS:
                                                          -node.current_player,
                                                          action_history)
 
-        repeated_action_history = np.zeros((len(legal_actions), *action_history.shape,), dtype=action_history.dtype)
-        repeated_action_history[:] = action_history
-        future_action_histories = np.concatenate((repeated_action_history,
-                                                  np.expand_dims(legal_actions, 1)), axis=1)
+        future_action_histories = np.empty(
+            (len(legal_actions), action_history.shape[0] + 1),
+            dtype=action_history.dtype)
+        future_action_histories[:, :-1] = action_history
+        future_action_histories[:, -1] = legal_actions
 
         terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
                                                                     self.game.check_win_MCTS,
@@ -484,7 +499,8 @@ class MCTS:
             child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board,
                                                                                             -node.current_player,
                                                                                             action_history,
-                                                                                            child_policy)
+                                                                                            child_policy,
+                                                                          True, False)  # pass numba defaults, omitting them is 27x slower
 
             # if self.use_dirichlet:
             #     child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
@@ -519,6 +535,10 @@ class MCTS:
         return child, -child_value, 1  # contact Brian if you don't understand why it is -value
 
     def _back_propagate(self, node: Node, value: float, visits=1) -> None:
+        # must stay python scalars. a numpy float entering the list turns every
+        # later += back into a numpy op, which is the whole cost we just removed
+        value = float(value)
+        visits = int(visits)
         # note that the node class is the child returned by expand or selection method
         while node.parent is not None:
             # stats are stored in parent
@@ -599,8 +619,8 @@ class MCTS:
         move_probs = [0] * len(self.root.children)  # this speeds things up by a bit, compared to append
 
         for child_id, (child, prob, winrate, value, visits, prob_prior) in enumerate(zip(self.root.children,
-                                                                                         self.root.child_visits / np.sum(self.root.child_visits),
-                                                                                         self.root.child_values / self.root.child_visits, # winrate
+                                                                                         np.asarray(self.root.child_visits, dtype=np.float64) / sum(self.root.child_visits),
+                                                                                         np.asarray(self.root.child_values, dtype=np.float64) / np.maximum(np.asarray(self.root.child_visits, dtype=np.float64), 1.0), # winrate
                                                                                          self.root.child_values,
                                                                                          self.root.child_visits,
                                                                                          self.root.child_prob_priors)):
@@ -608,11 +628,11 @@ class MCTS:
                                     self.root.visits, child.is_terminal]
 
         if self.tau == 0.0:
-            prob_weights = np.zeros_like(self.root.child_visits)
+            prob_weights = np.zeros(len(self.root.child_visits), dtype=np.float64)
             prob_weights[np.argmax(self.root.child_visits)] = 1.0
         else:
             exp = np.array(1.0 / self.tau, dtype=np.float64)
-            prob_weights = ((self.root.child_visits.astype(np.float64) ** exp) / (
+            prob_weights = ((np.asarray(self.root.child_visits, dtype=np.float64) ** exp) / (
                     np.array(self.root.visits, np.float64) ** exp))
             prob_weights /= np.sum(prob_weights)  # normalize back into a probability distribution
             prob_weights = np.array(prob_weights, np.float64)
@@ -690,10 +710,12 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    # from Gomoku.Gomoku import Gomoku, build_config, train_config
+    # from Gomoku.game import Gomoku
+    # from Gomoku.config import build_config, train_config
 
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
-    from Connect4.Connect4 import  Connect4
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config, train_config
+    from Connect4.game import Connect4
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
     game = Connect4()

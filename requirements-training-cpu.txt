@@ -1,10 +1,18 @@
-numpy == 2.0.2
+# Training on CPU. Works on windows and linux.
+# Slowest option, but there is no GPU stack to get wrong.
+#
+#   pip install -r requirements-training-cpu.txt
+
+numpy == 1.26.4
 numba == 0.61.0
-h5py == 3.12.1
-tqdm == 4.66.5
-diskcache == 5.6.3
+h5py == 3.16.0
+tqdm == 4.70.0
+
+# model building, training and onnx export
 tensorflow == 2.18.0
-tf2onnx == 1.16.1
+tf2onnx == 1.17.0
 onnx == 1.17.0
-onnxoptimizer == 0.3.13
-onnxruntime == 1.20.1
+onnxoptimizer == 0.4.2
+
+# self play inference
+onnxruntime == 1.22.0

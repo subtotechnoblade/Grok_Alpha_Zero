@@ -8,7 +8,7 @@ import onnxruntime as rt
 from MCTS_Gumbel import MCTS_Gumbel
 from MCTS import MCTS
 
-from Gomoku import Gomoku
+from Gomoku.game import Gomoku
 
 pygame.init()
 

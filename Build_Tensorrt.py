@@ -12,6 +12,9 @@ def cache_tensorrt(game_class,
                    folder_path,
                    warmup_iterations=100):
     import onnxruntime as rt
+    from Client_Server import preload_gpu_dlls
+    preload_gpu_dlls()  # windows: without this the TensorRT provider DLL fails to
+    # load, the engine is never written, and self play then dies looking for it
     # uses the generation number to build the generation cache
     build_config, train_config, optimizer_config = configs
 
@@ -35,6 +38,9 @@ def cache_tensorrt(game_class,
         }),
         'CUDAExecutionProvider',
         'CPUExecutionProvider']
+    if train_config.get("trt_fp16",
+                        build_config.get("mixed_precision") == "mixed_float16"):
+        providers[0][1]["trt_fp16_enable"] = True
 
     print("Building and caching tensorrt engine!")
 

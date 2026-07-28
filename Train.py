@@ -13,9 +13,14 @@ from Net.Optimizers.ortho_grad import Orthograd
 from Net.Optimizers.grok_fast import Grokfast_EMA
 
 
-def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict]):
+def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict],
+          run_dir="Grok_Zero_Train"):
     build_config, train_config, optimizer_config = configs
     # assume that save_folder path is Grok_Zero_Train/current_generation + 1
+    # run_dir is where tmp_best lives. pipeline.py passes the absolute
+    # <repo>/<game>/Grok_Zero_Train so the scratch weights land next to the run
+    # instead of wherever the process happened to be launched from
+    tmp_best = f"{run_dir}/tmp_best.weights.h5"
     accum_steps = optimizer_config.get("gradient_accumulation_steps")
     if accum_steps is not None and accum_steps >= 2:
         learning_rate /= accum_steps  # this is to counter the gradients being scaled by accum_steps thus we divide
@@ -49,7 +54,7 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                   metrics={"policy": kld})
 
     save_best_model = tf.keras.callbacks.ModelCheckpoint(
-        filepath='Grok_Zero_Train/tmp_best.weights.h5',  # Save path (e.g., .keras, .h5, or directory)
+        filepath=tmp_best,  # Save path (e.g., .keras, .h5, or directory)
         monitor='val_loss',  # Monitor validation loss
         save_best_only=True,  # Save ONLY the best model
         save_weights_only=True,
@@ -62,8 +67,8 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
               epochs=optimizer_config["train_epochs"],
               callbacks=[save_best_model])
 
-    model.load_weights("Grok_Zero_Train/tmp_best.weights.h5")
-    os.remove("Grok_Zero_Train/tmp_best.weights.h5")
+    model.load_weights(tmp_best)
+    os.remove(tmp_best)
     return model
 
 
@@ -73,7 +78,8 @@ if __name__ == "__main__":
     folder_path = "TicTacToe/Grok_Zero_Train/1"
 
     from TicTacToe.Build_Model import build_model
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config, train_config
 
     # game = Gomoku()
     game = TicTacToe()

@@ -119,7 +119,6 @@ def Train_NN(game_class, build_model_fn, build_config, train_config, generation,
                                                        num_previous_generations=train_config["num_previous_generations"],
                                                        train_batch_size=train_config["train_batch_size"],
                                                        test_batch_size=train_config["test_batch_size"],
-                                                       target_ratio=train_config["target_ratio"],
                                                        train_percent=train_config["train_percent"],
                                                        train_decay=train_config["train_decay"],
                                                        test_percent=train_config["test_percent"],
@@ -343,7 +342,11 @@ def Run(game_class, build_model_fn, build_config, train_config):
 
 
 if __name__ == "__main__":
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # TicTacToe is still on the old config schema (optimizer settings inline in
+    # train_config, no optimizer_config / lr_schedule), so it cannot use pipeline.py yet
+    # and keeps this legacy entry point. Its output still goes to <cwd>/Grok_Zero_Train.
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config, train_config
     from Build_Model import build_model
 
     Run(TicTacToe, build_model, build_config, train_config)

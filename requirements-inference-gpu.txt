@@ -1,0 +1,21 @@
+# Inference only on CUDA. NVIDIA GPU required. Windows or linux / WSL.
+# Gives CUDAExecutionProvider without the TensorRT engine build step, so session
+# startup is ~1s instead of ~45-120s. Use requirements-inference-tensorrt.txt if
+# you want TensorRT as well.
+#
+# No tensorflow, so this consumes an existing model.onnx rather than producing one.
+#
+#   pip install -r requirements-inference-gpu.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+tqdm == 4.70.0
+
+# self play writes its dataset with h5py, drop it if you only run play.py
+h5py == 3.16.0
+
+# only needed by <game>/play.py
+pygame == 2.6.1
+
+# the [cuda,cudnn] extras ship the nvidia runtimes, no CUDA Toolkit install needed
+onnxruntime-gpu[cuda,cudnn] == 1.22.0

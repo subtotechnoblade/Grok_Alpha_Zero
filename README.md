@@ -92,24 +92,71 @@ cd Grok_Alpha_Zero
 ```
 
 ### Install dependencies:
-For GPU training:
+Pick the file matching what you want to do and what hardware you have. Install
+exactly one — `onnxruntime`, `onnxruntime-gpu` and `onnxruntime-directml` all ship
+the same `onnxruntime` python package and overwrite each other.
+
+**Training** (builds, trains and exports models — includes TensorFlow):
+
+| file | requires | notes |
+| --- | --- | --- |
+| `requirements-training-tensorrt.txt` | NVIDIA GPU | TensorRT + CUDA. Best for larger models (gomoku). |
+| `requirements-training-directml.txt` | any DX12 GPU, **windows** | Best for small models (connect4). Works on AMD/Intel too. |
+| `requirements-training-cpu.txt` | nothing | Slowest, but nothing to misconfigure. |
+
+**Inference only** (play, self play, benchmarks — no TensorFlow, consumes an
+existing `model.onnx`):
+
+| file | requires |
+| --- | --- |
+| `requirements-inference-tensorrt.txt` | NVIDIA GPU |
+| `requirements-inference-gpu.txt` | NVIDIA GPU, CUDA only (no engine build wait) |
+| `requirements-inference-directml.txt` | any DX12 GPU, **windows** |
+| `requirements-inference-cpu.txt` | nothing |
+
 ```bash
-pip install -r requirements-training-gpu.txt
+pip install -r requirements-training-directml.txt
 ```
 
-For CPU training:
-```bash
-pip install -r requirements-training-cpu.txt
-```
+Note: TensorFlow 2.10 was the last release with native Windows GPU support, so on
+Windows **training runs on CPU** regardless of which file you pick. Only self play
+inference is GPU accelerated there. Use WSL if you want GPU training.
+
+The TensorRT files must **not** be installed with `--only-binary=:all:` —
+`tensorrt-cu12` is an sdist stub that fetches the real wheels.
 
 ### Train Alpha Zero for Connect4
+Run from the repository root, not from inside the game folder:
 ```bash
-cd Connect4
-python main.py
+python pipeline.py --game Connect4
+```
+```bash
+python pipeline.py --game Gomoku
 ```
 
+Running from the root puts it on `sys.path`, so the shared modules (`MCTS`,
+`Self_Play`, ...) and the game packages (`Connect4.game`, ...) each resolve under
+exactly one name. Output for a run goes to `<game>/Grok_Zero_Train/`.
+
+Each game folder holds everything for that game:
+
+| file | holds |
+| --- | --- |
+| `game.py` | rules and the `@njit` kernels |
+| `config.py` | hyperparameters, edited freely without recompiling `game.py` |
+| `Build_Model.py` | network definition |
+| `play.py` | pygame front end |
+| `Grok_Zero_Train/` | that game's training output |
+
+TicTacToe is still on the older config schema and keeps its own `TicTacToe/main.py`
+until its config is migrated.
+
 ## Issues
-- numba unable to find the correct cache key. Solution: Delete pycache and restart training. A fix will be introduced later
+- ~~numba unable to find the correct cache key. Solution: Delete pycache and restart training.~~
+  Fixed. numba stamps its cache on the source file's mtime and size, so keeping the
+  configs in the same file as the jitted kernels meant every hyperparameter tweak threw
+  the cache away and each worker paid a ~5s recompile. `config.py` is a separate file
+  now, so editing it leaves `game.py` cached (measured 5.20s to 0.68s).
 
 
 ## References & Acknowledgements

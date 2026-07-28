@@ -58,7 +58,6 @@ train_config = {
     # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
     "num_previous_generations": 3,  # The previous generation's data that will be used in training
-    "target_ratio": 0.5, # the ratio of the first player wins to the second player wins in the dataset, (to counteract imbalance)
     "train_percent": 1.0,  # The percent used for training after the test set is taken
     "train_decay": 0.75,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
     "test_percent": 0.1,  # The percent of a dataset that will be used for validation

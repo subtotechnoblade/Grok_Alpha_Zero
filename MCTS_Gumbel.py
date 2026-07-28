@@ -737,9 +737,11 @@ if __name__ == "__main__":
 
     # from tqdm import tqdm
     # import multiprocessing as mp
-    from Gomoku.Gomoku import Gomoku, build_config, train_config
+    from Gomoku.game import Gomoku
+    from Gomoku.config import build_config, train_config
 
-    # from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    # from TicTacToe.game import TicTacToe
+    # from TicTacToe.config import build_config, train_config
 
     # from Client_Server import Parallelized_Session, start_server, create_shared_memory, convert_to_single_info
 

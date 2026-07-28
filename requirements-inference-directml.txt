@@ -1,0 +1,22 @@
+# Inference only on DirectML. WINDOWS ONLY, runs on any DX12 adapter.
+# No tensorflow, so this consumes an existing model.onnx rather than producing one.
+#
+# Fastest option we measured for connect4 sized models below batch ~28 - DirectML
+# has roughly half the per call latency of TensorRT there (366us vs 707us at
+# batch 1). For gomoku sized models use requirements-inference-tensorrt.txt.
+#
+#   pip install -r requirements-inference-directml.txt
+
+numpy == 1.26.4
+numba == 0.61.0
+tqdm == 4.70.0
+
+# self play writes its dataset with h5py, drop it if you only run play.py
+h5py == 3.16.0
+
+# only needed by <game>/play.py
+pygame == 2.6.1
+
+# NEVER install onnxruntime or onnxruntime-gpu alongside this. All three ship the
+# same `onnxruntime` python package and silently overwrite each other.
+onnxruntime-directml == 1.22.0
