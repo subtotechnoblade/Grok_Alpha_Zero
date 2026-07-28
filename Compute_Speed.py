@@ -11,6 +11,8 @@ def compute_speed(game_class,
               folder_path,
               iterations=2000):
     import onnxruntime as rt # must do this for windows
+    from Client_Server import preload_gpu_dlls
+    preload_gpu_dlls()  # else windows silently benchmarks CPU instead of the GPU
     build_config, train_config, optimizer_config = configs
 
     game = game_class()
@@ -37,6 +39,9 @@ def compute_speed(game_class,
                 }),
                 'CUDAExecutionProvider',
                 'CPUExecutionProvider']
+            if train_config.get("trt_fp16",
+                                build_config.get("mixed_precision") == "mixed_float16"):
+                providers[0][1]["trt_fp16_enable"] = True
         elif "CUDAExecutionProvider" in available_providers:
             providers = [
                 'CUDAExecutionProvider',
@@ -45,9 +50,10 @@ def compute_speed(game_class,
             providers = [
                 'DmlExecutionProvider',
                 'CPUExecutionProvider']
+        else:
+            raise RuntimeError("No GPU execution providers available")
     else:
         providers = ['CPUExecutionProvider']
-
 
     sess = rt.InferenceSession(onnx_file_path, providers=providers)
 
@@ -63,6 +69,7 @@ def compute_speed(game_class,
     print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s!")
 
 if __name__ == "__main__":
-    from TicTacToe.Tictactoe import TicTacToe, build_config, train_config
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config, train_config
 
     compute_speed(TicTacToe, build_config, train_config, "TicTacToe/Grok_Zero_Train/0")
