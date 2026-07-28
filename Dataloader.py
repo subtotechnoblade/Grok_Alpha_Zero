@@ -9,31 +9,46 @@ from tqdm import tqdm
 
 import tensorflow as tf
 
-# def normalize_value(states, values):
-#     # states is a list of arrays, so are values
-#     all_states = np.ascontiguousarray(np.concatenate(states))
-#     all_values = np.ascontiguousarray(np.concatenate(values))
-#
-#     b = all_states.shape[0]
-#     bytes_per_board = all_states[0].nbytes
-#     flat_bytes = all_states.view(np.uint8).reshape(b, bytes_per_board)
-#
-#     table = dict()
-#     for i in range(all_states.shape[0]):
-#         hash_id = flat_bytes[i].tobytes()
-#         if table.get(hash_id) is None:
-#             table[hash_id] = [all_values[i], 1]
-#         else:
-#             table[hash_id][0] += all_values[i]
-#             table[hash_id][1] += 1
-#     for key, (_, count) in table.items():
-#         if count > 1:
-#             table[key][0] /= count
-#
-#     for sub_states in states:
-#         for state in sub_states:
-#
-#     return table
+def dedup_average(states, policies, values):
+    """Merge byte-identical states into ONE sample whose targets are the
+    occurrence-weighted mean of the originals.
+
+    Why (measured on connect4, see tmp/dup_audit.py): ~66% of a generation's
+    samples are exact copies of another sample, and the value labels of those
+    copies disagree wildly for positions the search cannot read to the end
+    (std ~0.4 on a target in [-1, 1] for the first ~15 plies). MSE-SGD would
+    converge to the group mean anyway - handing it the mean directly removes
+    the label noise, and collapsing the copies removes the 400:1 loss-weight
+    imbalance between opening and midgame states.
+
+    Call this per split side AFTER the game-id split (never across it), on the
+    POOLED window of generations: a state that repeats across generations gets
+    one vote per surviving occurrence, so the train_percent recency ramp is
+    preserved inside each averaged target. Deduping per generation instead
+    would re-weight old generations' opinions up to equal votes - don't.
+    """
+    if len(states) == 0:
+        return list(states), list(policies), list(values)
+
+    states = np.asarray(states)
+    policies = np.asarray(policies, dtype=np.float64)  # float64: groups reach 100s of members
+    values = np.asarray(values, dtype=np.float64).reshape(len(states), -1)
+
+    flat = states.reshape(len(states), -1)
+    uniq, inverse, counts = np.unique(flat, axis=0, return_inverse=True, return_counts=True)
+
+    policy_means = np.zeros((len(uniq), policies.shape[1]))
+    value_means = np.zeros((len(uniq), values.shape[1]))
+    np.add.at(policy_means, inverse, policies)
+    np.add.at(value_means, inverse, values)
+    policy_means /= counts[:, None]
+    value_means /= counts[:, None]
+    # a mean of normalized distributions is still normalized, no renorm needed
+
+    # return lists of per-sample arrays, exactly the shape split() accumulates
+    return (list(uniq.reshape(-1, *states.shape[1:])),
+            list(policy_means.astype(np.float32)),
+            list(value_means.astype(np.float32)))
 
 
 
@@ -41,11 +56,11 @@ class Create_Train_Test_Split:
     def __init__(self,
                  parent_path,
                  num_previous_generations,
-                 target_ratio=0.5,
                  train_percent=1.0,
                  train_decay=0.95,
                  test_percent=0.1,
-                 test_decay=0.95):
+                 test_decay=0.95,
+                 dedup_average=False):
         self.parent_path = parent_path
         np.random.seed()
 
@@ -58,12 +73,11 @@ class Create_Train_Test_Split:
             self.files = self.files[1:]
         self.files = self.files[::-1] # reverse it for iteration
 
-        self.target_ratio = target_ratio
-
         self.train_percent = train_percent
         self.train_decay = train_decay
         self.test_percent = test_percent
         self.test_decay = test_decay
+        self.dedup_average = dedup_average
 
 
     def split(self):
@@ -76,12 +90,10 @@ class Create_Train_Test_Split:
 
         total_games = 0
 
-        first_player_wins = 0
-        second_player_wins = 0
-
         for file_path in self.files:
             with h5.File(file_path, mode="r") as file:
-                generation = file_path.split("/")[-2]
+                generation = Path(file_path).parent.name  # separator agnostic, os.path.join
+                # gives backslashes on windows and split("/") silently returned the whole path
 
                 # Self_Play writes one game as `augmentations` CONSECUTIVE dataset triples,
                 # so dataset_id = game_id * augmentations + k (2 per game for connect4,
@@ -113,22 +125,6 @@ class Create_Train_Test_Split:
                         continue  # dropped by train_percent / test_percent for this generation
 
                     first_dataset_id = game_id * augmentations
-                    first_player_winner = len(file[f"values_{first_dataset_id}"]) % 2 == 1 # if the winner is the first player
-
-                    if self.target_ratio is not None:
-                        if first_player_wins + second_player_wins == 0:
-                            current_ratio = 0.0
-                        else:
-                            current_ratio = first_player_wins / (first_player_wins + second_player_wins)
-
-                        if first_player_winner:
-                            if current_ratio -0.02  > self.target_ratio:
-                                continue
-                            first_player_wins += 1
-                        else:
-                            if current_ratio + 0.02 < self.target_ratio:
-                                continue
-                            second_player_wins += 1
 
                     if is_test:
                         states, policies, values = self.test_states, self.test_policies, self.test_values
@@ -149,6 +145,16 @@ class Create_Train_Test_Split:
 
             train_percent = max(train_percent, 0.0)
             test_percent = max(test_percent, 0.0)
+
+        if self.dedup_average:
+            num_train, num_test = len(self.train_states), len(self.test_states)
+            self.train_states, self.train_policies, self.train_values = dedup_average(
+                self.train_states, self.train_policies, self.train_values)
+            self.test_states, self.test_policies, self.test_values = dedup_average(
+                self.test_states, self.test_policies, self.test_values)
+            removed = 1.0 - len(self.train_states) / max(1, num_train)
+            print(f"Dedup: train {num_train} -> {len(self.train_states)} ({removed * 100:.1f}% removed), "
+                  f"test {num_test} -> {len(self.test_states)}")
 
         print("-" * 40)
         # print(f"Total Games: {total_games}")
@@ -205,19 +211,19 @@ def Create_Dataset(folder_path,
                    num_previous_generations,
                    train_batch_size,
                    test_batch_size=None,
-                   target_ratio=0.5,
                    train_percent=1.0,
                    train_decay=0.75,
                    test_percent=0.1,
-                   test_decay=0.75):
+                   test_decay=0.75,
+                   dedup_average=False):
     (train_states, train_policies, train_values), (test_states, test_policies, test_values) = Create_Train_Test_Split(
         folder_path,
         num_previous_generations,
-        target_ratio,
         train_percent,
         train_decay,
         test_percent,
-        test_decay).split()
+        test_decay,
+        dedup_average=dedup_average).split()
 
     train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size)
     test_dataloader = Dataloader(test_states, test_policies, test_values, train_batch_size if test_batch_size is None else test_batch_size)
@@ -228,9 +234,6 @@ if __name__ == "__main__":
     parent_path = "Gomoku/Grok_Zero_Train"
     split = Create_Train_Test_Split(parent_path, 3)
     (train_state, train_policies, train_values), (test_states, test_policies, test_values) = split.split()
-    # s = time.time()
-    # normalize_value([train_state, test_states], [train_values, test_values])
-    # print(time.time() - s)
 
     # board1 = np.zeros((6, 7), dtype=np.uint64)
     # board2 = np.zeros((6, 7), dtype=np.uint64)
