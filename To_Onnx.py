@@ -20,9 +20,11 @@ if __name__ == "__main__":
     import time
     import numpy as np
     from Gomoku.Build_Model import build_model, build_model_infer
-    # from Gomoku.Gomoku import Gomoku, build_config
+    # from Gomoku.game import Gomoku
+    # from Gomoku.config import build_config
 
-    from TicTacToe.Tictactoe import TicTacToe, build_config
+    from TicTacToe.game import TicTacToe
+    from TicTacToe.config import build_config
 
     # Test and validation code for gomoku
 

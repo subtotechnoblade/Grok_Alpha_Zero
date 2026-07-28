@@ -8,7 +8,7 @@ from Client_Server import Parallelized_Session, start_server, create_shared_memo
 
 
 if __name__ == "__main__":
-    from Gomoku.Gomoku import build_config, train_config
+    from Gomoku.config import build_config, train_config
     embed_size, num_heads, num_layers = build_config["embed_size"],  build_config["num_heads"], build_config["num_layers"]
     max_shape, opt_shape = 12, 12
     providers = [

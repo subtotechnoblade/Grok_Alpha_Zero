@@ -88,7 +88,8 @@ def build_model(input_shape, policy_shape, configs):
     return tf.keras.Model(inputs=inputs, outputs=[policy, value])
 
 if __name__ == "__main__":
-    from Gomoku import Gomoku, build_config, train_config, optimizer_config
+    from Gomoku.game import Gomoku
+    from Gomoku.config import build_config, train_config, optimizer_config
     game = Gomoku()
     model = build_model(game.get_input_state().shape, game.policy_shape, (build_config, train_config, optimizer_config))
     model.summary()
