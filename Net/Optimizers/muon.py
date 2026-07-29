@@ -164,7 +164,18 @@ class Muon(optimizer.Optimizer):
         d_in = 1.0
         for dim in grad_shape[:-1]:
             d_in *= float(dim)
-        scaling_factor = 0.2 * max(1.0, d_out / d_in) ** 0.5
+        # Moonshot/Moonlight scaling: 0.2 * sqrt(max(d_out, d_in)) makes the update's
+        # per-element RMS ~0.2 for EVERY layer shape, matching AdamW's typical update
+        # RMS - so the muon-routed matrices and the AdamW-routed exclude_layers share
+        # one honestly-scaled learning rate, and AdamW-like lrs (~1e-3) transfer.
+        # The previous rule, 0.2 * sqrt(max(1, d_out/d_in)), was Keller's aspect-ratio
+        # factor times 0.2: per-element step 0.2*lr/sqrt(d_in), which at lr 3e-3 moved
+        # the 576-fan-in trunk convs ~100x slower per element than the AdamW heads -
+        # the trunk was near-frozen while the readouts did the fitting (corroborated:
+        # a 6x trunk-step change from the reshape bug did not move val loss).
+        # NOTE this multiplies the trunk step ~24x at fixed lr: every lr tuned before
+        # this line changed is invalid, retune (basin expected near adam-like 1e-3).
+        scaling_factor = 0.2 * max(d_out, d_in) ** 0.5
         update *= scaling_factor
 
         if is_reshaped:
