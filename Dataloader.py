@@ -26,9 +26,20 @@ def dedup_average(states, policies, values):
     one vote per surviving occurrence, so the train_percent recency ramp is
     preserved inside each averaged target. Deduping per generation instead
     would re-weight old generations' opinions up to equal votes - don't.
+
+    Also returns the occurrence COUNT per unique state, to be used as the
+    training sample weight. In plain SGD frequency IS the loss weight, and for
+    losses linear in the target (crossentropy, MSE) the gradient of one sample
+    at the mean target with weight n is IDENTICAL to the summed gradient of the
+    n originals - so dedup + mean + count-weight keeps the noise reduction with
+    zero distribution distortion. Dropping the count (as this first did) turned
+    the empty board from 2.8% of the training mass into one sample of 0.0027%,
+    a ~1000x deweight: measured across gens, the net's root argmax NEVER matched
+    its own root target (agreement 0.000) - the opening prior handed to the
+    search each generation was simply unfitted.
     """
     if len(states) == 0:
-        return list(states), list(policies), list(values)
+        return list(states), list(policies), list(values), np.ones(0, dtype=np.float32)
 
     states = np.asarray(states)
     policies = np.asarray(policies, dtype=np.float64)  # float64: groups reach 100s of members
@@ -48,7 +59,8 @@ def dedup_average(states, policies, values):
     # return lists of per-sample arrays, exactly the shape split() accumulates
     return (list(uniq.reshape(-1, *states.shape[1:])),
             list(policy_means.astype(np.float32)),
-            list(value_means.astype(np.float32)))
+            list(value_means.astype(np.float32)),
+            counts.astype(np.float32))
 
 
 
@@ -148,29 +160,48 @@ class Create_Train_Test_Split:
 
         if self.dedup_average:
             num_train, num_test = len(self.train_states), len(self.test_states)
-            self.train_states, self.train_policies, self.train_values = dedup_average(
+            self.train_states, self.train_policies, self.train_values, train_counts = dedup_average(
                 self.train_states, self.train_policies, self.train_values)
-            self.test_states, self.test_policies, self.test_values = dedup_average(
+            self.test_states, self.test_policies, self.test_values, test_counts = dedup_average(
                 self.test_states, self.test_policies, self.test_values)
+
+            # sample weight = occurrence count, normalized to MEAN 1.0 per split side so
+            # the effective learning rate stays where it was tuned. Normalizing per side
+            # keeps train and val on the same objective, so ModelCheckpoint(val_loss)
+            # still compares like with like
+            self.train_weights = train_counts * (len(train_counts) / max(1.0, train_counts.sum()))
+            self.test_weights = test_counts * (len(test_counts) / max(1.0, test_counts.sum()))
+
             removed = 1.0 - len(self.train_states) / max(1, num_train)
             print(f"Dedup: train {num_train} -> {len(self.train_states)} ({removed * 100:.1f}% removed), "
                   f"test {num_test} -> {len(self.test_states)}")
+            if len(self.train_weights):
+                print(f"Sample weights: mean 1.0, max {self.train_weights.max():.1f} "
+                      f"(the most repeated position pulls {self.train_weights.max():.0f}x a unique one)")
+        else:
+            # no dedup -> every stored sample already carries its own frequency
+            self.train_weights = np.ones(len(self.train_states), dtype=np.float32)
+            self.test_weights = np.ones(len(self.test_states), dtype=np.float32)
 
         print("-" * 40)
         # print(f"Total Games: {total_games}")
         print(f"Train stats: Total states {len(self.train_values)}")
         print(f"Test stats: Total states {len(self.test_values)}")
         print("-" * 40)
-        return (self.train_states, self.train_policies, self.train_values), (self.test_states, self.test_policies, self.test_values)
+        return ((self.train_states, self.train_policies, self.train_values, self.train_weights),
+                (self.test_states, self.test_policies, self.test_values, self.test_weights))
 
 
 class Dataloader(tf.keras.utils.PyDataset):
-    def __init__(self, states, policies, values, batch_size, *args, **kwargs):
+    def __init__(self, states, policies, values, batch_size, weights=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         np.random.seed()
         self.states = states
         self.policies = policies
         self.values = values
+        # per-sample loss weights (occurrence counts after dedup). None -> uniform
+        self.weights = (np.asarray(weights, dtype=np.float32) if weights is not None
+                        else np.ones(len(states), dtype=np.float32))
 
         self.batch_size = batch_size
         self.num_samples = len(states)
@@ -205,7 +236,11 @@ class Dataloader(tf.keras.utils.PyDataset):
             states[i] = self.states[batched_index]
             policies[i] = self.policies[batched_index]
             values[i] = self.values[batched_index]
-        return states, (policies, values)
+        weights = self.weights[batched_indexes]
+        # (inputs, targets, sample_weights) - keras applies the weights inside the
+        # compiled loss wrapper, the custom Loss classes need no change. The weight
+        # structure mirrors the target structure: same weights for both heads
+        return states, (policies, values), (weights, weights)
 
 def Create_Dataset(folder_path,
                    num_previous_generations,
@@ -216,7 +251,8 @@ def Create_Dataset(folder_path,
                    test_percent=0.1,
                    test_decay=0.75,
                    dedup_average=False):
-    (train_states, train_policies, train_values), (test_states, test_policies, test_values) = Create_Train_Test_Split(
+    ((train_states, train_policies, train_values, train_weights),
+     (test_states, test_policies, test_values, test_weights)) = Create_Train_Test_Split(
         folder_path,
         num_previous_generations,
         train_percent,
@@ -225,15 +261,19 @@ def Create_Dataset(folder_path,
         test_decay,
         dedup_average=dedup_average).split()
 
-    train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size)
-    test_dataloader = Dataloader(test_states, test_policies, test_values, train_batch_size if test_batch_size is None else test_batch_size)
+    train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size,
+                                  weights=train_weights)
+    test_dataloader = Dataloader(test_states, test_policies, test_values,
+                                 train_batch_size if test_batch_size is None else test_batch_size,
+                                 weights=test_weights)
     return train_dataloader, test_dataloader
 
 if __name__ == "__main__":
     import time
     parent_path = "Gomoku/Grok_Zero_Train"
     split = Create_Train_Test_Split(parent_path, 3)
-    (train_state, train_policies, train_values), (test_states, test_policies, test_values) = split.split()
+    ((train_state, train_policies, train_values, train_weights),
+     (test_states, test_policies, test_values, test_weights)) = split.split()
 
     # board1 = np.zeros((6, 7), dtype=np.uint64)
     # board2 = np.zeros((6, 7), dtype=np.uint64)

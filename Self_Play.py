@@ -84,7 +84,11 @@ class Self_Play:
                 if current_move_num % 2 == 0:
                     explore = current_move_num // 2 < self.train_config["num_explore_actions_first"]
                 else:
-                    explore = (current_move_num + 1) // 2 < self.train_config["num_explore_actions_second"]
+                    # player +1 moves at plies 1,3,5,...: its k-th move is ply 2k-1, so the
+                    # move index is (ply-1)//2. The old (ply+1)//2 was an off-by-one that
+                    # gave player +1 only 2 exploratory plies out of the configured 3 -
+                    # and tau sampling is nearly the only entropy source in self play
+                    explore = (current_move_num - 1) // 2 < self.train_config["num_explore_actions_second"]
                 self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
                 action, action_probs = self.mcts.run(
@@ -139,8 +143,13 @@ class Self_Play:
                     self.mcts_gumbel = self.create_MCTS_Gumbel()
 
             actions_count += 1
-            if actions_count == self.train_config["max_actions"]:
-                winner = 0 # simple cutoff in case the games get way too long
+            if actions_count == self.train_config["max_actions"] and winner == -2:
+                winner = 0 # simple cutoff in case the games get way too long.
+                # winner == -2 guard: check_win already ran this ply, and a game can be
+                # WON on the max_actions-th move. The unguarded version overwrote those
+                # wins to draws - 188 games across gens 0-9, all stolen from player +1
+                # (the mover on the final ply), zeroing their value targets and
+                # inflating every draw rate in game_stats
 
         board_states = np.array(board_states, dtype=self.game.board.dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
