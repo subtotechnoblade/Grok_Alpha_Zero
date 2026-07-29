@@ -7,6 +7,10 @@ from MCTS_Gumbel import MCTS_Gumbel
 
 
 class Game_Tester:
+    # check_win and check_win_MCTS run in ~1-2us, which is below the noise floor of a
+    # single measurement. Time this many calls and divide.
+    TIMING_REPEATS = 200
+
     def __init__(self, game_class):
         self.game_class = game_class
         if not isinstance(game_class, type):
@@ -14,7 +18,7 @@ class Game_Tester:
                 "Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
         try:
             self.game = self.game_class()
-        except:
+        except Exception:
             print("You cannot specify parameters in the game's __init__ constructor")
             print("All parameters should be a variable in __init__, nothing should be passed in")
             raise TypeError("Class initiation failed")
@@ -26,7 +30,7 @@ class Game_Tester:
         try:
             board = self.game.board
             print("Checking for a board attribute: Pass\n")
-        except:
+        except Exception:
             print("Checking for a board attribute: Fail")
             print("The game class doesn't have a board attribute\n")
             return False
@@ -47,7 +51,7 @@ class Game_Tester:
                 print("Starting next player isn't -1, recommend it to be -1")
                 print("This is just a warning, there can be unforeseen bugs. It is probably fine")
             print("Checking for a next_player attribute: Pass\n")
-        except:
+        except Exception:
             print("Checking for a next_player attribute: Fail")
             print("The game class doesn't have a next_player attribute")
             return False
@@ -59,7 +63,7 @@ class Game_Tester:
                 raise ValueError
 
             print("Checking for an action_history attribute: Pass\n")
-        except:
+        except Exception:
             print("Checking for an action_history attribute: Failed\n")
             return False
 
@@ -68,7 +72,7 @@ class Game_Tester:
             if len(policy_shape) != 1:
                 print("Make sure that policy shape is one number such as self.policy_shape = (9,)")
             print("Checking for a policy shape attribute: Pass\n")
-        except:
+        except Exception:
             print("Checking for a policy shape attribute: Failed\n")
             print("Game class has no attribute policy shape, please define an attribute called")
             return False
@@ -77,7 +81,7 @@ class Game_Tester:
     def check_legal_actions(self):
         try:
             legal_actions = self.game.get_legal_actions()
-        except:
+        except Exception:
             print("Check get_legal_actions: Fail\n")
             print("get_legal_actions isn't implemented correctly, check method name spelling if it is implemented")
             return False
@@ -105,7 +109,7 @@ class Game_Tester:
             MCTS_legal_actions = self.game.get_legal_actions_MCTS(self.game.board,
                                                                   -self.game.get_next_player(),
                                                                   np.array(self.game.action_history))
-        except:
+        except Exception:
             print("Check get_legal_actions_MCTS: Fail\n")
             print("get_legal_actions_MCTS isn't implemented correctly, check method name if it is implemented")
             return False
@@ -213,7 +217,7 @@ class Game_Tester:
     def check_get_input_state(self):
         try:
             NN_state = self.game.get_input_state()
-        except:
+        except Exception:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
             print("get_input_state isn't implemented correctly")
             return False
@@ -221,7 +225,7 @@ class Game_Tester:
         try:
             NN_state_MCTS = self.game.get_input_state_MCTS(self.game.board, -self.game.get_next_player(),
                                                            np.array(self.game.action_history))
-        except:
+        except Exception:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
             print("get_input_state_MCTS isn't implemented correctly")
             return False
@@ -289,7 +293,7 @@ class Game_Tester:
             np.array(self.game.action_history)
             print("Checking if action history can be converted into a homogenous array: Pass\n")
             return True
-        except:
+        except Exception:
             print(f"{self.game.action_history} could not be converted into a numpy array")
             print("Checking if action history can be converted into a homogenous array: Fail\n")
             return False
@@ -297,14 +301,13 @@ class Game_Tester:
     def check_check_win(self):
         legal_actions = self.game.get_legal_actions()
         self.game.do_action(legal_actions[0])
-        winner = self.game.check_win()  # also counts as a warmup
         try:
             winner = self.game.check_win()  # also counts as a warmup
         except AttributeError:
             print("Checking check_win: Fail")
             print("check_win not implemented")
             return False
-        except:
+        except Exception:
             print("Checking check_win: Fail")
             print("check_win isn't callable as it gives an error")
             return False
@@ -323,7 +326,7 @@ class Game_Tester:
             print("check_win_MCTS not implemented, skipped")
             MCTS_check_win_implemented = False
 
-        except:
+        except Exception:
             print("Checking check_win_MCTS: Fail")
             print("check_win_MCTS isn't callable as it gives an error, skipped")
             MCTS_check_win_implemented = False
@@ -344,14 +347,41 @@ class Game_Tester:
             action = legal_actions[chosen_random_index]
             self.game.do_action(action)
 
-            s = time.time()
-            winner = self.game.check_win()
-            total_check_win_time += time.time() - s
+            # Build the argument BEFORE the timer. It used to sit inside, so the
+            # list -> array conversion was charged to check_win_MCTS: measured 1.04us
+            # of conversion against 0.83us of actual kernel, and it grows with the
+            # game length, so late moves looked worse than they are.
+            prev_player = -self.game.next_player
+            history_arr = np.array(self.game.action_history)
 
-            s = time.time()
-            MCTS_winner = self.game.check_win_MCTS(self.game.board, -self.game.next_player,
-                                                   np.array(self.game.action_history))
-            total_check_win_MCTS_time += time.time() - s
+            if checks == 0:
+                # First call with THIS signature. The warmup above passes an empty
+                # action history, which is float64, while here it is an int array -
+                # a different numba signature, so it compiles on first use. Keep that
+                # out of the measurement.
+                self.game.check_win()
+                if MCTS_check_win_implemented:
+                    self.game.check_win_MCTS(self.game.board, prev_player, history_arr)
+
+            # perf_counter, NOT time.time(): on windows time.time() is
+            # GetSystemTimeAsFileTime with 15.6ms resolution (1ms if something else on
+            # the system has raised the timer), while these calls take ~1-2us. Every
+            # sample read either 0 or one whole tick, and the reported average was one
+            # tick spread over the game - 41.4us against a true 2.1us, 20x out, and it
+            # changed depending on what else was running.
+            # Repeat as well: a single 2us sample is dominated by scheduling noise.
+            s = time.perf_counter()
+            for _ in range(self.TIMING_REPEATS):
+                winner = self.game.check_win()
+            total_check_win_time += (time.perf_counter() - s) / self.TIMING_REPEATS
+
+            MCTS_winner = winner
+            if MCTS_check_win_implemented:
+                s = time.perf_counter()
+                for _ in range(self.TIMING_REPEATS):
+                    MCTS_winner = self.game.check_win_MCTS(self.game.board, prev_player,
+                                                           history_arr)
+                total_check_win_MCTS_time += (time.perf_counter() - s) / self.TIMING_REPEATS
 
             if MCTS_check_win_implemented and winner != MCTS_winner:
                 print(self.game.board)
@@ -371,17 +401,24 @@ class Game_Tester:
             print("Remember to do the same for check_win_MCTS or else an error will say that they don't match up!")
             return False
 
-        print(
-            f"Average time per check_win call: {total_check_win_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
-        if (total_check_win_time / checks) >= 1.0:
-            print(
-                "Check_win implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+        # Thresholds are in SECONDS and these calls take microseconds. The old bound of
+        # 1.0s was 500,000x the real value, so it could never fire. 1e-4 is ~50x a
+        # healthy connect4 implementation, which leaves room for bigger boards while
+        # still catching something genuinely pathological.
+        slow_threshold = 1e-4
 
-        print(
-            f"Average time per check_win_MCTS call: {total_check_win_MCTS_time / checks} seconds averaged over 1 game of {checks} moves. Winner is: {winner}")
-        if (total_check_win_MCTS_time / checks) >= 1.0:
+        print(f"Average time per check_win call: {total_check_win_time / checks:.3e} seconds "
+              f"averaged over 1 game of {checks} moves. Winner is: {winner}")
+        if (total_check_win_time / checks) >= slow_threshold:
             print(
-                "check_win_MCTS implementation is inefficient and slow (time taken >= 1 second), optimizations may be possible\n")
+                f"check_win implementation is inefficient and slow (>= {slow_threshold:.0e} seconds), optimizations may be possible\n")
+
+        if MCTS_check_win_implemented:
+            print(f"Average time per check_win_MCTS call: {total_check_win_MCTS_time / checks:.3e} seconds "
+                  f"averaged over 1 game of {checks} moves. Winner is: {winner}")
+        if MCTS_check_win_implemented and (total_check_win_MCTS_time / checks) >= slow_threshold:
+            print(
+                f"check_win_MCTS implementation is inefficient and slow (>= {slow_threshold:.0e} seconds), optimizations may be possible\n")
         else:
             print()
 
@@ -412,7 +449,7 @@ class Game_Tester:
                 print("Checking compute_policy_improvement: Fail")
                 print("Isn't implemented correctly")
                 return False
-        except:
+        except Exception:
             print("Checking compute_policy_improvement: Fail")
             print("It is not implemented")
 
@@ -429,7 +466,7 @@ class Game_Tester:
         try:
             augmented_boards, augmented_policies = self.game.augment_sample(dummy_states, dummy_policy)
 
-        except:
+        except Exception:
             print("Checking augment sample: Fail")
             print("augment_sample isn't implemented correctly")
             return False
@@ -489,14 +526,14 @@ class Game_Tester:
         while winner == -2:
             try:
                 action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
-            except:
+            except Exception:
                 print("Checking if everything works with MCTS: Fail")
                 print("MCTS doesn't work, might want to test that!")
                 return False
 
             try:
                 action, probs = mcts_gumbel.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
-            except:
+            except Exception:
                 print("Checking if everything works with MCTS: Fail")
                 print("MCTS gumbel doesn't work, might want to test that!")
                 return False
