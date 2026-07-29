@@ -7,7 +7,16 @@ recompile per process, multiplied by every self play worker. Tuning a value here
 leaves game.py untouched, so the kernels stay cached.
 
 Nothing heavy may be imported here: the self play workers load this module.
+
+train_config is a typed template (see Config.py): every assignment below is
+checked at import - a typo'd name or invalid value errors immediately, and
+gumbel parameters cannot be set on this class (switching algorithms means
+subclassing GumbelAZConfig instead). train_config.explain() prints this table
+with meanings (pipeline.py does it at startup); `python Config.py` regenerates
+the markdown reference.
 """
+from Config import AlphaZeroConfig
+
 
 build_config = {"num_resnet_layers": 4,  # This is the total amount of resnet layers in the model that are used
                 "num_filters": 64,
@@ -15,88 +24,92 @@ build_config = {"num_resnet_layers": 4,  # This is the total amount of resnet la
 
                 "mixed_precision": None,  # None for no mixed precision, mixed_float16 for float16
           }
-train_config = {
-    "total_generations": 100,  # Total amount of generations, the training can be stopped and resume at any moment
-    # a generation is defined by a round of self play, padding the dataset, model training, converting to onnx
+# build_config stays a free-form dict on purpose: it is the contract between a
+# developer and THEIR build_model, so there is nothing to standardize.
 
-    # Self Play variables
-    "games_per_generation": 500,  # amount of self play games until we re train the network
-    "max_actions": 42,  # Note that this should be less than max actions,
-    "num_explore_actions_first": 3,  # A good rule of thumb is how long the opening should be for player -1
-    "num_explore_actions_second": 3,  # Since player 1 is always at a disadvantage, we explore less and attempt to play better moves
-    # ^ these two together set how many PLIES are sampled at tau=1: first + second.
-    # alpha zero used ~15% of the average game length (30 plies out of ~200). Self play
-    # averages ~32 plies here, so 6 plies is ~19%. At the old 8/7 it was 15 plies = 47%,
-    # which meant most games opened off the centre column and were drawn by construction
 
-    "use_gpu": True,  # Change this to False to use CPU for self play and inference
-    "use_tensorrt": True,  # Assuming use_gpu is True, uses TensorrtExecutionProvider
-    # change this to False to use CUDAExecutionProvider
-    "trt_fp16": True,  # let tensorrt pick fp16 kernels at engine build time. The onnx model
-    # stays fp32, this is only a permission for TRT to run layers in half precision where
-    # that is faster. Independent of build_config["mixed_precision"], which is TRAINING only.
-    # Measured on the rtx 2060: batch-1 inference 1244us (CUDA fp32) -> 698us (TRT fp32) ->
-    # 624us (TRT fp16), and 99.8% top-1 policy agreement vs fp32.
-    "use_inference_server": True,  # if an extremely large model is used, because of memory constraints, set this to True
-    "max_cache_depth": 10,  # maximum depth in the search of the neural networks outputs we should cache, use this if the inference speed is under 1000it/s
-    # ^ this is now an in-memory dict per worker (Session_Cache.py), not a disk cache, so
-    # depth can be generous. Only plies < this are memoised, since only the opening region
-    # repeats across the games a worker plays. At the old value of 1 it cached roughly 8
-    # positions per generation, which is why the disk cache was very nearly a no-op.
-    # Each worker prints its hit rate at the end of the generation, tune from that.
-    "num_workers": 10,  # Number of multiprocessing workers used to self play
+class Connect4Train(AlphaZeroConfig):
+    # ---- the training loop ----
+    total_generations = 100
+    games_per_generation = 500  # connect4 is small, 1000 games/gen was pure cost
+    max_actions = 42  # a 6x7 board fills at ply 42. A game can be WON on the 42nd
+    # move - Self_Play only scores a draw if nobody won (the old unconditional
+    # cutoff mislabeled 188 wins as draws, all stolen from player +1)
 
-    # MCTS variables
-    "MCTS_iteration_limit": 250,  # The number of iterations MCTS runs for. Should be 2 to 10x the number of starting legal moves
-    # True defaults to iteration_limit = 3 * len(starting legal actions)
-    "MCTS_time_limit": None,  # Not recommended to use for training, True defaults to 30 seconds
-    "use_njit": None,  # None will automatically infer what is supposed to be use for windows/linux
+    # ---- self play workers / inference ----
+    num_workers = 10  # measured on this 12-core machine: 8-12 is the flat optimum
+    # since the mp.Event fix, the old cpu_count()//2 clamp is gone
+    use_gpu = True
+    use_tensorrt = False  # False while running on the 760M iGPU (AMD = DirectML
+    # only, tensorflow_updated env). Self play speed is measured IDENTICAL to the
+    # 2060 - the pipeline is latency-bound, not GPU-bound. Flip back to True on
+    # the 2060 in the tf_trt env: TRT fp16 batch-1 573us and FLAT to batch 32
+    # (526us) vs DirectML 366us growing to 753us - TRT wins above batch ~14 and
+    # is the right bet once bigger server batches / virtual loss land
+    trt_fp16 = True
+    use_inference_server = True
+    max_cache_depth = 10  # ply < 10 memo. At 15 the hit-rate gain was negligible
+    # for connect4's short openings and the dict grows ~2x. Workers print their
+    # hit rate each generation, tune from that
+    dml_device_id = None  # only matters without tensorrt: 0 = 760M igpu, 1 = 2060
 
-    "use_gumbel": False,  # use gumbel according to https://openreview.net/pdf?id=bERaNdoegnO
-    # These params will only be used when use_gumbel is set to True
-    "m": 7,  # Number of actions sampled in the first stage of sequential halving
-    "c_visit": 50.0,
-    "c_scale": 1.0,
+    # ---- search ----
+    MCTS_iteration_limit = 250  # Self_Play runs int(1.5x) = 375 sims per move.
+    # Depth is ~ln(sims)/ln(effective branching): measured 2.53 eff. branching
+    # -> ~7 plies of sight. More sims deepen slowly; a better value net is depth
+    MCTS_time_limit = None
+    use_njit = None
+    create_new_root = True  # fresh tree per self play move -> honest targets.
+    # With reuse, 48-70% of the recorded policy target was inherited visits
+    # (the gen 7-9 col-1 ratchet). Play-time reuse in play.py is unaffected
 
-    # "opening_actions": [[0, 0.1], [1, 0.1], [2, 0.1], [3, 0.1], [4, 0.1], [5, 0.1], [6, 0.1]],
+    # ---- exploration (nearly the ONLY entropy source in self play) ----
+    num_explore_actions_first = 3   # tau=1 plies for player -1: plies 0,2,4.
+    # ~19% of the 32-ply average game. At the old 8/7 it was 47% of the game and
+    # most games opened off-centre and drew by construction
+    num_explore_actions_second = 3  # plies 1,3,5 (off-by-one fixed - was 2 plies)
+    c_puct_init = 1.5  # width, not depth: spreading visits costs sight. Root
+    # dirichlet is the mechanism for reconsidering a dismissed move, not this
+    dirichlet_alpha = 1.33  # ~10/7 legal moves
+    dirichlet_epsilon = 0.25
 
-    # These params will be used when use_gumbel is set to False
-    "c_puct_init": 1.5,  # (shouldn't change) Exploration constant lower -> exploitation, higher -> exploration
-    # ^ this controls WIDTH, not "go check that one line". Search depth is roughly
-    # ln(iterations) / ln(effective branching factor), so spreading visits costs depth.
-    # measured from the gen 9 policy targets the search was hedging over 2.53 moves,
-    # which is only ~7 plies of sight at 675 iterations. root dirichlet noise is the
-    # mechanism for reconsidering a move the prior dismissed, not c_puct
-    "dirichlet_alpha": 1.33,  # should be around (10 / average moves per given position)
+    # ---- training targets ----
+    q_weight = 0.2  # target = 0.8*z + 0.2*rootQ; z is noisy, q is horizon-blind
+    opening_actions = []  # partial book, e.g. [[3, 0.5]] = 50% forced centre.
+    # Keep it PARTIAL: the 100% uniform book produced the always-draw network
+    # (E[z|empty] = 0 exactly). Candidate cure if col-3 doesn't recover post-fixes
 
-    "q_weight": 0.20,  # value target = (1 - q_weight) * z + q_weight * q
-    # 0.0 is the original alpha zero target (final outcome only, noisy),
-    # 1.0 is the search's own root Q (suffers from the horizon effect), 0.5 averages them
+    # ---- dataset window ----
+    num_previous_generations = 4
+    train_percent = 1.0
+    train_decay = 0.1  # SUBTRACTIVE by design: 100/90/80/70% keeps the window
+    # near-flat like a replay buffer, so one bad generation can't steer training
+    test_percent = 0.1
+    test_decay = 0.01
+    dedup_average = True  # merged targets + occurrence sample-weights: kills
+    # duplicate-label noise (~70% of samples) without deweighting the opening
+    # (the unweighted version cut the empty board from 2.8% of training mass to
+    # 0.0027% and the root prior never fit its target again)
+    train_batch_size = 1024
+    test_batch_size = None
 
-    # "opening_actions": [[3, 0.5]], # starting first move in the format [[action1, prob0], [action1, prob1], ...],
-    # if prob doesn't add up to 1, then the remaining prob is for the MCTS move
 
-    "num_previous_generations": 4,  # The previous generation's data that will be used in training
-    "train_percent": 1.0,  # The percent used fr training after the test set is taken
-    "train_decay": 0.1,  # The decay rate for previous generations of data previous_train_percent = current_train_percent * train_decay
-    "test_percent": 0.1,  # The percent of a dataset that will be used for validation
-    "test_decay": 0.01,  # The decay rate for previous generations of data previous_test_percent = current_test_percent * test_decay
-    "dedup_average": True,  # merge byte-identical states at load time, targets become the occurrence-weighted
-    # mean. Kills the duplicate-label noise (~66% of samples are copies, see tmp/dup_audit.py) and the
-    # opening-vs-midgame loss-weight imbalance. Applied per split side, pooled across the generation window.
+train_config = Connect4Train()
 
-    "train_batch_size": 1024,  # The number of samples in a batch for training in parallel
-    "test_batch_size": None,  # If none, then train_batch_size will be used for the test batch size
-}
 
 def lr_schedule(generation):
-    lr_decay = 0.2 ** (generation // 25)  # 3e-3 -> 6e-4 -> 1.2e-4 -> 2.4e-5 over 100 generations
-    return 3e-3 * lr_decay
-    # base was 1e-2. See tmp/exp_c_seeds_lr.py and tmp/exp_d_lr_curves.py: over 3 seeds the
-    # best val loss basin is flat from 1e-3 to 3e-3 and degrades hard by 1e-2 (2.63 -> 2.89).
-    # That held BEFORE the muon reshape fix too, so 1e-2 was always too hot. The fix makes
-    # trunk steps ~6x larger at the same nominal lr, which is a second reason to come down.
-    # Caveat: measured on a 6k position / 6 epoch proxy, not a full generation.
+    lr_decay = 0.2 ** (generation // 25)  # 3e-4 -> 6e-5 -> 1.2e-5 -> 2.4e-6 over 100 generations
+    return 3e-4 * lr_decay
+    # Retuned 2026-07-29 for the MOONSHOT muon scaling (0.2*sqrt(max(d_out,d_in)),
+    # muon.py). Production-faithful sweep - real gens 6-9 window with dedup sample
+    # weights, warm start from the previous gen's weights, 8 epochs, 3 seeds, best
+    # val loss like ModelCheckpoint (tmp/exp_lr_*.log, tmp/results_lr_current_*.json):
+    #   moonshot: 1e-4 = 1.302, 3e-4 = 1.237 <- interior minimum, 1e-3 = 1.448, 3e-3 diverges
+    #   old rule: best was 3e-3 = 1.316; 1e-2 = 1.496 (cliff, on both rules)
+    # Moonshot best-of-basin beats the old rule's by 6% val loss. Under moonshot the
+    # per-element step is ~0.2*lr for EVERY layer, so adam-like lrs apply - 3e-4 here
+    # plays the role 3e-3 played before. Caveat: measured on one warm-start training
+    # step of the loop, not across many generations.
 
 
 optimizer_config = {

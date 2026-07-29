@@ -498,4 +498,9 @@ if __name__ == "__main__":
 
     game_class, build_model, configs, run_dir = load_game(args.game)
     print(f"Training {args.game}, output goes to {run_dir}")
+    if hasattr(configs[1], "explain"):
+        # typed configs (Config.py) print their effective values, so every run
+        # logs exactly what it trained with. Dict configs (gomoku, tictactoe)
+        # skip this until they migrate
+        configs[1].explain()
     Run(game_class, build_model, configs, run_dir)
