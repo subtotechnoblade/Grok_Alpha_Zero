@@ -1,0 +1,47 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785646731.609713   29168 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785646731.614334   29168 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785646788.902507   29168 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785646801.647843   29225 service.cc:148] XLA service 0x12cfc9c0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785646801.648836   29225 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+I0000 00:00:1785646802.448976   29225 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785646808.574333   29225 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+train 442003 unique | held-out 52525
+value head: THIS RUN filters 16 dense 32  |  Connect4/Build_Model.py filters 16 dense 8   <-- DIFFERENT, on purpose
+value: const-0 0.7691 | GBT raw 0.6126 | wd 0.0 | orthograd ON
+
+adamw 5e-3 ortho  exclude_layers=['eyes', 'policy_1', 'value_1']
+  orthogonalised 13/50 variables
+  excluded 2D+: ['eyes/kernel', 'policy_1/kernel', 'policy_1/bias', 'value_1/kernel', 'value_1/bias']
+arm                 ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+--------------------------------------------------------------------------
+adamw 5e-3 ortho     1   0.6277  18.4%   0.5995 |  1.6485  0.5299  39.1%
+                     2   0.5985  22.2%   0.5298 |  1.5635  0.4449  41.8%
+                     3   0.5821  24.3%   0.4905 |  1.5267  0.4081  45.7%
+                     4   0.6186  19.6%   0.5545 |  1.5144  0.3958  46.9%
+                     5   0.6215  19.2%   0.5431 |  1.5041  0.3855  46.7%
+                     6   0.6877  10.6%   0.6537 |  1.5063  0.3877  47.7%
+                     7   0.7094   7.8%   0.6375 |  1.5007  0.3820  48.9%
+                     8   0.7239   5.9%   0.6659 |  1.4976  0.3789  48.0%
+                     9   0.7171   6.8%   0.6130 |  1.4943  0.3757  48.8%
+                    10   0.7078   8.0%   0.5939 |  1.4925  0.3739  48.0%
+  BEST             value 0.5821 @ep3   policyKL 0.3739 @ep10
+
+adamw 1e-2 ortho  exclude_layers=['eyes', 'policy_1', 'value_1']
+  orthogonalised 13/50 variables
+  excluded 2D+: ['eyes/kernel', 'policy_1/kernel', 'policy_1/bias', 'value_1/kernel', 'value_1/bias']
+arm                 ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+--------------------------------------------------------------------------
+adamw 1e-2 ortho     1   0.6775  11.9%   0.6995 |  1.7239  0.6053  31.9%
+                     2   0.5970  22.4%   0.5294 |  1.6579  0.5393  41.0%
+                     3   0.5713  25.7%   0.4735 |  1.5630  0.4443  41.7%
+                     4   0.5505  28.4%   0.4259 |  1.5212  0.4026  47.4%
+                     5   0.5583  27.4%   0.4425 |  1.5059  0.3873  48.9%
+                     6   0.5802  24.6%   0.4589 |  1.5074  0.3888  47.5%
+                     7   0.5908  23.2%   0.4752 |  1.4992  0.3806  48.7%
+                     8   0.6190  19.5%   0.4965 |  1.4985  0.3799  47.4%
+                     9   0.6127  20.3%   0.4851 |  1.4965  0.3779  47.7%
+                    10   0.6305  18.0%   0.5116 |  1.4920  0.3734  47.9%
+  BEST             value 0.5505 @ep4   policyKL 0.3734 @ep10
+

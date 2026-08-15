@@ -1,0 +1,33 @@
+2026-07-29 11:43:01.988577: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-07-29 11:43:03.130573: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+injected OLD-rule muon as Net.Optimizers.muon
+Collecting data from 4 generations!
+Collecting data from gen: 9:   0%|          | 0/495 [00:00<?, ?it/s]Collecting data from gen: 9:  14%|#3        | 69/495 [00:00<00:00, 689.99it/s]Collecting data from gen: 9:  29%|##8       | 142/495 [00:00<00:00, 709.36it/s]Collecting data from gen: 9:  44%|####3     | 216/495 [00:00<00:00, 720.03it/s]Collecting data from gen: 9:  59%|#####8    | 291/495 [00:00<00:00, 728.94it/s]Collecting data from gen: 9:  74%|#######3  | 364/495 [00:00<00:00, 726.70it/s]Collecting data from gen: 9:  88%|########8 | 438/495 [00:00<00:00, 731.17it/s]Collecting data from gen: 9: 100%|##########| 495/495 [00:00<00:00, 720.52it/s]
+Collecting data from gen: 8:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 8:  15%|#5        | 75/500 [00:00<00:00, 742.56it/s]Collecting data from gen: 8:  32%|###2      | 162/500 [00:00<00:00, 812.45it/s]Collecting data from gen: 8:  49%|####9     | 245/500 [00:00<00:00, 813.05it/s]Collecting data from gen: 8:  65%|######5   | 327/500 [00:00<00:00, 794.01it/s]Collecting data from gen: 8:  81%|########1 | 407/500 [00:00<00:00, 769.03it/s]Collecting data from gen: 8:  97%|#########7| 485/500 [00:00<00:00, 765.10it/s]Collecting data from gen: 8: 100%|##########| 500/500 [00:00<00:00, 777.60it/s]
+Collecting data from gen: 7:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 7:  19%|#9        | 96/500 [00:00<00:00, 950.50it/s]Collecting data from gen: 7:  38%|###8      | 192/500 [00:00<00:00, 888.41it/s]Collecting data from gen: 7:  57%|#####7    | 286/500 [00:00<00:00, 910.97it/s]Collecting data from gen: 7:  76%|#######5  | 378/500 [00:00<00:00, 883.85it/s]Collecting data from gen: 7:  94%|#########4| 472/500 [00:00<00:00, 900.21it/s]Collecting data from gen: 7: 100%|##########| 500/500 [00:00<00:00, 892.85it/s]
+Collecting data from gen: 6:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 6:  21%|##1       | 107/500 [00:00<00:00, 1059.40it/s]Collecting data from gen: 6:  43%|####2     | 213/500 [00:00<00:00, 995.59it/s] Collecting data from gen: 6:  63%|######3   | 317/500 [00:00<00:00, 1015.13it/s]Collecting data from gen: 6:  85%|########5 | 426/500 [00:00<00:00, 1044.03it/s]Collecting data from gen: 6: 100%|##########| 500/500 [00:00<00:00, 1006.04it/s]
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tf_trt\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+2026-07-29 11:43:10.245429: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Dedup: train 114056 -> 30878 (72.9% removed), test 12442 -> 6196
+Sample weights: mean 1.0, max 838.2 (the most repeated position pulls 838x a unique one)
+----------------------------------------
+Train stats: Total states 30878
+Test stats: Total states 6196
+----------------------------------------
+lr=0.001 seed=0: best_val=1.3337 final_train=1.1474
+lr=0.001 seed=1: best_val=1.3305 final_train=1.1493
+lr=0.001 seed=2: best_val=1.3317 final_train=1.1520
+lr=0.003 seed=0: best_val=1.3130 final_train=1.0369
+lr=0.003 seed=1: best_val=1.3183 final_train=1.0382
+lr=0.003 seed=2: best_val=1.3167 final_train=1.0318
+lr=0.01 seed=0: best_val=1.5539 final_train=1.0216
+lr=0.01 seed=1: best_val=1.4831 final_train=1.0110
+lr=0.01 seed=2: best_val=1.4524 final_train=1.0141
+
+==========================================================
+      lr    best val (mean +/- std)   final train
+   0.001           1.3320 +/- 0.0016      1.1496
+   0.003           1.3160 +/- 0.0027      1.0356
+    0.01           1.4964 +/- 0.0521      1.0156

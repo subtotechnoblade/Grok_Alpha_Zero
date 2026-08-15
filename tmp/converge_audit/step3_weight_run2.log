@@ -1,0 +1,52 @@
+2026-08-01 15:49:52.015945: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 15:49:52.039946: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785613792.068667  110880 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785613792.077511  110880 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-08-01 15:49:52.106273: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+
+run2 gen 12 | family weight | arch old | seeds (0, 1, 2)
+  nxt floor 0.0318  const-0 0.5346
+  val floor 0.0795  const-0 0.5542
+
+============================================================================================
+FIT 'sweep': {'init': 'scratch', 'lr': 0.0003, 'wd': None, 'epochs': 10, 'arch': 'current'}
+============================================================================================
+arm           n_train |    TRAIN     sd |      VAL     sd   v/fl |      NXT     sd   n/fl |  NXT end
+----------------------------------------------------------------------------------------------------
+I0000 00:00:1785613797.339766  110880 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785613814.463557  110956 service.cc:148] XLA service 0x7b6b4002aad0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785613814.464883  110956 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+W0000 00:00:1785613814.745676  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785613814.747098  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785613814.749917  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785613814.751479  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785613814.752978  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785613814.754081  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785613814.755365  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785613814.756518  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785613814.757522  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785613814.758504  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785613814.759117  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785613814.759650  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785613814.760136  110956 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+2026-08-01 15:50:14.822798: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:268] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1785613815.751494  110956 cuda_dnn.cc:529] Loaded cuDNN version 90300
+2026-08-01 15:50:17.006989: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1024,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1024,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1024,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+I0000 00:00:1785613823.914966  110956 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+W0000 00:00:1785613825.755931  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785613825.756783  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785613825.757563  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785613825.758099  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785613825.758602  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785613825.759135  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785613825.759733  110953 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+2026-08-01 15:50:27.654753: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[926,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[926,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[926,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:50:48.192430: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[4096,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[4096,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[4096,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:50:50.461258: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1950,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1950,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1950,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:50:52.124393: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[3893,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[3893,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[3893,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:50:53.850789: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1343,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1343,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1343,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+count           51102 |   0.0921 0.0040 |   0.3114 0.0056   3.9x |   0.5277 0.0209  16.6x |   0.6681
+[wrote] /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/converge_audit/step3_weight_run2_g12.json

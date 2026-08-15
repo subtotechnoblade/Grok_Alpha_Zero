@@ -1,0 +1,57 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785633087.621386   26162 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785633087.641450   26162 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785633134.746283   26162 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785633136.040803   26217 service.cc:148] XLA service 0x7e6268003840 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785633136.042027   26217 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+I0000 00:00:1785633136.158493   26217 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785633140.010907   26217 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+train 442003 unique | 432 steps/ep | held-out 52525
+value: const-0 0.7691 | GBT raw 0.6126
+policy: target entropy floor 1.1186 (polKL = CE - floor); uniform-over-7 CE 1.9459
+
+arm                   ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+----------------------------------------------------------------------------
+UNTRAINED              0   1.7237 -124.1%   1.7807 |  3.6899  2.5713  12.9%
+
+baseline               1   0.6735  12.4%   0.7252 |  1.8281  0.7095  28.1%
+                       2   0.6636  13.7%   0.6992 |  1.7307  0.6121  34.5%
+    [probe] frozen trunk @ep2, fresh head, 4 ep -> best value 0.6755
+                       3   0.6646  13.6%   0.7011 |  1.6854  0.5668  34.6%
+                       4   0.6731  12.5%   0.7205 |  1.6651  0.5465  35.8%
+                       5   0.6866  10.7%   0.7458 |  1.6533  0.5346  37.2%
+                       6   0.7073   8.0%   0.7788 |  1.6432  0.5246  37.4%
+    [probe] frozen trunk @ep6, fresh head, 4 ep -> best value 0.6944
+                       7   0.7199   6.4%   0.7926 |  1.6391  0.5205  36.6%
+                       8   0.7255   5.7%   0.7962 |  1.6345  0.5159  38.1%
+                       9   0.7307   5.0%   0.7995 |  1.6315  0.5129  39.2%
+                      10   0.7311   4.9%   0.8001 |  1.6282  0.5096  39.3%
+                      11   0.7489   2.6%   0.8218 |  1.6243  0.5057  38.8%
+                      12   0.7566   1.6%   0.8359 |  1.6233  0.5047  38.4%
+    [probe] frozen trunk @ep12, fresh head, 4 ep -> best value 0.7015
+  BEST               value 0.6636 @ep2   policyKL 0.5047 @ep12
+
+value lr /5            1   0.6903  10.2%   0.7545 |  1.8342  0.7155  27.1%
+                       2   0.6758  12.1%   0.7330 |  1.7364  0.6178  33.6%
+                       3   0.6657  13.4%   0.6901 |  1.6934  0.5747  35.7%
+                       4   0.6741  12.4%   0.7067 |  1.6730  0.5544  36.9%
+                       5   0.6764  12.1%   0.7163 |  1.6597  0.5411  37.4%
+                       6   0.6733  12.5%   0.7027 |  1.6489  0.5303  36.9%
+                       7   0.6778  11.9%   0.7190 |  1.6414  0.5228  37.1%
+                       8   0.7008   8.9%   0.7555 |  1.6385  0.5199  38.1%
+                       9   0.7037   8.5%   0.7441 |  1.6345  0.5158  37.0%
+                      10   0.7130   7.3%   0.7766 |  1.6291  0.5105  37.5%
+                      11   0.7128   7.3%   0.7630 |  1.6287  0.5101  38.4%
+                      12   0.7372   4.1%   0.8174 |  1.6249  0.5063  41.1%
+  BEST               value 0.6657 @ep3   policyKL 0.5063 @ep12
+
+value lr /25           1   0.6955   9.6%   0.7582 |  1.8456  0.7270  24.6%
+                       2   0.6745  12.3%   0.7146 |  1.7441  0.6255  33.0%
+                       3   0.6713  12.7%   0.7065 |  1.6945  0.5759  35.2%
+                       4   0.6662  13.4%   0.7026 |  1.6750  0.5564  35.9%
+                       5   0.6637  13.7%   0.6960 |  1.6548  0.5362  37.4%
+                       6   0.6705  12.8%   0.7007 |  1.6465  0.5279  36.6%
+                       7   0.6847  11.0%   0.7381 |  1.6396  0.5210  41.2%
+                       8   0.6736  12.4%   0.7164 |  1.6330  0.5144  36.7%
+                       9   0.6852  10.9%   0.7321 |  1.6298  0.5112  41.0%

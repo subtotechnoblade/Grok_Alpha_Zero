@@ -1,0 +1,50 @@
+### EXP5 PART 1 - overlap and target drift as the pool ages
+
+                    pool        target   row%  wt cov%  drift(MSE)   floor  const0
+      gen12 only (450 g) gen12 holdout  60.0%    75.3%      0.1529  0.0640  0.5946
+      gen12 only (450 g)         gen13   3.6%    19.3%      0.4671  0.0318  0.5346
+      gen12 only (450 g)         gen14   2.5%    17.9%      0.4515  0.0269  0.5928
+      gen12 only (450 g)         gen15   2.6%    18.4%      0.1676  0.0283  0.6143
+      gen12 only (450 g)         gen16   2.6%    14.4%      0.3351  0.0290  0.5584
+      gen12 only (450 g)         gen17   1.5%    15.9%      0.2240  0.0293  0.4636
+      gen12 only (450 g)         gen18   3.0%    18.7%      0.0882  0.0222  0.6495
+    window 9-12 (1260 g) gen12 holdout  89.3%    93.4%      0.0777  0.0640  0.5946
+    window 9-12 (1260 g)         gen13   5.3%    20.5%      0.4169  0.0318  0.5346
+    window 9-12 (1260 g)         gen14   3.7%    19.4%      0.4035  0.0269  0.5928
+    window 9-12 (1260 g)         gen15   4.2%    19.9%      0.1791  0.0283  0.6143
+    window 9-12 (1260 g)         gen16   4.6%    20.2%      0.3279  0.0290  0.5584
+    window 9-12 (1260 g)         gen17   3.0%    18.5%      0.2455  0.0293  0.4636
+    window 9-12 (1260 g)         gen18   4.1%    19.5%      0.1286  0.0222  0.6495
+
+### EXP5 PART 2 - 400 fresh games vs 1260 and 5400 stale ones
+  eval = gen13 by-game holdout, 100 games, 4093 uniq, floor 0.0569, const0 0.5520
+
+                   arm  games    uniq  sd |   train  g13 hold  /floor  vs const0   cov%
+  -------------------------------------------------------------------------------------
+    IN-DIST gen13 x100    100    3885   0 |  0.0180    0.2723    4.8x     -50.7%  53.2
+    IN-DIST gen13 x100    100    3671   1 |  0.0127    0.3476    6.1x     -37.0%  50.1
+    IN-DIST gen13 x100    100    4333   2 |  0.0136    0.3192    5.6x     -42.2%  51.9
+    IN-DIST gen13 x100    100         AVG |              0.3130+-0.0376
+
+    IN-DIST gen13 x200    200    6421   0 |  0.0218    0.2322    4.1x     -57.9%  59.1
+    IN-DIST gen13 x200    200    6437   1 |  0.0170    0.3113    5.5x     -43.6%  57.8
+    IN-DIST gen13 x200    200    7151   2 |  0.0289    0.2055    3.6x     -62.8%  59.7
+    IN-DIST gen13 x200    200         AVG |              0.2497+-0.0529
+
+    IN-DIST gen13 x400    400   11417   0 |  0.0339    0.2083    3.7x     -62.3%  67.1
+    IN-DIST gen13 x400    400   11417   1 |  0.0310    0.2066    3.6x     -62.6%  67.1
+    IN-DIST gen13 x400    400   11417   2 |  0.0269    0.2049    3.6x     -62.9%  67.1
+    IN-DIST gen13 x400    400         AVG |              0.2066+-0.0017
+
+     STALE window 9-12   1292   44212   0 |  0.0870    0.4324    7.6x     -21.7%  19.7
+     STALE window 9-12   1292   44212   1 |  0.0877    0.4412    7.8x     -20.1%  19.7
+     STALE window 9-12   1292   44212   2 |  0.0867    0.4463    7.8x     -19.1%  19.7
+     STALE window 9-12   1292         AVG |              0.4400+-0.0069
+
+       STALE gens 1-12   6000  192638   0 |  0.1739    0.4144    7.3x     -24.9%  22.4
+       STALE gens 1-12   6000  192638   1 |  0.1734    0.4059    7.1x     -26.5%  22.4
+       STALE gens 1-12   6000  192638   2 |  0.1729    0.4101    7.2x     -25.7%  22.4
+       STALE gens 1-12   6000         AVG |              0.4101+-0.0043
+
+wrote /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/scale_test/exp5_shift_blend.json
+684s

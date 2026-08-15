@@ -1,0 +1,49 @@
+64 shards x 25 games = 1600 games total, 6 concurrent
+cpu.lock held (17.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (18.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (19.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (20.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (21.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (22.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (23.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...
+cpu.lock held (24.2 min old) by:
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00
+waiting 60s...

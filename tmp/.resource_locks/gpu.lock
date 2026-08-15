@@ -1,0 +1,4 @@
+agent: final-value-head-experiment
+pid: 3165
+desc: end-to-end AlphaZero Connect4 arms (self-play CPU + GPU training) in tmp/final_exp
+ts: 2026-08-01T16:18:34-04:00

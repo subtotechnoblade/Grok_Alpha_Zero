@@ -1,0 +1,42 @@
+Collecting data from 4 generations!
+Collecting data from gen: 15:   0%|          | 0/447 [00:00<?, ?it/s]Collecting data from gen: 15:  12%|#1        | 52/447 [00:00<00:00, 514.85it/s]Collecting data from gen: 15:  23%|##3       | 105/447 [00:00<00:00, 517.66it/s]Collecting data from gen: 15:  35%|###5      | 157/447 [00:00<00:00, 462.22it/s]Collecting data from gen: 15:  47%|####6     | 208/447 [00:00<00:00, 477.94it/s]Collecting data from gen: 15:  58%|#####7    | 258/447 [00:00<00:00, 483.84it/s]Collecting data from gen: 15:  69%|######9   | 310/447 [00:00<00:00, 495.68it/s]Collecting data from gen: 15:  81%|########  | 361/447 [00:00<00:00, 500.24it/s]Collecting data from gen: 15:  95%|#########4| 424/447 [00:00<00:00, 539.17it/s]Collecting data from gen: 15: 100%|##########| 447/447 [00:00<00:00, 510.27it/s]
+Collecting data from gen: 14:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 14:  14%|#4        | 70/500 [00:00<00:00, 693.16it/s]Collecting data from gen: 14:  30%|##9       | 149/500 [00:00<00:00, 745.84it/s]Collecting data from gen: 14:  45%|####4     | 224/500 [00:00<00:00, 702.99it/s]Collecting data from gen: 14:  59%|#####8    | 295/500 [00:00<00:00, 687.38it/s]Collecting data from gen: 14:  73%|#######2  | 364/500 [00:00<00:00, 644.55it/s]Collecting data from gen: 14:  87%|########6 | 434/500 [00:00<00:00, 659.99it/s]Collecting data from gen: 14: 100%|##########| 500/500 [00:00<00:00, 657.38it/s]
+Collecting data from gen: 13:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 13:  13%|#3        | 66/500 [00:00<00:00, 646.28it/s]Collecting data from gen: 13:  28%|##8       | 142/500 [00:00<00:00, 712.59it/s]Collecting data from gen: 13:  45%|####5     | 226/500 [00:00<00:00, 767.99it/s]Collecting data from gen: 13:  62%|######2   | 312/500 [00:00<00:00, 802.48it/s]Collecting data from gen: 13:  81%|########1 | 405/500 [00:00<00:00, 842.23it/s]Collecting data from gen: 13:  99%|#########8| 493/500 [00:00<00:00, 849.24it/s]Collecting data from gen: 13: 100%|##########| 500/500 [00:00<00:00, 813.85it/s]
+Collecting data from gen: 12:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 12:  20%|#9        | 99/500 [00:00<00:00, 970.60it/s]Collecting data from gen: 12:  47%|####7     | 237/500 [00:00<00:00, 1209.44it/s]Collecting data from gen: 12:  76%|#######5  | 379/500 [00:00<00:00, 1293.40it/s]Collecting data from gen: 12: 100%|##########| 500/500 [00:00<00:00, 1278.78it/s]
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tensorflow_updated\Lib\site-packages\keras\src\backend\tensorflow\core.py:222: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+
+Dedup: train 91922 -> 27604 (70.0% removed), test 9656 -> 5308
+Sample weights: mean 1.0, max 747.7 (the most repeated position pulls 748x a unique one)
+----------------------------------------
+Train stats: Total states 27604
+Test stats: Total states 5308
+----------------------------------------
+test uniq 5308 | contaminated 3084 (58.1%, 76.8% of weight) | clean 2224
+batches: train 27 val 6 clean 3 dirty 4
+
+Epoch 1: val_loss improved from inf to 2.22287, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep1   | TRAIN value: fit(BN=train) 0.2575  evaluate(BN=infer) 0.2576 | VAL value: all 0.2844  contaminated 0.1742  CLEAN 0.5584 | policy: train 1.9405 val 1.9389
+
+Epoch 2: val_loss improved from 2.22287 to 2.21138, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep2   | TRAIN value: fit(BN=train) 0.2543  evaluate(BN=infer) 0.2560 | VAL value: all 0.2823  contaminated 0.1886  CLEAN 0.5616 | policy: train 1.9273 val 1.9405
+
+Epoch 3: val_loss improved from 2.21138 to 2.20181, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep3   | TRAIN value: fit(BN=train) 0.2499  evaluate(BN=infer) 0.2526 | VAL value: all 0.2796  contaminated 0.1768  CLEAN 0.5726 | policy: train 1.9176 val 1.9315
+
+Epoch 4: val_loss improved from 2.20181 to 2.19263, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep4   | TRAIN value: fit(BN=train) 0.2442  evaluate(BN=infer) 0.2470 | VAL value: all 0.2723  contaminated 0.2161  CLEAN 0.5486 | policy: train 1.9066 val 1.9156
+
+Epoch 5: val_loss improved from 2.19263 to 2.18081, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep5   | TRAIN value: fit(BN=train) 0.2383  evaluate(BN=infer) 0.2412 | VAL value: all 0.2646  contaminated 0.2090  CLEAN 0.5551 | policy: train 1.8969 val 1.8453
+
+Epoch 6: val_loss improved from 2.18081 to 2.16486, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep6   | TRAIN value: fit(BN=train) 0.2325  evaluate(BN=infer) 0.2353 | VAL value: all 0.2588  contaminated 0.1811  CLEAN 0.5445 | policy: train 1.8875 val 1.8666
+
+Epoch 7: val_loss improved from 2.16486 to 2.14604, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep7   | TRAIN value: fit(BN=train) 0.2263  evaluate(BN=infer) 0.2296 | VAL value: all 0.2563  contaminated 0.1815  CLEAN 0.5233 | policy: train 1.8732 val 1.9698
+
+Epoch 8: val_loss improved from 2.14604 to 2.13547, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  ep8   | TRAIN value: fit(BN=train) 0.2205  evaluate(BN=infer) 0.2247 | VAL value: all 0.2568  contaminated 0.1586  CLEAN 0.5379 | policy: train 1.8614 val 1.8602
+elapsed 184s
+BEST-CHECKPOINT value head on contaminated : weighted MSE 0.1665 | pred std 0.0719 target std 0.5566 | corr 0.6156 | MSE of predicting the train mean 0.1995
+BEST-CHECKPOINT value head on clean        : weighted MSE 0.5309 | pred std 0.0514 target std 0.7520 | corr 0.5004 | MSE of predicting the train mean 0.5671

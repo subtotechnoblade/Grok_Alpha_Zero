@@ -1,0 +1,44 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785686976.034151    9516 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785686976.039253    9516 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785687021.397656    9516 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785687031.168483    9567 service.cc:148] XLA service 0x48ce6170 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785687031.169493    9567 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+W0000 00:00:1785687031.360637    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785687031.361777    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785687031.363403    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785687031.364118    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785687031.365066    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785687031.365883    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785687031.366610    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785687031.367189    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785687031.367865    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785687031.368475    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785687031.368866    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785687031.369421    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785687031.369879    9567 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+I0000 00:00:1785687032.027814    9567 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785687038.666659    9567 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+W0000 00:00:1785687049.935860    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785687049.936896    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785687049.937484    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785687049.937898    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785687049.938278    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785687049.938715    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785687049.939102    9565 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+train 442003 unique | held-out 52525 | filters 16 dense 32
+value: const-0 0.7691 | GBT raw 0.6126 | hand+rel 0.5681 | lr 0.02 wd 0.004
+
+arm                 ep    VALUE   vs c0   ply22+ |   polKL    top1
+------------------------------------------------------------------
+muon+nadam 2e-2      1   0.6764  12.1%   0.6005 |  0.5239  43.9%
+                     2   0.6572  14.6%   0.5959 |  0.4368  47.0%
+                     3   0.6896  10.3%   0.5984 |  0.4115  45.1%
+                     4   0.7329   4.7%   0.6901 |  0.4123  47.2%
+                     5   0.6933   9.9%   0.5481 |  0.3856  50.1%
+                     6   0.7321   4.8%   0.5911 |  0.3952  47.9%
+                     7   0.7022   8.7%   0.5381 |  0.4025  47.8%
+                     8   0.7101   7.7%   0.5780 |  0.3849  48.0%
+  BEST             value 0.6572 @ep2   policyKL 0.3849 @ep8
+

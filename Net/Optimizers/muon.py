@@ -89,10 +89,22 @@ class Muon(optimizer.Optimizer):
                 self.adam_momentums.append(None)
                 self.adam_velocities.append(None)
 
+    def get_scaling_factor(self, shape):
+        # Moonshot/Moonlight update scale: gives every layer per-element RMS ~0.2
+        d_out = float(shape[-1])
+        d_in = 1.0
+        for dim in shape[:-1]:
+            d_in *= float(dim)
+        return 0.2 * max(d_out, d_in) ** 0.5
+
     def apply_weight_decay(self, variable, learning_rate):
+        # Moonshot-exact decoupled decay: w *= (1 - lr*wd) with the NOMINAL branch lr.
+        # No moonshot scaling factor on the decay (only the update gets scaled), no
+        # dimensionality exemption (their reference decays the adamw-routed 1-D params
+        # too), and it is applied BEFORE the update, matching p.data.mul_(1 - lr*wd).
         weight_decay = ops.cast(self.muon_weight_decay, dtype=variable.dtype)
         learning_rate = ops.cast(learning_rate, dtype=variable.dtype)
-        variable.assign_sub(learning_rate * weight_decay * variable)
+        variable.assign_sub(variable * (learning_rate * weight_decay))
 
     def auto_transpose(self, X):  # transposes the last two axis regardless of the dim in front
         if X.ndim == 2:
@@ -131,22 +143,9 @@ class Muon(optimizer.Optimizer):
         muon_m.assign(muon_m_update)
 
         update = (1 - muon_beta) * gradient + muon_beta * muon_m_update if self.nesterov else muon_m_update
-        # Matches Keller's reference: torch's `grad.lerp_(momentum, beta)` is exactly
-        # (1 - beta) * grad + beta * momentum. The old form here was `grad + beta * momentum`,
-        # which is NOT a rescaling of it - newton-schulz normalises magnitude away, so only
-        # direction matters, and at beta=0.95 the two differ a lot:
-        #     reference:  0.05*g + 0.95*m  proportional to  g + 19m
-        #     old:        1.00*g + 0.95*m  proportional to  g +  0.95m
-        # i.e. the old version weighted the raw gradient ~20x more heavily against momentum,
-        # making this behave like a much lower-momentum Muon.
 
         is_reshaped = False
         if update.ndim > 2:
-            # Keras/TF conv kernels are (kh, kw, in_channels, out_channels), while Muon
-            # (and Keller's reference impl) expects the fan-out axis FIRST, as PyTorch
-            # stores it: (out_channels, in_channels, kh, kw).
-            # Flattening with the raw shape[0] would orthogonalize a (kh, kh*kw*in*out)
-            # matrix, i.e. rank <= kernel height. Move the last axis to the front first.
             ndim = len(update.shape)
             update = ops.transpose(update, axes=[ndim - 1, *range(ndim - 1)])
             shape = update.shape  # (out_channels, kh, kw, in_channels)
@@ -154,29 +153,7 @@ class Muon(optimizer.Optimizer):
             is_reshaped = True
 
         update = self.zeropower_via_newtonschulz5(update)
-
-        # d_out / d_in must describe the fan-out / fan-in of the variable, not raw axes.
-        # For every Keras variable the LAST axis is the fan-out axis (Dense: (in, out),
-        # Conv2D: (kh, kw, in, out)), so fan-in is the product of all remaining axes.
-        # This reproduces the PyTorch-layout semantics the formula was written for.
-        grad_shape = gradient.shape
-        d_out = float(grad_shape[-1])
-        d_in = 1.0
-        for dim in grad_shape[:-1]:
-            d_in *= float(dim)
-        # Moonshot/Moonlight scaling: 0.2 * sqrt(max(d_out, d_in)) makes the update's
-        # per-element RMS ~0.2 for EVERY layer shape, matching AdamW's typical update
-        # RMS - so the muon-routed matrices and the AdamW-routed exclude_layers share
-        # one honestly-scaled learning rate, and AdamW-like lrs (~1e-3) transfer.
-        # The previous rule, 0.2 * sqrt(max(1, d_out/d_in)), was Keller's aspect-ratio
-        # factor times 0.2: per-element step 0.2*lr/sqrt(d_in), which at lr 3e-3 moved
-        # the 576-fan-in trunk convs ~100x slower per element than the AdamW heads -
-        # the trunk was near-frozen while the readouts did the fitting (corroborated:
-        # a 6x trunk-step change from the reshape bug did not move val loss).
-        # NOTE this multiplies the trunk step ~24x at fixed lr: every lr tuned before
-        # this line changed is invalid, retune (basin expected near adam-like 1e-3).
-        scaling_factor = 0.2 * max(d_out, d_in) ** 0.5
-        update *= scaling_factor
+        update *= self.get_scaling_factor(gradient.shape)
 
         if is_reshaped:
             update = ops.reshape(update, shape)
@@ -226,12 +203,12 @@ class Muon(optimizer.Optimizer):
 
         if self.muon_momentums[self._get_variable_index(variable)] is not None:
             update = self.muon_update(variable, gradient, muon_learning_rate)
-            variable.assign_sub(update)
             self.apply_weight_decay(variable, muon_learning_rate)
+            variable.assign_sub(update)
         else:
             update = self.adam_update(variable, gradient, adam_learning_rate)
-            variable.assign_sub(update)
             self.apply_weight_decay(variable, adam_learning_rate)
+            variable.assign_sub(update)
 
     def get_config(self):
         config = super().get_config()

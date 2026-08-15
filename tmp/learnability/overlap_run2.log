@@ -1,0 +1,8 @@
+### run2 g12: train/held-out position overlap
+
+  val: 3107/6595 rows (47.1%) are byte-identical to a TRAIN position -> 60.7% of the split's loss WEIGHT
+      mean ply of overlapping 13.0 vs non-overlapping 22.6
+  nxt: 718/13631 rows (5.3%) are byte-identical to a TRAIN position -> 20.5% of the split's loss WEIGHT
+      mean ply of overlapping 3.5 vs non-overlapping 21.5
+
+  -- target=blend: error split by overlap --

@@ -1,0 +1,370 @@
+{
+ "baseline": [
+  {
+   "gen": 0,
+   "selfplay": {
+    "games": 500,
+    "avg_len": 30.152,
+    "max_len": 42,
+    "p_minus1": 0.492,
+    "draw": 0.058,
+    "p_plus1": 0.45
+   },
+   "fixed": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.4653997848691287,
+     "mass": 0.513718005832099
+    },
+    "block_policy": {
+     "top1": 0.25583333333333336,
+     "mass": 0.30592143535614014
+    },
+    "n_win": 2789,
+    "n_blk": 6000
+   },
+   "own": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.41596638655462187,
+     "mass": 0.47593037383396086
+    },
+    "n_win": 238,
+    "block_policy": {
+     "top1": 0.1551155115511551,
+     "mass": 0.1914793998003006
+    },
+    "n_blk": 909
+   },
+   "nxt": {
+    "mse_weighted": 0.8379517894051598,
+    "mse_unweighted": 0.9214661717414856,
+    "n_unique": 6940,
+    "target_var": 0.921174943447113,
+    "target_mean": 0.017062179744243622,
+    "pred_mean": 0.0,
+    "pred_std": 0.0
+   },
+   "train": null,
+   "coverage": null
+  },
+  {
+   "gen": 1,
+   "selfplay": {
+    "games": 88,
+    "avg_len": 32.75,
+    "max_len": 42,
+    "p_minus1": 0.5,
+    "draw": 0.10227272727272728,
+    "p_plus1": 0.3977272727272727
+   },
+   "fixed": {
+    "value": {
+     "mean_V": 0.15257461369037628,
+     "frac_gt0": 0.72534958766583,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 0.7762858867645264
+    },
+    "win_policy": {
+     "top1": 0.4324130512728577,
+     "mass": 0.4964711884148192
+    },
+    "block_policy": {
+     "top1": 0.2848333333333333,
+     "mass": 0.30130404233932495
+    },
+    "n_win": 2789,
+    "n_blk": 6000
+   },
+   "own": {
+    "value": {
+     "mean_V": 0.13012664020061493,
+     "frac_gt0": 0.5897435897435898,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 0.8040546178817749
+    },
+    "win_policy": {
+     "top1": 0.5128205128205128,
+     "mass": 0.5800455013910929
+    },
+    "n_win": 39,
+    "block_policy": {
+     "top1": 0.325,
+     "mass": 0.30235108733177185
+    },
+    "n_blk": 120
+   },
+   "nxt": {
+    "mse_weighted": 0.7675151852112159,
+    "mse_unweighted": 0.8204025030136108,
+    "n_unique": 1348,
+    "target_var": 0.8341832160949707,
+    "target_mean": 0.01197140198200941,
+    "pred_mean": 0.014504107646644115,
+    "pred_std": 0.17568287253379822
+   },
+   "inwin": {
+    "mse_weighted": 0.5249059563610307,
+    "mse_unweighted": 0.5736053586006165,
+    "n_unique": 6940,
+    "target_var": 0.921174943447113,
+    "target_mean": 0.017062179744243622,
+    "pred_mean": 0.028865592554211617,
+    "pred_std": 0.3229050040245056
+   },
+   "gap_fit": 1.4621956102996065,
+   "train": {
+    "epochs": 9,
+    "train_loss": 2.273,
+    "train_value_loss": 0.4322,
+    "val_loss": 2.7074,
+    "val_value_loss": 0.7813,
+    "last_train_value_loss": 0.2575,
+    "last_val_value_loss": 0.8083
+   },
+   "gap": 0.9823565662501164,
+   "coverage": {
+    "window": [
+     0
+    ],
+    "board": 0.05946337926033358,
+    "state": 0.05221174764321972,
+    "n_positions": 1379,
+    "band_0-5": 0.48125,
+    "nband_0-5": 160,
+    "band_6-9": 0.029239766081871343,
+    "nband_6-9": 171,
+    "band_10-13": 0.0,
+    "nband_10-13": 164,
+    "band_14-17": 0.0,
+    "nband_14-17": 167,
+    "band_18+": 0.0,
+    "nband_18+": 717
+   }
+  }
+ ],
+ "cpuct35": [
+  {
+   "gen": 0,
+   "selfplay": {
+    "games": 500,
+    "avg_len": 30.348,
+    "max_len": 42,
+    "p_minus1": 0.484,
+    "draw": 0.068,
+    "p_plus1": 0.448
+   },
+   "fixed": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.4653997848691287,
+     "mass": 0.513718005832099
+    },
+    "block_policy": {
+     "top1": 0.25583333333333336,
+     "mass": 0.30592143535614014
+    },
+    "n_win": 2789,
+    "n_blk": 6000
+   },
+   "own": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.44782608695652176,
+     "mass": 0.4683126314178757
+    },
+    "n_win": 230,
+    "block_policy": {
+     "top1": 0.17227722772277226,
+     "mass": 0.19442951679229736
+    },
+    "n_blk": 1010
+   },
+   "nxt": {
+    "mse_weighted": 0.7928312949850008,
+    "mse_unweighted": 0.8738341331481934,
+    "n_unique": 6860,
+    "target_var": 0.873562753200531,
+    "target_mean": 0.016471125185489655,
+    "pred_mean": 0.0,
+    "pred_std": 0.0
+   },
+   "train": null,
+   "coverage": null
+  },
+  {
+   "gen": 1,
+   "selfplay": {
+    "games": 100,
+    "avg_len": 29.7,
+    "max_len": 42,
+    "p_minus1": 0.52,
+    "draw": 0.07,
+    "p_plus1": 0.41
+   },
+   "fixed": {
+    "value": {
+     "mean_V": 0.21604907512664795,
+     "frac_gt0": 0.740408748655432,
+     "frac_gt09": 0.0017927572606669057,
+     "mse_vs_plus1": 0.712138831615448
+    },
+    "win_policy": {
+     "top1": 0.48583721764073146,
+     "mass": 0.5028914601444215
+    },
+    "block_policy": {
+     "top1": 0.32766666666666666,
+     "mass": 0.30752116441726685
+    },
+    "n_win": 2789,
+    "n_blk": 6000
+   },
+   "own": {
+    "value": {
+     "mean_V": 0.24414967000484467,
+     "frac_gt0": 0.7333333333333333,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 0.6569811105728149
+    },
+    "win_policy": {
+     "top1": 0.6666666666666666,
+     "mass": 0.5837202547325029
+    },
+    "n_win": 45,
+    "block_policy": {
+     "top1": 0.36,
+     "mass": 0.2951768934726715
+    },
+    "n_blk": 150
+   },
+   "nxt": {
+    "mse_weighted": 0.8108654896391736,
+    "mse_unweighted": 0.8741158843040466,
+    "n_unique": 1447,
+    "target_var": 0.8499209880828857,
+    "target_mean": 0.015685629099607468,
+    "pred_mean": 0.04187113419175148,
+    "pred_std": 0.27870288491249084
+   },
+   "inwin": {
+    "mse_weighted": 0.4002302934689247,
+    "mse_unweighted": 0.43744006752967834,
+    "n_unique": 6860,
+    "target_var": 0.873562753200531,
+    "target_mean": 0.016471125185489655,
+    "pred_mean": 0.08732966333627701,
+    "pred_std": 0.41590267419815063
+   },
+   "gap_fit": 2.025997289238507,
+   "train": {
+    "epochs": 9,
+    "train_loss": 2.2553,
+    "train_value_loss": 0.3363,
+    "val_loss": 2.5987,
+    "val_value_loss": 0.6776,
+    "last_train_value_loss": 0.282,
+    "last_val_value_loss": 0.6853
+   },
+   "gap": 1.1966728005300673,
+   "coverage": {
+    "window": [
+     0
+    ],
+    "board": 0.061238691718858734,
+    "state": 0.04561161022805805,
+    "n_positions": 1437,
+    "band_0-5": 0.5151515151515151,
+    "nband_0-5": 165,
+    "band_6-9": 0.016304347826086956,
+    "nband_6-9": 184,
+    "band_10-13": 0.0,
+    "nband_10-13": 176,
+    "band_14-17": 0.0,
+    "nband_14-17": 176,
+    "band_18+": 0.0,
+    "nband_18+": 736
+   }
+  }
+ ],
+ "games2000": [
+  {
+   "gen": 0,
+   "selfplay": {
+    "games": 862,
+    "avg_len": 30.561484918793504,
+    "max_len": 42,
+    "p_minus1": 0.48491879350348027,
+    "draw": 0.052204176334106726,
+    "p_plus1": 0.462877030162413
+   },
+   "fixed": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.4653997848691287,
+     "mass": 0.513718005832099
+    },
+    "block_policy": {
+     "top1": 0.25583333333333336,
+     "mass": 0.30592143535614014
+    },
+    "n_win": 2789,
+    "n_blk": 6000
+   },
+   "own": {
+    "value": {
+     "mean_V": 0.0,
+     "frac_gt0": 0.0,
+     "frac_gt09": 0.0,
+     "mse_vs_plus1": 1.0
+    },
+    "win_policy": {
+     "top1": 0.4306569343065693,
+     "mass": 0.4916405994309126
+    },
+    "n_win": 411,
+    "block_policy": {
+     "top1": 0.15853658536585366,
+     "mass": 0.20003773272037506
+    },
+    "n_blk": 1640
+   },
+   "nxt": {
+    "mse_weighted": 0.8131382499752611,
+    "mse_unweighted": 0.9027509689331055,
+    "n_unique": 12057,
+    "target_var": 0.9024538397789001,
+    "target_mean": 0.017237989231944084,
+    "pred_mean": 0.0,
+    "pred_std": 0.0
+   },
+   "train": null,
+   "coverage": null
+  }
+ ]
+}

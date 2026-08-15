@@ -79,10 +79,10 @@ class Create_Train_Test_Split:
         self.generation = max([int(Path(path).name) for path in glob(self.parent_path + "/*")])
 
         self.files = sorted([path + "/Self_Play_Data.h5" for path in glob(self.parent_path + "/*")], key=lambda path: int(Path(path).parent.name))
-        self.files = self.files[-num_previous_generations - 1:]
 
-        if self.generation >= 2:
-            self.files = self.files[1:]
+        if self.generation >= 1:  # gen 0 has no network, drop it from every later window
+            self.files = [f for f in self.files if int(Path(f).parent.name) != 0]
+        self.files = self.files[-num_previous_generations - 1:]
         self.files = self.files[::-1] # reverse it for iteration
 
         self.train_percent = train_percent

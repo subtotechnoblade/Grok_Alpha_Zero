@@ -10,14 +10,14 @@ class ResNet_Block(tf.keras.layers.Layer):
         self.strides = strides
 
         self.bn1 = tf.keras.layers.BatchNormalization()
-        self.conv1 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=self.strides, padding=padding, kernel_initializer='he_normal')
+        self.conv1 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=self.strides, padding=padding, use_bias=False, kernel_initializer='he_normal')
 
         self.bn2 = tf.keras.layers.BatchNormalization()
-        self.conv2 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=(1, 1), padding="same", kernel_initializer='he_normal')
+        self.conv2 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=(1, 1), padding="same", use_bias=False, kernel_initializer='he_normal')
 
 
         self.use_projection = self.strides != (1, 1)
-        self.residual_conv = tf.keras.layers.Conv2D(filters, kernel_size=(1, 1), strides=strides, padding=padding, kernel_initializer='he_normal')
+        self.residual_conv = tf.keras.layers.Conv2D(filters, kernel_size=(1, 1), strides=strides, padding=padding, use_bias=False, kernel_initializer='he_normal')
 
 
     def build(self, input_shape):

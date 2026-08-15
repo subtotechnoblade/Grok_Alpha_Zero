@@ -303,7 +303,8 @@ class Server:
         self.providers = providers
         self.num_workers = len(self.shms)
         self.file_path = file_path
-        self.wait_time = per_process_wait_time * self.num_workers if self.num_workers > 1 else 0.0
+        # self.wait_time = per_process_wait_time * self.num_workers if self.num_workers > 1 else 0.0
+        self.wait_time = 0.0
         # self.wait_time = 1e-2
         if self.num_workers > 1:
             self.past_fills = deque()
@@ -391,36 +392,37 @@ class Server:
                     # the batching window starts when work appears, not when we began
                     # idling, otherwise idle time poisons the wait time statistics
                     start_time = time.perf_counter()
-            elapsed_time = time.perf_counter() - start_time
-            if self.num_workers > 1:
-                self.past_fills.append(len(active_indexes)) # number of worker's requests collected
-                self.past_wait_times.append(elapsed_time)
-                if len(self.past_wait_times) > 1000: # 400 SMA
-                    self.past_wait_times.popleft()
-                    self.past_fills.popleft()
-                total_wait = sum(self.past_wait_times)
-                if total_wait > 0:  # guard: every retained sample can still be ~0
-                    average_request_rate = sum(self.past_fills) / total_wait
-                    self.wait_time = self.compute_wait_time(0.05, average_request_rate)
-                # print(elapsed_time, len(active_indexes), average_request_rate, self.wait_time)
-                if os.environ.get("GZ_SERVER_DEBUG"):
-                    # Set GZ_SERVER_DEBUG=1 to see what the batching controller is
-                    # actually doing. batch_med collapsing toward 1 while wait_time_med
-                    # climbs to 6000us is the signature of the drain problem.
-                    self._dbg = getattr(self, "_dbg", [])
-                    self._dbg.append((elapsed_time, len(active_indexes), self.wait_time))
-                    self._dbg_n = getattr(self, "_dbg_n", 0) + 1
-                    if len(self._dbg) >= 2000:
-                        import statistics as st
-                        w, f, wt = zip(*self._dbg)
-                        print(f"[srv] batches={self._dbg_n} "
-                              f"collect_med={st.median(w) * 1e6:.0f}us "
-                              f"batch_med={st.median(f):.1f} batch_max={max(f)} "
-                              f"wait_time_med={st.median(wt) * 1e6:.0f}us", flush=True)
-                        self._dbg.clear()
+            # elapsed_time = time.perf_counter() - start_time
+            # if self.num_workers > 1:
+            #     # self.past_fills.append(len(active_indexes)) # number of worker's requests collected
+            #     # self.past_wait_times.append(elapsed_time)
+            #     # if len(self.past_wait_times) > 1000: # 400 SMA
+            #     #     self.past_wait_times.popleft()
+            #     #     self.past_fills.popleft()
+            #     # total_wait = sum(self.past_wait_times)
+            #     # if total_wait > 0:  # guard: every retained sample can still be ~0
+            #     #     average_request_rate = sum(self.past_fills) / total_wait
+            #         # self.wait_time = self.compute_wait_time(0.05, average_request_rate)
+            #
+                # if os.environ.get("GZ_SERVER_DEBUG"):
+                # if True:
+                #     # Set GZ_SERVER_DEBUG=1 to see what the batching controller is
+                #     # actually doing. batch_med collapsing toward 1 while wait_time_med
+                #     # climbs to 6000us is the signature of the drain problem.
+                #     self._dbg = getattr(self, "_dbg", [])
+                #     self._dbg.append((elapsed_time, len(active_indexes), self.wait_time))
+                #     self._dbg_n = getattr(self, "_dbg_n", 0) + 1
+                #     if len(self._dbg) >= 2000:
+                #         import statistics as st
+                #         w, f, wt = zip(*self._dbg)
+                #         print(f"[srv] batches={self._dbg_n} "
+                #               f"collect_med={st.median(w) * 1e6:.0f}us "
+                #               f"batch_med={st.median(f):.1f} batch_max={max(f)} "
+                #               f"wait_time_med={st.median(wt) * 1e6:.0f}us", flush=True)
+                #         self._dbg.clear()
 
-            if len(active_connections) > len(self.shared_arrs):
-                raise ValueError("Too many samples in 1 batch sth went wrong")
+            # if len(active_connections) > len(self.shared_arrs):
+            #     raise ValueError("Too many samples in 1 batch sth went wrong")
             # implement sync by checking for inputs again
 
             for input_name, (_, transposition, shape, infer_dtype) in self.inputs_feed_config.items():

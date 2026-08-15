@@ -20,14 +20,14 @@ class Stable_Categorical_Focal_Crossentropy(tf.keras.Loss):
         loss = -self.alpha * ((1.0 - y_pred) ** self.gamma) * y_true * tf.math.log(y_pred)
         return loss
 class Policy_Loss(tf.keras.Loss):
-    def __init__(self, loss_fn=tf.keras.losses.CategoricalCrossentropy(), **kwargs):
+    def __init__(self, loss_fn=tf.keras.losses.CategoricalCrossentropy(reduction=None), **kwargs):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
 
     def call(self, y_true, y_pred):
         return self.loss_fn(y_true, y_pred)
 class Value_Loss(tf.keras.Loss):
-    def __init__(self, loss_fn=tf.keras.losses.MeanSquaredError(), **kwargs):
+    def __init__(self, loss_fn=tf.keras.losses.MeanSquaredError(reduction=None), **kwargs):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
 
@@ -35,9 +35,9 @@ class Value_Loss(tf.keras.Loss):
         return self.loss_fn(y_true, y_pred)
 
 class KLD(tf.keras.Loss):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.loss_fn = tf.keras.losses.KLDivergence()
+    def __init__(self, reduction=None, **kwargs):
+        super().__init__(reduction, **kwargs)
+        self.loss_fn = tf.keras.losses.KLDivergence(reduction=None)
 
     def call(self, y_true, y_pred):
         return self.loss_fn(y_true, y_pred)

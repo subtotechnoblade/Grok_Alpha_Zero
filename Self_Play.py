@@ -77,17 +77,9 @@ class Self_Play:
 
             # using normal MCTS
             if not self.train_config["use_gumbel"]:
-                # One tree now serves both players, so tau is chosen per ply rather than by
-                # picking between two objects. Same schedule as before: player -1 explores
-                # for its first num_explore_actions_first moves, player 1 for its first
-                # num_explore_actions_second, and current_move_num parity says whose turn it is.
                 if current_move_num % 2 == 0:
                     explore = current_move_num // 2 < self.train_config["num_explore_actions_first"]
                 else:
-                    # player +1 moves at plies 1,3,5,...: its k-th move is ply 2k-1, so the
-                    # move index is (ply-1)//2. The old (ply+1)//2 was an off-by-one that
-                    # gave player +1 only 2 exploratory plies out of the configured 3 -
-                    # and tau sampling is nearly the only entropy source in self play
                     explore = (current_move_num - 1) // 2 < self.train_config["num_explore_actions_second"]
                 self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
@@ -167,6 +159,13 @@ class Self_Play:
         # weighted average of q and z. q alone suffers from the horizon effect, z alone is
         # too noisy; q_weight = 0.5 is the even average from the oracle blog post
         q_weight = self.train_config.get("q_weight", 0.5)
+        if self.generation == 0:
+            # Generation 0 plays with NO network (session is None, see self_play_task), so
+            # every non-terminal leaf evaluates to exactly 0.0 and rootQ carries only
+            # whatever terminal outcomes the tree happened to reach. Blending that in does
+            # not smooth z, it drags the target toward zero by a factor the later
+            # generations never see. Warm up on the pure game outcome instead.
+            q_weight = 0.0
         target_values = (1.0 - q_weight) * target_z + q_weight * target_q
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
@@ -216,14 +215,15 @@ def self_play_task(worker_id,
                    lock: mp.Lock,
                    folder_path: str,
                    generation: int,
-                   num_games: int,
+                   claimed,
+                   total_games: int,
                    progress,
                    stats_q,
                    request_ready=None,
                    response_ready=None):
-    # This worker lives for the whole generation and plays num_games of them. Everything
-    # before the loop is paid ONCE instead of once per game: the process spawn, the
-    # session, the numba warm up, and the memo below.
+    # This worker lives for the whole generation and pulls games until the shared counter
+    # runs out. Everything before the loop is paid ONCE instead of once per game: the
+    # process spawn, the session, the numba warm up, and the memo below.
     np.random.seed()  # once per PROCESS. Never per game: pointless at best, and a fixed
     # value here would correlate every worker's games with each other.
     import onnxruntime as rt
@@ -247,7 +247,15 @@ def self_play_task(worker_id,
             # plays AND by the whole search inside each game (Self_Play hands the same
             # session object to both trees). That sharing is the point, not an accident.
 
-    for _ in range(num_games):
+    while True:
+        # Claim one game. The read and the increment must happen under the SAME lock
+        # acquisition, otherwise two workers can both see the last index and the
+        # generation overshoots total_games.
+        with claimed.get_lock():
+            if claimed.value >= total_games:
+                break
+            claimed.value += 1
+
         Self_Play(game_class(),
                   session,
                   build_config,
@@ -279,6 +287,14 @@ def convert_shape(shape):
     return str_shape[:-1]
 
 
+def games_for_generation(train_config, generation):
+    """Generation 0 may run a larger book than the rest. .get keeps plain-dict configs working."""
+    initial = train_config.get("initial_games_per_generation")
+    if generation == 0 and initial:
+        return int(initial)
+    return int(train_config["games_per_generation"])
+
+
 def run_self_play(game_class,
                   configs,
                   folder_path,
@@ -287,14 +303,16 @@ def run_self_play(game_class,
     if not os.path.exists(f"{folder_path}/Self_Play_Data.h5"):
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
+    generation = int(Path(folder_path).name)  # separator agnostic, see Dataloader
+    target_games = games_for_generation(train_config, generation)
+
     with h5.File(f"{folder_path}/Self_Play_Data.h5") as dataset_file:
-        num_games_left = int(train_config["games_per_generation"] - dataset_file["game_stats"][2])
+        num_games_left = int(target_games - dataset_file["game_stats"][2])
 
     if num_games_left <= 0:
-        print(f"Finished generating {train_config['games_per_generation']} games!")
+        print(f"Finished generating {target_games} games!")
         return
 
-    generation = int(Path(folder_path).name)  # separator agnostic, see Dataloader
     num_workers = train_config["num_workers"]
     if num_games_left < num_workers:
         num_workers = num_games_left
@@ -376,11 +394,17 @@ def run_self_play(game_class,
     progress = mp.Value("i", 0)
     stats_q = mp.Queue()
 
-    # Split the work up front. Workers now live for the whole generation, so there is no
-    # respawning and no worker id recycling: worker i owns shm slot i for its entire life,
-    # which is exactly the invariant Parallelized_Session wants.
-    shares = [num_games_left // num_workers + (i < num_games_left % num_workers)
-              for i in range(num_workers)]
+    # Games are claimed one at a time from this counter instead of being split up front.
+    # A static split makes the generation as long as its SLOWEST worker's share: whoever
+    # finishes early exits and its cores idle while the stragglers grind out the tail.
+    # Pulling on demand self-corrects for any cause of imbalance (slow core, unlucky run
+    # of long games, worse memo hit rate) without needing to know which one it was, and
+    # bounds the tail at one game instead of one share.
+    #
+    # This does NOT disturb what the old comment here protected: workers still spawn once
+    # and live the whole generation, so worker i still owns shm slot i for its entire
+    # life, which is the invariant Parallelized_Session wants. Only the loop bound moved.
+    claimed = mp.Value("i", 0)
 
     jobs = []
     for worker_id in range(num_workers):
@@ -396,7 +420,8 @@ def run_self_play(game_class,
                                   lock,
                                   folder_path,
                                   generation,
-                                  shares[worker_id],
+                                  claimed,
+                                  num_games_left,
                                   progress,
                                   stats_q,
                                   request_ready,
@@ -455,8 +480,8 @@ def run_self_play(game_class,
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
         games_played = int(file["game_stats"][2])
-    if games_played < train_config["games_per_generation"]:
-        warn(f"Generation ended {train_config['games_per_generation'] - games_played} games short. "
+    if games_played < target_games:
+        warn(f"Generation ended {target_games - games_played} games short. "
              f"Re-running this generation will top it up.")
 
 

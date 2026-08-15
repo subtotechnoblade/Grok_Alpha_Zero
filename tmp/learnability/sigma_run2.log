@@ -1,0 +1,14 @@
+
+  blend: within-position outcome variance sigma^2 by ply (train groups with the stated minimum occurrence count)
+    count>= 2: ply 0- 5: 0.413(625)  ply 6- 9: 0.266(1333)  ply10-13: 0.201(1410)  ply14-17: 0.128(1318)  ply18-21: 0.066(1266)  ply22-29: 0.020(2048)  ply30-41: 0.000(1306)
+    count>= 4: ply 0- 5: 0.472(355)  ply 6- 9: 0.315(554)  ply10-13: 0.200(496)  ply14-17: 0.140(396)  ply18-21: 0.093(338)  ply22-29: 0.032(428)  ply30-41: 0.000(270)
+    count>=10: ply 0- 5: 0.465(221)  ply 6- 9: 0.290(154)  ply10-13: 0.112(108)  ply14-17: 0.048(66)  ply18-21: 0.034(44)  ply22-29: 0.021(60)  ply30-41: 0.000(28)
+    -> mean ply of the count>=4 groups the floor was measured on: 10.1
+
+  z: within-position outcome variance sigma^2 by ply (train groups with the stated minimum occurrence count)
+    count>= 2: ply 0- 5: 0.633(625)  ply 6- 9: 0.415(1333)  ply10-13: 0.313(1410)  ply14-17: 0.198(1318)  ply18-21: 0.103(1266)  ply22-29: 0.030(2048)  ply30-41: 0.000(1306)
+    count>= 4: ply 0- 5: 0.722(355)  ply 6- 9: 0.492(554)  ply10-13: 0.309(496)  ply14-17: 0.218(396)  ply18-21: 0.145(338)  ply22-29: 0.050(428)  ply30-41: 0.000(270)
+    count>=10: ply 0- 5: 0.717(221)  ply 6- 9: 0.456(154)  ply10-13: 0.173(108)  ply14-17: 0.074(66)  ply18-21: 0.053(44)  ply22-29: 0.033(60)  ply30-41: 0.000(28)
+    -> mean ply of the count>=4 groups the floor was measured on: 10.1
+
+wrote C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\learnability\sigma_run2_g12.json

@@ -182,6 +182,10 @@ class TrainConfig(ConfigBase):
     games_per_generation = Param(help=(
         "Self play games per generation. More = better data, slower loop."),
         check=lambda v: None if v >= 2 else "must be >= 2")
+    initial_games_per_generation = Param(None, help=(
+        "Games for generation 0 only, which has no network and is the base every "
+        "later generation bootstraps from. None = use games_per_generation."),
+        check=lambda v: None if v is None or v >= 2 else "must be >= 2 or None")
     max_actions = Param(help=(
         "Hard cap on game length. Reaching it WITHOUT a win is scored a draw."),
         check=_positive)

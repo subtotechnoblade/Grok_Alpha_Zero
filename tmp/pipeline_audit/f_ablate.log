@@ -1,0 +1,50 @@
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tensorflow_updated\Lib\site-packages\keras\src\backend\tensorflow\core.py:222: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+
+N=15000  value target std 0.4491  var 0.2017
+
+=== muon+ortho (lr 3.0e-04, 25 epochs) ===
+   muon+ortho    ep0   tr_val 0.2141 val_val 0.1870 ||value_1 W|| 0.00655 b +0.0014 ||policy_1 W|| 0.0251 pred_std 0.0173 r 0.7818 mse 0.1900 (best-scaled 0.0784)
+   muon+ortho    ep4   tr_val 0.1855 val_val 0.1595 ||value_1 W|| 0.01314 b +0.0040 ||policy_1 W|| 0.0414 pred_std 0.0553 r 0.8859 mse 0.1623 (best-scaled 0.0434)
+   muon+ortho    ep8   tr_val 0.1603 val_val 0.1410 ||value_1 W|| 0.01803 b +0.0057 ||policy_1 W|| 0.0536 pred_std 0.0804 r 0.9091 mse 0.1429 (best-scaled 0.0350)
+   muon+ortho    ep12  tr_val 0.1474 val_val 0.1472 ||value_1 W|| 0.01992 b +0.0047 ||policy_1 W|| 0.0623 pred_std 0.0772 r 0.8771 mse 0.1473 (best-scaled 0.0465)
+   muon+ortho    ep16  tr_val 0.1369 val_val 0.1599 ||value_1 W|| 0.02134 b +0.0045 ||policy_1 W|| 0.0677 pred_std 0.0658 r 0.8277 mse 0.1595 (best-scaled 0.0635)
+   muon+ortho    ep20  tr_val 0.1295 val_val 0.1709 ||value_1 W|| 0.02258 b +0.0052 ||policy_1 W|| 0.0706 pred_std 0.0551 r 0.7864 mse 0.1701 (best-scaled 0.0769)
+   muon+ortho    ep24  tr_val 0.1240 val_val 0.1783 ||value_1 W|| 0.02374 b +0.0062 ||policy_1 W|| 0.0760 pred_std 0.0489 r 0.7479 mse 0.1768 (best-scaled 0.0888)
+   -> 305s | final val_value 0.1783 | pred_std 0.0489 vs target 0.4491 | r 0.7479 | mse 0.1768 | mse if scale were right 0.0888
+
+=== muon (lr 3.0e-04, 25 epochs) ===
+   muon          ep0   tr_val 0.2095 val_val 0.1814 ||value_1 W|| 0.01717 b +0.0031 ||policy_1 W|| 0.0494 pred_std 0.0379 r 0.7438 mse 0.1857 (best-scaled 0.0901)
+   muon          ep4   tr_val 0.0920 val_val 0.4334 ||value_1 W|| 0.08383 b +0.0078 ||policy_1 W|| 0.2137 pred_std 0.1791 r 0.9009 mse 0.4427 (best-scaled 0.0380)
+   muon          ep8   tr_val 0.0437 val_val 0.3532 ||value_1 W|| 0.12307 b -0.0028 ||policy_1 W|| 0.3329 pred_std 0.2998 r 0.9274 mse 0.3612 (best-scaled 0.0282)
+   muon          ep12  tr_val 0.0221 val_val 0.1398 ||value_1 W|| 0.14756 b -0.0148 ||policy_1 W|| 0.4569 pred_std 0.3798 r 0.9729 mse 0.1455 (best-scaled 0.0108)
+   muon          ep16  tr_val 0.0119 val_val 0.0533 ||value_1 W|| 0.16410 b -0.0244 ||policy_1 W|| 0.5846 pred_std 0.4193 r 0.9835 mse 0.0570 (best-scaled 0.0066)
+   muon          ep20  tr_val 0.0072 val_val 0.0124 ||value_1 W|| 0.17580 b -0.0317 ||policy_1 W|| 0.7036 pred_std 0.4236 r 0.9885 mse 0.0137 (best-scaled 0.0046)
+   muon          ep24  tr_val 0.0045 val_val 0.0053 ||value_1 W|| 0.18479 b -0.0372 ||policy_1 W|| 0.8067 pred_std 0.4318 r 0.9901 mse 0.0055 (best-scaled 0.0040)
+   -> 260s | final val_value 0.0053 | pred_std 0.4318 vs target 0.4491 | r 0.9901 | mse 0.0055 | mse if scale were right 0.0040
+
+=== adam+ortho (lr 3.0e-04, 25 epochs) ===
+   adam+ortho    ep0   tr_val 0.2139 val_val 0.1782 ||value_1 W|| 0.00664 b +0.0014 ||policy_1 W|| 0.0253 pred_std 0.0458 r 0.8962 mse 0.1840 (best-scaled 0.0397)
+   adam+ortho    ep4   tr_val 0.1689 val_val 0.1620 ||value_1 W|| 0.01454 b -0.0025 ||policy_1 W|| 0.0448 pred_std 0.1884 r 0.6834 mse 0.1695 (best-scaled 0.1075)
+   adam+ortho    ep8   tr_val 0.1488 val_val 0.1137 ||value_1 W|| 0.01709 b -0.0030 ||policy_1 W|| 0.0595 pred_std 0.1241 r 0.9186 mse 0.1159 (best-scaled 0.0315)
+   adam+ortho    ep12  tr_val 0.1395 val_val 0.1738 ||value_1 W|| 0.01848 b -0.0008 ||policy_1 W|| 0.0652 pred_std 0.0537 r 0.7534 mse 0.1739 (best-scaled 0.0872)
+   adam+ortho    ep16  tr_val 0.1313 val_val 0.1863 ||value_1 W|| 0.02060 b +0.0003 ||policy_1 W|| 0.0705 pred_std 0.0399 r 0.7445 mse 0.1851 (best-scaled 0.0899)
+   adam+ortho    ep20  tr_val 0.1229 val_val 0.1834 ||value_1 W|| 0.02303 b -0.0006 ||policy_1 W|| 0.0737 pred_std 0.0454 r 0.7471 mse 0.1821 (best-scaled 0.0891)
+   adam+ortho    ep24  tr_val 0.1165 val_val 0.1754 ||value_1 W|| 0.02377 b -0.0012 ||policy_1 W|| 0.0780 pred_std 0.0547 r 0.7893 mse 0.1748 (best-scaled 0.0760)
+   -> 152s | final val_value 0.1754 | pred_std 0.0547 vs target 0.4491 | r 0.7893 | mse 0.1748 | mse if scale were right 0.0760
+
+=== adam (lr 3.0e-04, 25 epochs) ===
+   adam          ep0   tr_val 0.2061 val_val 0.3198 ||value_1 W|| 0.01808 b +0.0032 ||policy_1 W|| 0.0538 pred_std 0.0852 r 0.9176 mse 0.3304 (best-scaled 0.0319)
+   adam          ep4   tr_val 0.0691 val_val 0.8109 ||value_1 W|| 0.08375 b +0.0064 ||policy_1 W|| 0.2176 pred_std 0.1333 r 0.7022 mse 0.8237 (best-scaled 0.1022)
+   adam          ep8   tr_val 0.0359 val_val 0.2760 ||value_1 W|| 0.11713 b -0.0048 ||policy_1 W|| 0.3421 pred_std 0.3618 r 0.9395 mse 0.2851 (best-scaled 0.0237)
+   adam          ep12  tr_val 0.0210 val_val 0.0822 ||value_1 W|| 0.13844 b -0.0164 ||policy_1 W|| 0.4725 pred_std 0.4117 r 0.9794 mse 0.0846 (best-scaled 0.0082)
+   adam          ep16  tr_val 0.0120 val_val 0.0215 ||value_1 W|| 0.15444 b -0.0261 ||policy_1 W|| 0.5942 pred_std 0.4163 r 0.9869 mse 0.0225 (best-scaled 0.0052)
+   adam          ep20  tr_val 0.0075 val_val 0.0076 ||value_1 W|| 0.16650 b -0.0335 ||policy_1 W|| 0.7015 pred_std 0.4094 r 0.9900 mse 0.0078 (best-scaled 0.0040)
+   adam          ep24  tr_val 0.0049 val_val 0.0067 ||value_1 W|| 0.17605 b -0.0393 ||policy_1 W|| 0.7974 pred_std 0.4044 r 0.9903 mse 0.0059 (best-scaled 0.0039)
+   -> 154s | final val_value 0.0067 | pred_std 0.4044 vs target 0.4491 | r 0.9903 | mse 0.0059 | mse if scale were right 0.0039
+
+opt          val_value  pred_std   corr      mse      ||Wv||  
+muon+ortho   0.1783     0.0489     0.7479    0.1768   0.02374 
+muon         0.0053     0.4318     0.9901    0.0055   0.18479 
+adam+ortho   0.1754     0.0547     0.7893    0.1748   0.02377 
+adam         0.0067     0.4044     0.9903    0.0059   0.17605 
+target std 0.4491  var 0.2017

@@ -1,0 +1,101 @@
+[fit cheap GBMs 33s]
+
+=== 1. train/held-out position overlap (run2 g12) ===
+  val: 3107/6595 rows (47.1%) byte-identical to a TRAIN position = 60.7% of the split's loss WEIGHT (mean ply 13.0 vs 22.6)
+  nxt: 718/13631 rows (5.3%) byte-identical to a TRAIN position = 20.5% of the split's loss WEIGHT (mean ply 3.5 vs 21.5)
+    blend val  ALL           n=  6595 floor=0.5528 GBM=0.2654 R2=+0.5200
+    blend val  seen-in-train n=  3107 floor=0.5137 GBM=0.1949 R2=+0.6206
+    blend val  truly-unseen  n=  3488 floor=0.6132 GBM=0.3742 R2=+0.3899
+    blend nxt  ALL           n= 13631 floor=0.5343 GBM=0.4415 R2=+0.1737
+    blend nxt  seen-in-train n=   718 floor=0.1858 GBM=0.2805 R2=-0.5101
+    blend nxt  truly-unseen  n= 12913 floor=0.6243 GBM=0.4831 R2=+0.2263
+    z     val  ALL           n=  6595 floor=0.6850 GBM=0.3621 R2=+0.4713
+    z     val  seen-in-train n=  3107 floor=0.6500 GBM=0.2810 R2=+0.5677
+    z     val  truly-unseen  n=  3488 floor=0.7388 GBM=0.4873 R2=+0.3405
+    z     nxt  ALL           n= 13631 floor=0.6866 GBM=0.5779 R2=+0.1583
+    z     nxt  seen-in-train n=   718 floor=0.2610 GBM=0.4145 R2=-0.5880
+    z     nxt  truly-unseen  n= 12913 floor=0.7966 GBM=0.6201 R2=+0.2215
+
+=== 2. tempo-only baselines (no board information) ===
+  per-ply mean             blend val=0.5604  nxt=0.5400
+  per-(ply,side) mean      blend val=0.5604  nxt=0.5400
+  per-ply mean             z     val=0.6950  nxt=0.6953
+  per-(ply,side) mean      z     val=0.6950  nxt=0.6953
+
+=== 3. signal by occurrence count (label noise ~ 1/n) ===
+  -- blend: same model, held-out sliced by the held-out row's count --
+    val  count ==1  n=  5800 meanply=21.0  floor=0.6165 GBM=0.3392 R2=+0.4498
+    val  count 2-4  n=   685 meanply=13.3  floor=0.5986 GBM=0.2167 R2=+0.6380
+    val  count 5-9  n=    82 meanply= 9.7  floor=0.5316 GBM=0.0959 R2=+0.8196
+    val  count >=10 n=    28 meanply= 2.4  floor=0.1567 GBM=0.0237 R2=+0.8487
+    nxt  count ==1  n= 10028 meanply=23.4  floor=0.6903 GBM=0.4698 R2=+0.3194
+    nxt  count 2-4  n=  2538 meanply=21.2  floor=0.6583 GBM=0.4452 R2=+0.3237
+    nxt  count 5-9  n=   648 meanply=18.5  floor=0.5611 GBM=0.3933 R2=+0.2990
+    nxt  count >=10 n=   417 meanply=12.1  floor=0.3602 GBM=0.4342 R2=-0.2055
+  -- blend: ply-CONTROLLED (removes the opening/endgame confound) --
+    val  ply  6-13 count==1  n=  1352 floor=0.5885 GBM=0.4099 R2=+0.3035
+    val  ply  6-13 count>=2  n=   278 floor=0.5442 GBM=0.1536 R2=+0.7178
+    nxt  ply  6-13 count==1  n=  1578 floor=0.6522 GBM=0.5188 R2=+0.2045
+    nxt  ply  6-13 count>=2  n=   831 floor=0.4244 GBM=0.4479 R2=-0.0552
+    val  ply 14-21 count==1  n=  1564 floor=0.6142 GBM=0.3153 R2=+0.4866
+    val  ply 14-21 count>=2  n=   182 floor=0.8185 GBM=0.0730 R2=+0.9108
+    nxt  ply 14-21 count==1  n=  2274 floor=0.6500 GBM=0.4770 R2=+0.2661
+    nxt  ply 14-21 count>=2  n=   922 floor=0.5420 GBM=0.4701 R2=+0.1326
+  -- z: same model, held-out sliced by the held-out row's count --
+    val  count ==1  n=  5800 meanply=21.0  floor=0.7576 GBM=0.4565 R2=+0.3974
+    val  count 2-4  n=   685 meanply=13.3  floor=0.7648 GBM=0.3151 R2=+0.5880
+    val  count 5-9  n=    82 meanply= 9.7  floor=0.6229 GBM=0.1365 R2=+0.7809
+    val  count >=10 n=    28 meanply= 2.4  floor=0.2118 GBM=0.0355 R2=+0.8325
+    nxt  count ==1  n= 10028 meanply=23.4  floor=0.8192 GBM=0.5913 R2=+0.2782
+    nxt  count 2-4  n=  2538 meanply=21.2  floor=0.7801 GBM=0.5443 R2=+0.3023
+    nxt  count 5-9  n=   648 meanply=18.5  floor=0.6973 GBM=0.4862 R2=+0.3027
+    nxt  count >=10 n=   417 meanply=12.1  floor=0.5478 GBM=0.6112 R2=-0.1158
+  -- z: ply-CONTROLLED (removes the opening/endgame confound) --
+    val  ply  6-13 count==1  n=  1352 floor=0.8105 GBM=0.6297 R2=+0.2231
+    val  ply  6-13 count>=2  n=   278 floor=0.7545 GBM=0.2465 R2=+0.6733
+    nxt  ply  6-13 count==1  n=  1578 floor=0.8794 GBM=0.7459 R2=+0.1519
+    nxt  ply  6-13 count>=2  n=   831 floor=0.6308 GBM=0.6169 R2=+0.0220
+    val  ply 14-21 count==1  n=  1564 floor=0.7980 GBM=0.4587 R2=+0.4251
+    val  ply 14-21 count>=2  n=   182 floor=0.9921 GBM=0.1058 R2=+0.8933
+    nxt  ply 14-21 count==1  n=  2274 floor=0.8452 GBM=0.6835 R2=+0.1914
+    nxt  ply 14-21 count>=2  n=   922 floor=0.7973 GBM=0.6533 R2=+0.1806
+[57s]
+
+=== 4. irreducible label-noise floor + 5. learning curve ===
+  blend: subset = 1293/6595 val states with a measurable sigma^2 (38.8% of val weight, mean n_val 2.7, mean ply 9.3)
+     trivial=0.4415  GBM=0.1526  irreducible-noise floor=0.0762  | same states with n=1 labels the floor would be 0.2984
+     -> of the 0.3653 learnable range, GBM still misses 0.0765 (21%)
+  z: subset = 1293/6595 val states with a measurable sigma^2 (38.8% of val weight, mean n_val 2.7, mean ply 9.3)
+     trivial=0.5694  GBM=0.2241  irreducible-noise floor=0.1179  | same states with n=1 labels the floor would be 0.4600
+     -> of the 0.4515 learnable range, GBM still misses 0.1062 (24%)
+[63s]
+
+  learning curve (1292 training games in the window), by GAME:
+    blend frac=0.10 games=  129 unique=  6541 seed=0 train=0.0838 val=0.3614 nxt=0.5286
+    z     frac=0.10 games=  129 unique=  6541 seed=0 train=0.1143 val=0.4753 nxt=0.7195
+    blend frac=0.10 games=  129 unique=  6168 seed=1 train=0.0812 val=0.3805 nxt=0.4430
+    z     frac=0.10 games=  129 unique=  6168 seed=1 train=0.1110 val=0.5158 nxt=0.5800
+    blend frac=0.25 games=  323 unique= 14941 seed=0 train=0.1383 val=0.3162 nxt=0.5123
+    z     frac=0.25 games=  323 unique= 14941 seed=0 train=0.1916 val=0.4325 nxt=0.7163
+    blend frac=0.25 games=  323 unique= 14030 seed=1 train=0.1363 val=0.3155 nxt=0.4179
+    z     frac=0.25 games=  323 unique= 14030 seed=1 train=0.1813 val=0.4276 nxt=0.5850
+    blend frac=0.50 games=  646 unique= 25971 seed=0 train=0.1633 val=0.2840 nxt=0.4413
+    z     frac=0.50 games=  646 unique= 25971 seed=0 train=0.2201 val=0.3865 nxt=0.5671
+    blend frac=0.50 games=  646 unique= 25158 seed=1 train=0.1764 val=0.2916 nxt=0.4568
+    z     frac=0.50 games=  646 unique= 25158 seed=1 train=0.2360 val=0.4024 nxt=0.6097
+    blend frac=1.00 games= 1292 unique= 44212 seed=0 train=0.1960 val=0.2654 nxt=0.4415
+    z     frac=1.00 games= 1292 unique= 44212 seed=0 train=0.2581 val=0.3621 nxt=0.5779
+    blend frac=1.00 games= 1292 unique= 44212 seed=1 train=0.1935 val=0.2605 nxt=0.4333
+    z     frac=1.00 games= 1292 unique= 44212 seed=1 train=0.2608 val=0.3612 nxt=0.5903
+
+  curve summary (mean over 2 seeds):
+    blend frac=0.10 games=  129 unique=  6541  val=0.3709 (+-0.0096)  nxt=0.4858 (+-0.0428)
+    blend frac=0.25 games=  323 unique= 14941  val=0.3159 (+-0.0004)  nxt=0.4651 (+-0.0472)
+    blend frac=0.50 games=  646 unique= 25971  val=0.2878 (+-0.0038)  nxt=0.4491 (+-0.0078)
+    blend frac=1.00 games= 1292 unique= 44212  val=0.2629 (+-0.0024)  nxt=0.4374 (+-0.0041)
+    z     frac=0.10 games=  129 unique=  6541  val=0.4956 (+-0.0202)  nxt=0.6497 (+-0.0697)
+    z     frac=0.25 games=  323 unique= 14941  val=0.4301 (+-0.0024)  nxt=0.6506 (+-0.0657)
+    z     frac=0.50 games=  646 unique= 25971  val=0.3945 (+-0.0080)  nxt=0.5884 (+-0.0213)
+    z     frac=1.00 games= 1292 unique= 44212  val=0.3617 (+-0.0005)  nxt=0.5841 (+-0.0062)
+
+wrote C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\learnability\fast_run2_g12.json (107s)

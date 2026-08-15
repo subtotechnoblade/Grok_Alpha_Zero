@@ -1,0 +1,190 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685704.889502    4449 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685704.912101    4449 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685710.872378    4474 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685710.877319    4474 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685714.292707    4499 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685714.298138    4499 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685717.748138    4524 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685717.753205    4524 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685721.231310    4549 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685721.235974    4549 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685724.636102    4574 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685724.640832    4574 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+Traceback (most recent call last):
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 103, in <module>
+    main()
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp12_nadam.py", line 53, in main
+    d = load_split()
+        ^^^^^^^^^^^^
+  File "/mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/exp2_optimizer.py", line 34, in load_split
+    with h5.File(SRC, "r") as f:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 561, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dev/miniconda3/envs/WSL_tensorflow_general/lib/python3.11/site-packages/h5py/_hl/files.py", line 235, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'Connect4/backup/Self_Play_Data.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785685830.666780    5355 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785685830.671288    5355 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785685879.638484    5355 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785685888.449880    5408 service.cc:148] XLA service 0x418507b0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785685888.451072    5408 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+I0000 00:00:1785685889.098862    5408 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785685893.707450    5408 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+train 442003 unique | held-out 52525 | filters 16 dense 32
+value: const-0 0.7691 | GBT raw 0.6126 | lr 0.01 | wd 0.004
+
+arm                 ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+--------------------------------------------------------------------------
+nadamw 1e-2          1   1.0216 -32.8%   1.3285 |  1.7623  0.6437  32.1%
+                     2   0.6520  15.2%   0.6343 |  1.6182  0.4996  39.7%
+                     3   0.5813  24.4%   0.4943 |  1.5762  0.4576  43.2%
+                     4   0.5771  25.0%   0.4705 |  1.5392  0.4206  47.7%
+                     5   0.5925  23.0%   0.4986 |  1.5178  0.3992  47.0%
+                     6   0.6057  21.3%   0.4960 |  1.5101  0.3914  46.9%
+                     7   0.6373  17.1%   0.5390 |  1.5114  0.3928  47.2%
+                     8   0.6394  16.9%   0.4969 |  1.5076  0.3889  47.1%
+                     9   0.6623  13.9%   0.5300 |  1.5029  0.3843  47.8%
+                    10   0.6408  16.7%   0.5145 |  1.5010  0.3823  47.5%
+  BEST             value 0.5771 @ep4   policyKL 0.3823 @ep10
+
+W0000 00:00:1785686033.099848    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785686033.101080    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785686033.102471    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785686033.103197    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785686033.103841    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785686033.104453    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785686033.105153    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785686033.105779    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785686033.106420    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785686033.107099    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785686033.107479    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785686033.107831    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785686033.108307    5405 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+W0000 00:00:1785686050.669154    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785686050.670355    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785686050.671065    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785686050.671541    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785686050.672036    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785686050.672411    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785686050.672829    5404 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+muon+nadam 1e-2      1   0.6598  14.2%   0.6066 |  1.7073  0.5887  39.8%
+                     2   0.5885  23.5%   0.4832 |  1.5469  0.4283  45.6%
+                     3   0.6631  13.8%   0.5581 |  1.5098  0.3912  51.1%
+                     4   0.6739  12.4%   0.5455 |  1.5045  0.3859  49.9%
+                     5   0.6546  14.9%   0.5036 |  1.5049  0.3863  48.2%
+                     6   0.7009   8.9%   0.5541 |  1.5032  0.3846  50.0%
+                     7   0.7122   7.4%   0.5574 |  1.5024  0.3838  47.3%
+                     8   0.6983   9.2%   0.5315 |  1.4927  0.3741  51.0%
+                     9   0.7327   4.7%   0.5940 |  1.4916  0.3730  47.5%
+                    10   0.7245   5.8%   0.5602 |  1.4942  0.3756  48.5%
+  BEST             value 0.5885 @ep2   policyKL 0.3730 @ep9
+

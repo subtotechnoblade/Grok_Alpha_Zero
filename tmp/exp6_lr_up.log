@@ -1,0 +1,21 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785642955.893548   18332 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785642955.899155   18332 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785643012.845095   18332 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785643021.942080   18386 service.cc:148] XLA service 0x3272e030 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785643021.943074   18386 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+I0000 00:00:1785643022.640160   18386 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785643027.822092   18386 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+train 442003 unique | held-out 52525
+value: const-0 0.7691 | GBT raw 0.6126
+
+arm                       ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+--------------------------------------------------------------------------------
+adamw d8  lr6e-4           1   0.6861  10.8%   0.7201 |  1.7460  0.6274  32.6%
+                           2   0.6614  14.0%   0.6768 |  1.6562  0.5376  37.2%
+                           3   0.6425  16.5%   0.6397 |  1.6311  0.5125  38.7%
+                           4   0.6666  13.3%   0.6664 |  1.6180  0.4994  39.1%
+                           5   0.6812  11.4%   0.6836 |  1.6152  0.4965  39.2%
+                           6   0.6827  11.2%   0.7175 |  1.6049  0.4863  39.9%
+                           7   0.6767  12.0%   0.7052 |  1.5982  0.4796  40.8%

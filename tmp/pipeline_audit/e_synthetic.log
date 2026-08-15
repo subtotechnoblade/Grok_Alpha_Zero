@@ -1,0 +1,49 @@
+  after gen 15 unique states: 8691
+  after gen 14 unique states: 18012
+  after gen 13 unique states: 28909
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tensorflow_updated\Lib\site-packages\keras\src\backend\tensorflow\core.py:222: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+
+unique real states available: 15000
+value target range [-1.000, 0.905] std 0.4530
+train/test state overlap: 0 (must be 0)
+train weight mean 1.0000 max 303.2
+batches/epoch: 12 val batches: 3
+
+Epoch 1: val_loss improved from inf to 2.13422, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  0    22.4s  loss 2.155947  policy 1.933444  value 0.215287  ||  val_loss 2.134223  val_policy 1.914940  val_value 0.211224
+
+Epoch 2: val_loss improved from 2.13422 to 2.11024, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  1    25.8s  loss 2.139544  policy 1.954464  value 0.212637  ||  val_loss 2.110245  val_policy 1.920226  val_value 0.203715
+
+Epoch 3: val_loss improved from 2.11024 to 2.08855, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  2    29.2s  loss 2.125853  policy 1.925620  value 0.201950  ||  val_loss 2.088553  val_policy 1.886537  val_value 0.190117
+
+Epoch 4: val_loss improved from 2.08855 to 2.06308, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  3    32.6s  loss 2.114612  policy 1.915063  value 0.195970  ||  val_loss 2.063078  val_policy 1.876568  val_value 0.180534
+
+Epoch 5: val_loss improved from 2.06308 to 2.04232, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  4    36.0s  loss 2.102714  policy 1.924943  value 0.190655  ||  val_loss 2.042318  val_policy 1.864150  val_value 0.168978
+
+Epoch 6: val_loss improved from 2.04232 to 2.02673, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  5    39.4s  loss 2.091208  policy 1.912191  value 0.184534  ||  val_loss 2.026731  val_policy 1.860174  val_value 0.158955
+
+Epoch 7: val_loss improved from 2.02673 to 2.02093, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  6    42.8s  loss 2.079350  policy 1.904231  value 0.177258  ||  val_loss 2.020933  val_policy 1.868133  val_value 0.151158
+
+Epoch 8: val_loss improved from 2.02093 to 2.01424, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  7    46.2s  loss 2.065754  policy 1.894861  value 0.170709  ||  val_loss 2.014244  val_policy 1.865896  val_value 0.144827
+
+Epoch 9: val_loss improved from 2.01424 to 2.01056, saving model to C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\pipeline_audit/tmp_best.weights.h5
+  epoch  8    49.7s  loss 2.053862  policy 1.891884  value 0.165215  ||  val_loss 2.010557  val_policy 1.886432  val_value 0.142971
+
+Epoch 10: val_loss did not improve from 2.01056
+  epoch  9    53.1s  loss 2.043552  policy 1.880565  value 0.158924  ||  val_loss 2.021448  val_policy 1.873683  val_value 0.142343
+
+Epoch 11: val_loss did not improve from 2.01056
+  epoch 10    56.4s  loss 2.032896  policy 1.871215  value 0.153863  ||  val_loss 2.017099  val_policy 1.894541  val_value 0.140285
+
+Epoch 12: val_loss did not improve from 2.01056
+  epoch 11    59.6s  loss 2.023066  policy 1.876705  value 0.150328  ||  val_loss 2.020117  val_policy 1.869244  val_value 0.140067
+
+FINAL (best-val checkpoint reloaded): {"loss": 2.010557, "policy_loss": 1.87856, "policy_policy_kld": 0.551577, "value_loss": 0.142835}
+value head: MSE 0.146179  corr 0.9155  pred std 0.0742  target std 0.4491

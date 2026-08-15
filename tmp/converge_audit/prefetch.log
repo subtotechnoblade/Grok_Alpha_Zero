@@ -1,0 +1,10 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785613573.406989   96270 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785613573.417469   96270 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+run2 g12 n_prev=1: train 12206 val 2076 nxt 13631
+run2 g12 n_prev=4: train 51102 val 7989 nxt 13631
+run2 g12 n_prev=11: train 87418 val 13241 nxt 13631
+run3 g12 n_prev=4: train 36252 val 6676 nxt 12039
+run3 g12 n_prev=5: train 43658 val 8190 nxt 12039
+run3 g12 n_prev=1: train 10726 val 2048 nxt 12039
+run3 g12 n_prev=11: train 66296 val 11912 nxt 12039

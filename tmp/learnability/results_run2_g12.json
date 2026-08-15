@@ -1,0 +1,272 @@
+{
+ "run": "run2",
+ "gen": 12,
+ "q_weight": 0.2,
+ "n_train": 44212,
+ "rows": [
+  {
+   "model": "constant: predict 0",
+   "target": "blend",
+   "note": "",
+   "val": 0.5531573497959652,
+   "nxt": 0.534588106989166
+  },
+  {
+   "model": "constant: train weighted mean",
+   "target": "blend",
+   "note": "mean=0.0202",
+   "val": 0.5528223137162146,
+   "nxt": 0.5343136139825188
+  },
+  {
+   "model": "ridge [raw] (168d)",
+   "target": "blend",
+   "note": "alpha=1000",
+   "val": 0.5588459684190664,
+   "nxt": 0.54346218042496
+  },
+  {
+   "model": "ridge [rel] (127d)",
+   "target": "blend",
+   "note": "alpha=1000",
+   "val": 0.4456298552885023,
+   "nxt": 0.5036002423223664
+  },
+  {
+   "model": "ridge [hand] (30d)",
+   "target": "blend",
+   "note": "alpha=0.001",
+   "val": 0.4596753037185227,
+   "nxt": 0.47817215700113513
+  },
+  {
+   "model": "ridge [hand+rel] (157d)",
+   "target": "blend",
+   "note": "alpha=1000",
+   "val": 0.40477185069668564,
+   "nxt": 0.4622296999970789
+  },
+  {
+   "model": "kNN hamming k=1",
+   "target": "blend",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.4134109617642239,
+   "nxt": 0.8668381189488904
+  },
+  {
+   "model": "kNN hamming k=3",
+   "target": "blend",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.31580661892351797,
+   "nxt": 0.6667629290538203
+  },
+  {
+   "model": "kNN hamming k=10",
+   "target": "blend",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.3061460734707596,
+   "nxt": 0.5437657614477609
+  },
+  {
+   "model": "kNN hamming k=30",
+   "target": "blend",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.33168663802484605,
+   "nxt": 0.5031824139697245
+  },
+  {
+   "model": "HistGradientBoosting [hand]",
+   "target": "blend",
+   "note": "600 trees",
+   "val": 0.25535737263142483,
+   "nxt": 0.45847218340039186
+  },
+  {
+   "model": "HistGradientBoosting [hand+rel]",
+   "target": "blend",
+   "note": "600 trees",
+   "val": 0.21359746483296138,
+   "nxt": 0.3985445902019945
+  },
+  {
+   "model": "RandomForest [hand]",
+   "target": "blend",
+   "note": "",
+   "val": 0.23588107303399025,
+   "nxt": 0.4281242381830679
+  },
+  {
+   "model": "XGBoost [hand+rel]",
+   "target": "blend",
+   "note": "best_iter=799",
+   "val": 0.2096172181637721,
+   "nxt": 0.4156749893404049
+  },
+  {
+   "model": "MLP (32, 32) [hand]",
+   "target": "blend",
+   "note": "2081 params, stopped ep 196",
+   "val": 0.3329971419616097,
+   "nxt": 0.4903733590674257
+  },
+  {
+   "model": "MLP (32, 32) [hand+rel]",
+   "target": "blend",
+   "note": "6145 params, stopped ep 85",
+   "val": 0.29989020035209607,
+   "nxt": 0.49953870194019623
+  },
+  {
+   "model": "MLP (64, 64) [rel]",
+   "target": "blend",
+   "note": "12417 params, stopped ep 46",
+   "val": 0.3275327954784274,
+   "nxt": 0.5666185991682721
+  },
+  {
+   "model": "ORACLE lookup (train group means)",
+   "target": "blend",
+   "note": "",
+   "val": 0.30743070731496486,
+   "nxt": 0.5817589696884952,
+   "val_coverage_w": 0.6067290550665335,
+   "val_seen_mse": 0.10920612113094573,
+   "val_unseen_mse": 0.613246881674684,
+   "nxt_coverage_w": 0.20526076467428764,
+   "nxt_seen_mse": 0.4169022872735634,
+   "nxt_unseen_mse": 0.6243372232716177
+  },
+  {
+   "model": "constant: predict 0",
+   "target": "z",
+   "note": "",
+   "val": 0.6851106870191586,
+   "nxt": 0.686766540803701
+  },
+  {
+   "model": "constant: train weighted mean",
+   "target": "z",
+   "note": "mean=0.0148",
+   "val": 0.6849605535192199,
+   "nxt": 0.6866360164837927
+  },
+  {
+   "model": "ridge [raw] (168d)",
+   "target": "z",
+   "note": "alpha=1000",
+   "val": 0.6925564032638452,
+   "nxt": 0.6986358570738438
+  },
+  {
+   "model": "ridge [rel] (127d)",
+   "target": "z",
+   "note": "alpha=1000",
+   "val": 0.5790830221630693,
+   "nxt": 0.6605761781759978
+  },
+  {
+   "model": "ridge [hand] (30d)",
+   "target": "z",
+   "note": "alpha=0.001",
+   "val": 0.5868509255474201,
+   "nxt": 0.6372820482384153
+  },
+  {
+   "model": "ridge [hand+rel] (157d)",
+   "target": "z",
+   "note": "alpha=1000",
+   "val": 0.5352011864683848,
+   "nxt": 0.6187762265746993
+  },
+  {
+   "model": "kNN hamming k=1",
+   "target": "z",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.549367812368913,
+   "nxt": 1.1004956461236886
+  },
+  {
+   "model": "kNN hamming k=3",
+   "target": "z",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.42083116097253703,
+   "nxt": 0.8372990957934447
+  },
+  {
+   "model": "kNN hamming k=10",
+   "target": "z",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.4074282758482842,
+   "nxt": 0.6876296101360954
+  },
+  {
+   "model": "kNN hamming k=30",
+   "target": "z",
+   "note": "occurrence-weighted mean of neighbours",
+   "val": 0.4373009246812656,
+   "nxt": 0.6452799452649534
+  },
+  {
+   "model": "HistGradientBoosting [hand]",
+   "target": "z",
+   "note": "600 trees",
+   "val": 0.3445965337032161,
+   "nxt": 0.62111607006388
+  },
+  {
+   "model": "HistGradientBoosting [hand+rel]",
+   "target": "z",
+   "note": "600 trees",
+   "val": 0.2987966077534699,
+   "nxt": 0.5556778930185005
+  },
+  {
+   "model": "RandomForest [hand]",
+   "target": "z",
+   "note": "",
+   "val": 0.3186298727331293,
+   "nxt": 0.5788326446509511
+  },
+  {
+   "model": "XGBoost [hand+rel]",
+   "target": "z",
+   "note": "best_iter=798",
+   "val": 0.29622759076580973,
+   "nxt": 0.5852490545561634
+  },
+  {
+   "model": "MLP (32, 32) [hand]",
+   "target": "z",
+   "note": "2081 params, stopped ep 108",
+   "val": 0.4444569720780305,
+   "nxt": 0.6193531205682606
+  },
+  {
+   "model": "MLP (32, 32) [hand+rel]",
+   "target": "z",
+   "note": "6145 params, stopped ep 45",
+   "val": 0.4126475921643854,
+   "nxt": 0.6380341000635563
+  },
+  {
+   "model": "MLP (64, 64) [rel]",
+   "target": "z",
+   "note": "12417 params, stopped ep 37",
+   "val": 0.4439319011038346,
+   "nxt": 0.6955948758164694
+  },
+  {
+   "model": "ORACLE lookup (train group means)",
+   "target": "z",
+   "note": "",
+   "val": 0.3932036410552209,
+   "nxt": 0.7645189958187489,
+   "val_coverage_w": 0.6067290550665335,
+   "val_seen_mse": 0.16916807916849708,
+   "val_unseen_mse": 0.7388403744981865,
+   "nxt_coverage_w": 0.20526076467428764,
+   "nxt_seen_mse": 0.6404309241341108,
+   "nxt_unseen_mse": 0.7965677626957335
+  }
+ ]
+}

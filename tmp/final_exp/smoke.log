@@ -1,0 +1,177 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785615647.340204  128455 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785615647.356784  128455 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785615651.817341  128455 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785615652.996525  128513 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785615653.000023  128513 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785615655.577587  128513 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615657.104891  128513 devices.cc:67] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 1
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785615657.105100  128513 single_machine.cc:361] Starting new session
+I0000 00:00:1785615657.105532  128513 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615657.710937  128513 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615657.803818  128513 devices.cc:67] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 1
+I0000 00:00:1785615657.804251  128513 single_machine.cc:361] Starting new session
+I0000 00:00:1785615657.804894  128513 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+Generating self play games:   0%|          | 0/20 [00:00<?, ?it/s]Generating self play games:  10%|█         | 2/20 [00:00<00:04,  3.62it/s]Generating self play games:  20%|██        | 4/20 [00:01<00:04,  3.83it/s]Generating self play games:  25%|██▌       | 5/20 [00:01<00:03,  3.88it/s]Generating self play games:  30%|███       | 6/20 [00:01<00:03,  3.91it/s]Generating self play games:  40%|████      | 8/20 [00:02<00:03,  3.95it/s]Generating self play games:  50%|█████     | 10/20 [00:02<00:02,  4.94it/s]Generating self play games:  65%|██████▌   | 13/20 [00:02<00:01,  5.37it/s]Generating self play games:  70%|███████   | 14/20 [00:03<00:01,  5.06it/s]Generating self play games:  75%|███████▌  | 15/20 [00:03<00:01,  4.80it/s]Generating self play games:  80%|████████  | 16/20 [00:03<00:00,  4.59it/s]Generating self play games:  90%|█████████ | 18/20 [00:03<00:00,  5.51it/s]Generating self play games: 100%|██████████| 20/20 [00:04<00:00,  4.85it/s]Generating self play games: 100%|██████████| 20/20 [00:04<00:00,  4.64it/s]
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785615722.424075  129108 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785615722.428074  129108 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785615725.202446  129108 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+Collecting data from gen: 0:   0%|          | 0/20 [00:00<?, ?it/s]Collecting data from gen: 0: 100%|██████████| 20/20 [00:00<00:00, 200.84it/s]
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785615735.866740  129139 service.cc:148] XLA service 0x2afd91b0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785615735.866786  129139 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+W0000 00:00:1785615736.034448  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785615736.034812  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785615736.035875  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785615736.036202  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785615736.036527  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785615736.036843  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785615736.037162  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785615736.037492  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785615736.037784  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785615736.038104  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785615736.038164  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785615736.038222  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785615736.038279  129139 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+I0000 00:00:1785615736.701417  129139 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785615742.824256  129139 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+W0000 00:00:1785615743.041554  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785615743.041672  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785615743.041829  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785615743.041906  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785615743.041970  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785615743.042039  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785615743.042102  129136 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785615751.392336  129754 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785615751.395871  129754 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785615754.028639  129754 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615755.431902  129754 devices.cc:67] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 1
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785615755.432159  129754 single_machine.cc:361] Starting new session
+I0000 00:00:1785615755.432775  129754 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615755.926533  129754 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+I0000 00:00:1785615756.033686  129754 devices.cc:67] Number of eligible GPUs (core count >= 8, compute capability >= 0.0): 1
+I0000 00:00:1785615756.033978  129754 single_machine.cc:361] Starting new session
+I0000 00:00:1785615756.034667  129754 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+
+real	2m53.488s
+user	2m22.471s
+sys	0m42.167s
+lizatio… │ (None, 128)       │        512 │ dense[0][0]       │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_14       │ (None, 6, 7, 16)  │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_11       │ (None, 128)       │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ reshape_1 (Reshape) │ (None, 672)       │          0 │ activation_14[0]… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ dense_1 (Dense)     │ (None, 64)        │      8,192 │ activation_11[0]… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ dense_2 (Dense)     │ (None, 32)        │     21,504 │ reshape_1[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 64)        │        256 │ dense_1[0][0]     │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ batch_normalizatio… │ (None, 32)        │        128 │ dense_2[0][0]     │
+│ (BatchNormalizatio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_12       │ (None, 64)        │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ activation_15       │ (None, 32)        │          0 │ batch_normalizat… │
+│ (Activation)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ policy_1 (Dense)    │ (None, 7)         │        455 │ activation_12[0]… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ value_1 (Dense)     │ (None, 1)         │         33 │ activation_15[0]… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ policy (Activation) │ (None, 7)         │          0 │ policy_1[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ value (Activation)  │ (None, 1)         │          0 │ value_1[0][0]     │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 379,848 (1.45 MB)
+ Trainable params: 377,944 (1.44 MB)
+ Non-trainable params: 1,904 (7.44 KB)
+Converting tensorflow model to onnx
+
+Successfully converted to onnx
+
+Building and caching tensorrt engine!
+Successfully built trt engine!
+
+*************Starting*************
+
+Generation: 0 / 0
+Took 0.0006104148626327515 seconds per iteration at 1638.23 it/s!
+Running with 4 workers for 20 games with /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/final_exp/smoke/Grok_Zero_Train/0/TRT_cache/model_ctx.onnx for generation: 0!
+
+---------Game Statistics---------
+Longest game is: 41 actions long!
+Average moves: 31.45
+Player -1 winrate: 0.55
+Draw rate: 0.0
+Player 1 winrate: 0.45
+
+Started training for generation: 0 using lr = 0.0003!
+Collecting data from 1 generations!
+Dedup: train 1132 -> 1058 (6.5% removed), test 126 -> 123
+Sample weights: mean 1.0, max 33.6 (the most repeated position pulls 34x a unique one)
+----------------------------------------
+Train stats: Total states 1058
+Test stats: Total states 123
+----------------------------------------
+Epoch 1/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m16s[0m 17s/step - loss: 2.8816 - policy_loss: 1.9501 - policy_policy_kld: 0.8766 - value_loss: 0.9315[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 5s/step - loss: 2.8796 - policy_loss: 1.9172 - policy_policy_kld: 0.8775 - value_loss: 0.9323  
+Epoch 1: val_loss improved from inf to 2.91391, saving model to /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/final_exp/smoke/Grok_Zero_Train/tmp_best.weights.h5
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m23s[0m 7s/step - loss: 2.8789 - policy_loss: 1.9063 - policy_policy_kld: 0.8778 - value_loss: 0.9325 - val_loss: 2.9139 - val_policy_loss: 1.9460 - val_policy_policy_kld: 0.9864 - val_value_loss: 0.9679
+Epoch 2/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 53ms/step - loss: 2.8771 - policy_loss: 1.9476 - policy_policy_kld: 0.8730 - value_loss: 0.9295
+Epoch 2: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 70ms/step - loss: 2.8761 - policy_loss: 1.9219 - policy_policy_kld: 0.8761 - value_loss: 0.9395 - val_loss: 2.9148 - val_policy_loss: 1.9462 - val_policy_policy_kld: 0.9866 - val_value_loss: 0.9686
+Epoch 3/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 47ms/step - loss: 2.8776 - policy_loss: 1.9487 - policy_policy_kld: 0.8759 - value_loss: 0.9289
+Epoch 3: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 47ms/step - loss: 2.8749 - policy_loss: 1.9054 - policy_policy_kld: 0.8767 - value_loss: 0.9301 - val_loss: 2.9154 - val_policy_loss: 1.9465 - val_policy_policy_kld: 0.9868 - val_value_loss: 0.9690
+Epoch 4/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 31ms/step - loss: 2.7674 - policy_loss: 1.8698 - policy_policy_kld: 0.8582 - value_loss: 0.8976
+Epoch 4: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 67ms/step - loss: 2.8355 - policy_loss: 1.8953 - policy_policy_kld: 0.8703 - value_loss: 0.9074 - val_loss: 2.9158 - val_policy_loss: 1.9468 - val_policy_policy_kld: 0.9872 - val_value_loss: 0.9690
+Epoch 5/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 25ms/step - loss: 2.7408 - policy_loss: 1.8137 - policy_policy_kld: 0.9196 - value_loss: 0.9271
+Epoch 5: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 66ms/step - loss: 2.8243 - policy_loss: 1.8583 - policy_policy_kld: 0.8904 - value_loss: 0.9256 - val_loss: 2.9161 - val_policy_loss: 1.9473 - val_policy_policy_kld: 0.9877 - val_value_loss: 0.9689
+Epoch 6/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 46ms/step - loss: 2.8677 - policy_loss: 1.9470 - policy_policy_kld: 0.8731 - value_loss: 0.9206
+Epoch 6: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 48ms/step - loss: 2.8649 - policy_loss: 1.9026 - policy_policy_kld: 0.8746 - value_loss: 0.9216 - val_loss: 2.9169 - val_policy_loss: 1.9479 - val_policy_policy_kld: 0.9882 - val_value_loss: 0.9691
+Epoch 7/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 47ms/step - loss: 2.8630 - policy_loss: 1.9464 - policy_policy_kld: 0.8726 - value_loss: 0.9166
+Epoch 7: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 52ms/step - loss: 2.8601 - policy_loss: 1.9018 - policy_policy_kld: 0.8739 - value_loss: 0.9151 - val_loss: 2.9182 - val_policy_loss: 1.9485 - val_policy_policy_kld: 0.9889 - val_value_loss: 0.9697
+Epoch 8/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 47ms/step - loss: 2.8572 - policy_loss: 1.9457 - policy_policy_kld: 0.8707 - value_loss: 0.9115
+Epoch 8: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 51ms/step - loss: 2.8541 - policy_loss: 1.9008 - policy_policy_kld: 0.8728 - value_loss: 0.9095 - val_loss: 2.9196 - val_policy_loss: 1.9489 - val_policy_policy_kld: 0.9893 - val_value_loss: 0.9707
+Epoch 9/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 47ms/step - loss: 2.8502 - policy_loss: 1.9449 - policy_policy_kld: 0.8684 - value_loss: 0.9053
+Epoch 9: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 52ms/step - loss: 2.8475 - policy_loss: 1.9003 - policy_policy_kld: 0.8716 - value_loss: 0.9079 - val_loss: 2.9215 - val_policy_loss: 1.9492 - val_policy_policy_kld: 0.9896 - val_value_loss: 0.9722
+Epoch 10/10
+[1m1/2[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 27ms/step - loss: 2.9140 - policy_loss: 2.0260 - policy_policy_kld: 0.7003 - value_loss: 0.8880
+Epoch 10: val_loss did not improve from 2.91391
+[1m2/2[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 69ms/step - loss: 2.8617 - policy_loss: 1.9962 - policy_policy_kld: 0.8148 - value_loss: 0.8908 - val_loss: 2.9232 - val_policy_loss: 1.9496 - val_policy_policy_kld: 0.9900 - val_value_loss: 0.9736
+Converting tensorflow model to onnx
+
+Successfully converted to onnx
+
+Building and caching tensorrt engine!
+Successfully built trt engine!
+Took 0.0006170154809951782 seconds per iteration at 1620.70 it/s!
+-----------Training Done!-----------

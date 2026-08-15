@@ -39,3 +39,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# TensorRT timing caches (machine specific, regenerated on demand)
+*.timing

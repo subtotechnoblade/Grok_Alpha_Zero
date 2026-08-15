@@ -1,0 +1,20 @@
+Collecting data from 4 generations!
+Collecting data from gen: 9:   0%|          | 0/495 [00:00<?, ?it/s]Collecting data from gen: 9:   9%|8         | 43/495 [00:00<00:01, 425.73it/s]Collecting data from gen: 9:  19%|#9        | 95/495 [00:00<00:00, 472.65it/s]Collecting data from gen: 9:  29%|##9       | 146/495 [00:00<00:00, 485.13it/s]Collecting data from gen: 9:  39%|###9      | 195/495 [00:00<00:00, 474.09it/s]Collecting data from gen: 9:  49%|####9     | 243/495 [00:00<00:00, 404.98it/s]Collecting data from gen: 9:  60%|#####9    | 295/495 [00:00<00:00, 438.10it/s]Collecting data from gen: 9:  71%|#######   | 349/495 [00:00<00:00, 467.16it/s]Collecting data from gen: 9:  81%|########1 | 402/495 [00:00<00:00, 484.63it/s]Collecting data from gen: 9:  92%|#########1| 455/495 [00:00<00:00, 498.17it/s]Collecting data from gen: 9: 100%|##########| 495/495 [00:01<00:00, 468.80it/s]
+Collecting data from gen: 8:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 8:   8%|7         | 38/500 [00:00<00:01, 376.26it/s]Collecting data from gen: 8:  16%|#6        | 81/500 [00:00<00:01, 405.37it/s]Collecting data from gen: 8:  25%|##5       | 126/500 [00:00<00:00, 423.71it/s]Collecting data from gen: 8:  35%|###5      | 177/500 [00:00<00:00, 457.57it/s]Collecting data from gen: 8:  45%|####5     | 227/500 [00:00<00:00, 469.44it/s]Collecting data from gen: 8:  57%|#####6    | 283/500 [00:00<00:00, 500.01it/s]Collecting data from gen: 8:  68%|######7   | 339/500 [00:00<00:00, 516.17it/s]Collecting data from gen: 8:  79%|#######9  | 395/500 [00:00<00:00, 528.34it/s]Collecting data from gen: 8:  90%|######### | 452/500 [00:00<00:00, 531.37it/s]Collecting data from gen: 8: 100%|##########| 500/500 [00:01<00:00, 485.44it/s]
+Collecting data from gen: 7:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 7:  10%|#         | 51/500 [00:00<00:00, 495.11it/s]Collecting data from gen: 7:  22%|##2       | 112/500 [00:00<00:00, 558.65it/s]Collecting data from gen: 7:  35%|###5      | 177/500 [00:00<00:00, 599.95it/s]Collecting data from gen: 7:  50%|####9     | 249/500 [00:00<00:00, 644.52it/s]Collecting data from gen: 7:  63%|######2   | 314/500 [00:00<00:00, 632.89it/s]Collecting data from gen: 7:  76%|#######5  | 378/500 [00:00<00:00, 620.75it/s]Collecting data from gen: 7:  88%|########8 | 441/500 [00:00<00:00, 604.48it/s]Collecting data from gen: 7: 100%|##########| 500/500 [00:00<00:00, 603.87it/s]
+Collecting data from gen: 6:   0%|          | 0/500 [00:00<?, ?it/s]Collecting data from gen: 6:  12%|#1        | 59/500 [00:00<00:00, 589.98it/s]Collecting data from gen: 6:  26%|##5       | 128/500 [00:00<00:00, 645.03it/s]Collecting data from gen: 6:  39%|###8      | 193/500 [00:00<00:00, 527.29it/s]Collecting data from gen: 6:  53%|#####2    | 264/500 [00:00<00:00, 586.50it/s]Collecting data from gen: 6:  65%|######5   | 327/500 [00:00<00:00, 600.83it/s]Collecting data from gen: 6:  79%|#######9  | 395/500 [00:00<00:00, 624.17it/s]Collecting data from gen: 6:  93%|#########3| 465/500 [00:00<00:00, 647.91it/s]Collecting data from gen: 6: 100%|##########| 500/500 [00:00<00:00, 615.00it/s]
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tf_trt\Lib\site-packages\keras\src\backend\common\global_state.py:82: The name tf.reset_default_graph is deprecated. Please use tf.compat.v1.reset_default_graph instead.
+
+Dedup: train 114460 -> 30920 (73.0% removed), test 12218 -> 6528
+Sample weights: mean 1.0, max 836.3 (the most repeated position pulls 836x a unique one)
+----------------------------------------
+Train stats: Total states 30920
+Test stats: Total states 6528
+----------------------------------------
+lr=0.0003 seed=0: best_val=1.2309 final_train=0.9380
+lr=0.0003 seed=1: best_val=1.2535 final_train=0.9662
+lr=0.0003 seed=2: best_val=1.2277 final_train=0.9348
+lr=0.001 seed=0: best_val=1.4200 final_train=1.0007
+lr=0.001 seed=1: best_val=1.4855 final_train=1.0396
+lr=0.001 seed=2: best_val=1.4369 final_train=0.9954
+lr=0.003 seed=0: best_val=2.0002 final_train=1.1292

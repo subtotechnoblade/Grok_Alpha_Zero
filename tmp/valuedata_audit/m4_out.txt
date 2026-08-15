@@ -1,0 +1,126 @@
+
+########## run2 gen 0 window=[0] target=z <- matches the CURRENT run gen 0 (q_weight=0) ##########
+ pooled window: N=32152 unique=27962 (U/N=0.870)
+  train: raw N= 28840  unique= 25154  U/N=0.872 | DEDUP-OBJECTIVE  floor=0.8579 (lower-bd 0.0212, q-bound 0.5935)  const0=0.8249 | raw per-sample floor=0.9800
+   test: raw N=  3312  unique=  3048  U/N=0.920 | DEDUP-OBJECTIVE  floor=0.9045 (lower-bd 0.0216, q-bound 0.6082)  const0=0.8435 | raw per-sample floor=0.9801
+  OVERLAP: 7.9% of unique test positions (15.2% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.8928 median=1.0000 p90=2.0000
+           perfect-memorisation loss on the overlapped part = 0.1029 (vs its oracle floor 0.0703)
+           floor split: overlapped 0.0703 + unseen 0.8343 = 0.9045 ; const0 split: 0.0627 + 0.7808
+
+########## run3 gen 0 window=[0] target=z <- matches the CURRENT run gen 0 (q_weight=0) ##########
+ pooled window: N=31878 unique=27658 (U/N=0.868)
+  train: raw N= 28800  unique= 25084  U/N=0.871 | DEDUP-OBJECTIVE  floor=0.1627 (lower-bd 0.0203, q-bound 0.6006)  const0=0.8341 | raw per-sample floor=0.2844
+   test: raw N=  3078  unique=  2821  U/N=0.917 | DEDUP-OBJECTIVE  floor=0.2149 (lower-bd 0.0158, q-bound 0.6007)  const0=0.8674 | raw per-sample floor=0.2944
+  OVERLAP: 8.8% of unique test positions (16.4% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.8276 median=0.8000 p90=2.0000
+           perfect-memorisation loss on the overlapped part = 0.1076 (vs its oracle floor 0.0723)
+           floor split: overlapped 0.0723 + unseen 0.1426 = 0.2149 ; const0 split: 0.0799 + 0.7875
+
+########## run2 gen 5 window=[5, 4, 3, 2] target=z  ##########
+ pooled window: N=95946 unique=47289 (U/N=0.493)
+  train: raw N= 86298  unique= 42921  U/N=0.497 | DEDUP-OBJECTIVE  floor=0.0787 (lower-bd 0.0214, q-bound 0.2256)  const0=0.5765 | raw per-sample floor=0.2828
+   test: raw N=  9648  unique=  7364  U/N=0.763 | DEDUP-OBJECTIVE  floor=0.1406 (lower-bd 0.0258, q-bound 0.4330)  const0=0.6466 | raw per-sample floor=0.2727
+  OVERLAP: 40.7% of unique test positions (53.5% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.2937 median=0.0000 p90=1.0000
+           perfect-memorisation loss on the overlapped part = 0.1433 (vs its oracle floor 0.0816)
+           floor split: overlapped 0.0816 + unseen 0.0590 = 0.1406 ; const0 split: 0.2759 + 0.3708
+
+########## run2 gen 5 window=[5, 4, 3, 2] target=t  ##########
+ pooled window: N=95946 unique=47289 (U/N=0.493)
+  train: raw N= 86298  unique= 42921  U/N=0.497 | DEDUP-OBJECTIVE  floor=0.0505 (lower-bd 0.0137, q-bound 0.1444)  const0=0.4582 | raw per-sample floor=0.1816
+   test: raw N=  9648  unique=  7364  U/N=0.763 | DEDUP-OBJECTIVE  floor=0.0903 (lower-bd 0.0165, q-bound 0.2771)  const0=0.4940 | raw per-sample floor=0.1751
+  OVERLAP: 40.7% of unique test positions (53.5% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.2375 median=0.0041 p90=0.8251
+           perfect-memorisation loss on the overlapped part = 0.0913 (vs its oracle floor 0.0524)
+           floor split: overlapped 0.0524 + unseen 0.0379 = 0.0903 ; const0 split: 0.1979 + 0.2960
+
+########## run2 gen 10 window=[10, 9, 8, 7] target=z  ##########
+ pooled window: N=93872 unique=46890 (U/N=0.500)
+  train: raw N= 84540  unique= 43308  U/N=0.512 | DEDUP-OBJECTIVE  floor=0.0831 (lower-bd 0.0328, q-bound 0.2341)  const0=0.6582 | raw per-sample floor=0.2976
+   test: raw N=  9332  unique=  6950  U/N=0.745 | DEDUP-OBJECTIVE  floor=0.1448 (lower-bd 0.0278, q-bound 0.3260)  const0=0.6770 | raw per-sample floor=0.2928
+  OVERLAP: 48.5% of unique test positions (61.2% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.2575 median=0.0000 p90=1.0000
+           perfect-memorisation loss on the overlapped part = 0.1322 (vs its oracle floor 0.0954)
+           floor split: overlapped 0.0954 + unseen 0.0493 = 0.1448 ; const0 split: 0.3809 + 0.2962
+
+########## run2 gen 10 window=[10, 9, 8, 7] target=t  ##########
+ pooled window: N=93872 unique=46890 (U/N=0.500)
+  train: raw N= 84540  unique= 43308  U/N=0.512 | DEDUP-OBJECTIVE  floor=0.0535 (lower-bd 0.0211, q-bound 0.1498)  const0=0.5334 | raw per-sample floor=0.1923
+   test: raw N=  9332  unique=  6950  U/N=0.745 | DEDUP-OBJECTIVE  floor=0.0933 (lower-bd 0.0179, q-bound 0.2086)  const0=0.5408 | raw per-sample floor=0.1892
+  OVERLAP: 48.5% of unique test positions (61.2% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.2082 median=0.0024 p90=0.7997
+           perfect-memorisation loss on the overlapped part = 0.0850 (vs its oracle floor 0.0615)
+           floor split: overlapped 0.0615 + unseen 0.0318 = 0.0933 ; const0 split: 0.2948 + 0.2460
+
+########## run2 gen 15 window=[15, 14, 13, 12] target=z  ##########
+ pooled window: N=99470 unique=36903 (U/N=0.371)
+  train: raw N= 89622  unique= 34097  U/N=0.380 | DEDUP-OBJECTIVE  floor=0.0441 (lower-bd 0.0182, q-bound 0.1387)  const0=0.6933 | raw per-sample floor=0.2504
+   test: raw N=  9848  unique=  6265  U/N=0.636 | DEDUP-OBJECTIVE  floor=0.0889 (lower-bd 0.0301, q-bound 0.2652)  const0=0.6896 | raw per-sample floor=0.2460
+  OVERLAP: 55.2% of unique test positions (71.5% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.2135 median=0.0000 p90=0.9033
+           perfect-memorisation loss on the overlapped part = 0.0993 (vs its oracle floor 0.0628)
+           floor split: overlapped 0.0628 + unseen 0.0261 = 0.0889 ; const0 split: 0.4784 + 0.2112
+
+########## run2 gen 15 window=[15, 14, 13, 12] target=t  ##########
+ pooled window: N=99470 unique=36903 (U/N=0.371)
+  train: raw N= 89622  unique= 34097  U/N=0.380 | DEDUP-OBJECTIVE  floor=0.0285 (lower-bd 0.0117, q-bound 0.0887)  const0=0.5713 | raw per-sample floor=0.1621
+   test: raw N=  9848  unique=  6265  U/N=0.636 | DEDUP-OBJECTIVE  floor=0.0573 (lower-bd 0.0194, q-bound 0.1697)  const0=0.5589 | raw per-sample floor=0.1592
+  OVERLAP: 55.2% of unique test positions (71.5% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.1738 median=0.0016 p90=0.7379
+           perfect-memorisation loss on the overlapped part = 0.0638 (vs its oracle floor 0.0405)
+           floor split: overlapped 0.0405 + unseen 0.0168 = 0.0573 ; const0 split: 0.3812 + 0.1777
+
+########## run3 gen 5 window=[5, 4, 3, 2] target=z  ##########
+ pooled window: N=97062 unique=47593 (U/N=0.490)
+  train: raw N= 87642  unique= 44390  U/N=0.506 | DEDUP-OBJECTIVE  floor=0.0829 (lower-bd 0.0211, q-bound 0.2161)  const0=0.6241 | raw per-sample floor=0.3080
+   test: raw N=  9420  unique=  6251  U/N=0.664 | DEDUP-OBJECTIVE  floor=0.1277 (lower-bd 0.0307, q-bound 0.3190)  const0=0.6794 | raw per-sample floor=0.3083
+  OVERLAP: 48.8% of unique test positions (65.6% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.1955 median=0.0000 p90=0.8056
+           perfect-memorisation loss on the overlapped part = 0.0874 (vs its oracle floor 0.0779)
+           floor split: overlapped 0.0779 + unseen 0.0497 = 0.1277 ; const0 split: 0.3955 + 0.2839
+
+########## run3 gen 5 window=[5, 4, 3, 2] target=t  ##########
+ pooled window: N=97062 unique=47593 (U/N=0.490)
+  train: raw N= 87642  unique= 44390  U/N=0.506 | DEDUP-OBJECTIVE  floor=0.0304 (lower-bd 0.0077, q-bound 0.0778)  const0=0.4172 | raw per-sample floor=0.1136
+   test: raw N=  9420  unique=  6251  U/N=0.664 | DEDUP-OBJECTIVE  floor=0.0469 (lower-bd 0.0111, q-bound 0.1148)  const0=0.4283 | raw per-sample floor=0.1137
+  OVERLAP: 48.8% of unique test positions (65.6% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.1203 median=0.0028 p90=0.5035
+           perfect-memorisation loss on the overlapped part = 0.0314 (vs its oracle floor 0.0286)
+           floor split: overlapped 0.0286 + unseen 0.0182 = 0.0469 ; const0 split: 0.2425 + 0.1857
+
+########## run3 gen 10 window=[10, 9, 8, 7] target=z  ##########
+ pooled window: N=100918 unique=35468 (U/N=0.351)
+  train: raw N= 90814  unique= 33330  U/N=0.367 | DEDUP-OBJECTIVE  floor=0.0469 (lower-bd 0.0150, q-bound 0.1206)  const0=0.5440 | raw per-sample floor=0.2484
+   test: raw N= 10104  unique=  5902  U/N=0.584 | DEDUP-OBJECTIVE  floor=0.0831 (lower-bd 0.0255, q-bound 0.1946)  const0=0.5123 | raw per-sample floor=0.2418
+  OVERLAP: 63.8% of unique test positions (78.3% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.1480 median=0.0000 p90=0.5000
+           perfect-memorisation loss on the overlapped part = 0.0756 (vs its oracle floor 0.0605)
+           floor split: overlapped 0.0605 + unseen 0.0226 = 0.0831 ; const0 split: 0.3600 + 0.1522
+
+########## run3 gen 10 window=[10, 9, 8, 7] target=t  ##########
+ pooled window: N=100918 unique=35468 (U/N=0.351)
+  train: raw N= 90814  unique= 33330  U/N=0.367 | DEDUP-OBJECTIVE  floor=0.0174 (lower-bd 0.0054, q-bound 0.0434)  const0=0.3831 | raw per-sample floor=0.0926
+   test: raw N= 10104  unique=  5902  U/N=0.584 | DEDUP-OBJECTIVE  floor=0.0309 (lower-bd 0.0096, q-bound 0.0701)  const0=0.3441 | raw per-sample floor=0.0901
+  OVERLAP: 63.8% of unique test positions (78.3% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.0928 median=0.0016 p90=0.3090
+           perfect-memorisation loss on the overlapped part = 0.0278 (vs its oracle floor 0.0225)
+           floor split: overlapped 0.0225 + unseen 0.0084 = 0.0309 ; const0 split: 0.2356 + 0.1085
+
+########## run3 gen 15 window=[15, 14, 13, 12] target=z  ##########
+ pooled window: N=102168 unique=29717 (U/N=0.291)
+  train: raw N= 92222  unique= 27749  U/N=0.301 | DEDUP-OBJECTIVE  floor=0.0232 (lower-bd 0.0117, q-bound 0.0838)  const0=0.3690 | raw per-sample floor=0.1702
+   test: raw N=  9946  unique=  5184  U/N=0.521 | DEDUP-OBJECTIVE  floor=0.0441 (lower-bd 0.0129, q-bound 0.1445)  const0=0.4400 | raw per-sample floor=0.1684
+  OVERLAP: 62.0% of unique test positions (79.3% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.1309 median=0.0000 p90=0.4000
+           perfect-memorisation loss on the overlapped part = 0.0573 (vs its oracle floor 0.0314)
+           floor split: overlapped 0.0314 + unseen 0.0127 = 0.0441 ; const0 split: 0.2912 + 0.1488
+
+########## run3 gen 15 window=[15, 14, 13, 12] target=t  ##########
+ pooled window: N=102168 unique=29717 (U/N=0.291)
+  train: raw N= 92222  unique= 27749  U/N=0.301 | DEDUP-OBJECTIVE  floor=0.0085 (lower-bd 0.0043, q-bound 0.0302)  const0=0.2588 | raw per-sample floor=0.0631
+   test: raw N=  9946  unique=  5184  U/N=0.521 | DEDUP-OBJECTIVE  floor=0.0162 (lower-bd 0.0047, q-bound 0.0520)  const0=0.2864 | raw per-sample floor=0.0625
+  OVERLAP: 62.0% of unique test positions (79.3% of test WEIGHT) also occur in train
+           |train_mean - test_mean| on those: mean=0.0829 median=0.0018 p90=0.2379
+           perfect-memorisation loss on the overlapped part = 0.0210 (vs its oracle floor 0.0115)
+           floor split: overlapped 0.0115 + unseen 0.0047 = 0.0162 ; const0 split: 0.1779 + 0.1086

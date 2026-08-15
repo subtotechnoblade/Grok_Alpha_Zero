@@ -1,0 +1,7 @@
+{
+  "adamw": 0.003,
+  "muon": 0.1,
+  "muon_buggy": 0.01,
+  "muon_ortho": 0.1,
+  "muon_grokfast": 0.03
+}

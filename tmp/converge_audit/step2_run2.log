@@ -1,0 +1,86 @@
+2026-08-01 15:44:18.373315: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 15:44:18.395410: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785613458.422342   90363 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785613458.431203   90363 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2026-08-01 15:44:18.454171: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+  gen 12: 500 games -> train 450 (tp=1.00) test 50 (sp=0.10)
+  gen 11: 500 games -> train 409 (tp=0.90) test 45 (sp=0.09)
+  gen 10: 500 games -> train 368 (tp=0.80) test 40 (sp=0.08)
+  gen 9: 500 games -> train 325 (tp=0.70) test 35 (sp=0.07)
+  train: 101646 -> 51102 unique (49.7% removed), w mean 1.000 max 1560.5
+  val(in-window): 10948 -> 7989 unique (27.0% removed), w mean 1.000 max 248.1
+  nxt(gen 13): 35204 -> 13631 unique
+
+run2 gen 12 | arch old | n_train 51102 | 100 epochs max
+  train  n= 51102  floor 0.0432  const-0 0.5333
+  val    n=  7989  floor 0.0795  const-0 0.5542
+  nxt    n= 13631  floor 0.0318  const-0 0.5346
+  warm start = /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/run2_archive_gen0-19_oldvaluehead/12/model.weights.h5
+
+=== sweepARCH scratch lr3e-4 wd.004  (arch current) ===
+I0000 00:00:1785613494.454844   90363 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785613510.754991   91990 service.cc:148] XLA service 0x401be060 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785613510.756114   91990 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+W0000 00:00:1785613510.953503   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785613510.954739   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785613510.956359   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785613510.957245   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785613510.958186   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785613510.958961   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785613510.959717   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785613510.960418   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785613510.961128   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785613510.961901   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785613510.962361   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785613510.962800   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785613510.963280   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+2026-08-01 15:45:11.002882: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:268] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1785613511.639078   91990 cuda_dnn.cc:529] Loaded cuDNN version 90300
+2026-08-01 15:45:12.811783: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1024,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1024,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1024,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+I0000 00:00:1785613522.934429   91990 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+W0000 00:00:1785613525.305345   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785613525.311041   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785613525.312430   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785613525.316337   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785613525.317318   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785613525.318001   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785613525.318612   91990 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+2026-08-01 15:45:27.559548: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[926,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[926,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[926,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:45:37.930430: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[4096,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[4096,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[4096,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:45:40.957670: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1950,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1950,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1950,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:45:47.446611: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[3893,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[3893,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[3893,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+2026-08-01 15:45:49.593465: I external/local_xla/xla/service/gpu/autotuning/conv_algorithm_picker.cc:557] Omitted potentially buggy algorithm eng14{k25=0} for conv (f32[1343,64,6,7]{3,2,1,0}, u8[0]{0}) custom-call(f32[1343,64,6,7]{3,2,1,0}, f32[64,64,3,3]{3,2,1,0}, f32[64]{0}, f32[1343,64,6,7]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target="__cudnn$convBiasActivationForward", backend_config={"cudnn_conv_backend_config":{"activation_mode":"kNone","conv_result_scale":1,"leakyrelu_alpha":0,"side_input_scale":1},"force_earliest_schedule":false,"operation_queue_id":"0","wait_on_operation_queues":[]}
+    epoch   1  keras_train 0.5219  train 0.5369  val 0.5502  nxt 0.5441
+    epoch   2  keras_train 0.4513  train 0.4492  val 0.4722  nxt 0.5242
+    epoch   3  keras_train 0.3575  train 0.3501  val 0.3989  nxt 0.5063
+    epoch   4  keras_train 0.2799  train 0.2701  val 0.3539  nxt 0.4911
+    epoch   5  keras_train 0.2208  train 0.2114  val 0.3263  nxt 0.4724
+    epoch   6  keras_train 0.1782  train 0.1770  val 0.3195  nxt 0.4857
+    epoch   7  keras_train 0.1481  train 0.1384  val 0.3053  nxt 0.4779
+    epoch   8  keras_train 0.1234  train 0.1189  val 0.3031  nxt 0.4887
+    epoch   9  keras_train 0.1052  train 0.1017  val 0.3048  nxt 0.5125
+    epoch  10  keras_train 0.0919  train 0.0938  val 0.3102  nxt 0.5167
+    epoch  15  keras_train 0.0602  train 0.0593  val 0.3105  nxt 0.5426
+    epoch  20  keras_train 0.0461  train 0.0486  val 0.3274  nxt 0.5817
+    epoch  25  keras_train 0.0357  train 0.0366  val 0.3305  nxt 0.6050
+    epoch  30  keras_train 0.0291  train 0.0316  val 0.3340  nxt 0.6232
+    epoch  35  keras_train 0.0285  train 0.0328  val 0.3441  nxt 0.6149
+    epoch  40  keras_train 0.0221  train 0.0306  val 0.3411  nxt 0.6264
+    epoch  45  keras_train 0.0211  train 0.0295  val 0.3338  nxt 0.6270
+    epoch  50  keras_train 0.0189  train 0.0259  val 0.3345  nxt 0.6314
+    epoch  55  keras_train 0.0183  train 0.0233  val 0.3397  nxt 0.6444
+    epoch  60  keras_train 0.0167  train 0.0217  val 0.3348  nxt 0.6246
+    epoch  65  keras_train 0.0165  train 0.0272  val 0.3261  nxt 0.6293
+    epoch  70  keras_train 0.0150  train 0.0220  val 0.3323  nxt 0.6062
+    epoch  75  keras_train 0.0165  train 0.0325  val 0.3346  nxt 0.6383
+    epoch  80  keras_train 0.0166  train 0.0200  val 0.3387  nxt 0.6321
+    epoch  85  keras_train 0.0152  train 0.0169  val 0.3336  nxt 0.6145
+    epoch  90  keras_train 0.0142  train 0.0163  val 0.3263  nxt 0.6336
+    epoch  95  keras_train 0.0124  train 0.0186  val 0.3436  nxt 0.6423
+    epoch 100  keras_train 0.0117  train 0.0189  val 0.3261  nxt 0.6351
+[wrote] /mnt/c/Users/TryHarder/Desktop/Pythoncode/Grok_Zero/tmp/converge_audit/step2_reachfit_run2_g12_np4.json
+
+=== sweep     scratch lr3e-4 wd.004  (arch old) ===

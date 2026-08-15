@@ -249,10 +249,9 @@ class MCTS:
 
     def _get_dummy_outputs(self, input_state):
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0
-        return np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False), 0.0
-        # random policy gives generation 0 a diverse prior, but the value must be 0.0.
-        # a random leaf value backs pure noise up the tree, so generation 0's search was
-        # weaker than a plain "look for forced wins inside the tree" search
+        rand_policy = np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False)
+        rand_policy /= np.sum(rand_policy)
+        return rand_policy, float(np.random.uniform(-1.0, 1.0, size=(1,)))
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0,
 
     def _apply_dirichlet(self, legal_policy, epsilon):
@@ -315,7 +314,7 @@ class MCTS:
                                                          action_history)
         if self.game.action_history:
             future_action_histories = np.empty(
-                (len(legal_actions), action_history.shape[0] + 1),
+                (len(legal_actions), action_history.shape[0] + 1, *action_history.shape[1:]),
                 dtype=action_history.dtype)
             future_action_histories[:, :-1] = action_history
             future_action_histories[:, -1] = legal_actions
@@ -466,7 +465,7 @@ class MCTS:
                                                          action_history)
 
         future_action_histories = np.empty(
-            (len(legal_actions), action_history.shape[0] + 1),
+            (len(legal_actions), action_history.shape[0] + 1, *action_history.shape[1:]),
             dtype=action_history.dtype)
         future_action_histories[:, :-1] = action_history
         future_action_histories[:, -1] = legal_actions

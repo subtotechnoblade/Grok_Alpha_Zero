@@ -1,0 +1,14 @@
+### run2 g12: ply-aware irreducible noise floor over the FULL held-out split
+
+  -- target=blend --
+    val: trivial(predict 0)=0.5532  cheap-GBM=0.2654  est. noise floor=0.0805
+       learnable range = 0.4726; GBM captures 61% of it, 0.1849 MSE still on the table
+    nxt: trivial(predict 0)=0.5346  cheap-GBM=0.4415  est. noise floor=0.0318
+       learnable range = 0.5027; GBM captures 19% of it, 0.4096 MSE still on the table
+  -- target=z --
+    val: trivial(predict 0)=0.6851  cheap-GBM=0.3621  est. noise floor=0.1249
+       learnable range = 0.5602; GBM captures 58% of it, 0.2373 MSE still on the table
+    nxt: trivial(predict 0)=0.6868  cheap-GBM=0.5779  est. noise floor=0.0494
+       learnable range = 0.6374; GBM captures 17% of it, 0.5285 MSE still on the table
+
+wrote C:\Users\TryHarder\Desktop\Pythoncode\Grok_Zero\tmp\learnability\floorfull_run2_g12.json

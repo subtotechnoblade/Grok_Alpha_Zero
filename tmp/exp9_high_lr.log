@@ -1,0 +1,83 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1785645544.058352   25349 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1785645544.066475   25349 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+I0000 00:00:1785645594.138613   25349 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 4057 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2060, pci bus id: 0000:05:00.0, compute capability: 7.5
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1785645602.885856   25404 service.cc:148] XLA service 0x4c682e60 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1785645602.886843   25404 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 2060, Compute Capability 7.5
+I0000 00:00:1785645603.549223   25404 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1785645611.390769   25404 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+train 442003 unique | held-out 52525
+value head: THIS RUN filters 16 dense 32  |  Connect4/Build_Model.py filters 16 dense 7   <-- DIFFERENT, on purpose
+value: const-0 0.7691 | GBT raw 0.6126 | wd 0.004
+
+arm             ep    VALUE   vs c0   ply22+ |   polCE   polKL    top1
+----------------------------------------------------------------------
+adamw 5e-3       1   0.6716  12.7%   0.6775 |  1.6616  0.5430  34.7%
+                 2   0.5914  23.1%   0.5114 |  1.5829  0.4643  44.1%
+                 3   0.6423  16.5%   0.6207 |  1.5475  0.4289  44.4%
+                 4   0.5803  24.6%   0.4835 |  1.5279  0.4093  45.3%
+                 5   0.6149  20.0%   0.5363 |  1.5069  0.3883  47.6%
+                 6   0.6480  15.7%   0.5606 |  1.5024  0.3838  46.3%
+                 7   0.6308  18.0%   0.5462 |  1.4938  0.3752  47.4%
+                 8   0.6493  15.6%   0.5627 |  1.4897  0.3711  47.4%
+                 9   0.7045   8.4%   0.6199 |  1.4868  0.3682  48.1%
+                10   0.7028   8.6%   0.5961 |  1.4884  0.3698  48.4%
+  BEST         value 0.5803 @ep4   policyKL 0.3682 @ep9
+
+adamw 1e-2       1   0.6569  14.6%   0.6738 |  1.6548  0.5362  36.4%
+                 2   0.6014  21.8%   0.5285 |  1.5879  0.4693  40.3%
+                 3   0.5699  25.9%   0.4795 |  1.5361  0.4175  45.6%
+                 4   0.5490  28.6%   0.4207 |  1.5053  0.3867  46.8%
+                 5   0.5532  28.1%   0.4247 |  1.5015  0.3829  48.1%
+                 6   0.5730  25.5%   0.4428 |  1.4917  0.3731  47.0%
+                 7   0.5747  25.3%   0.4339 |  1.4809  0.3623  47.4%
+                 8   0.5793  24.7%   0.4508 |  1.4844  0.3658  50.8%
+                 9   0.5897  23.3%   0.4615 |  1.4786  0.3600  49.3%
+                10   0.5997  22.0%   0.4421 |  1.4748  0.3562  48.4%
+  BEST         value 0.5490 @ep4   policyKL 0.3562 @ep10
+
+W0000 00:00:1785646013.762240   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785646013.763135   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785646013.764745   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785646013.765331   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785646013.765902   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785646013.766473   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785646013.767024   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+W0000 00:00:1785646013.767583   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_7/Assert/Assert
+W0000 00:00:1785646013.768277   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_8/Assert/Assert
+W0000 00:00:1785646013.768787   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_9/Assert/Assert
+W0000 00:00:1785646013.769165   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_10/Assert/Assert
+W0000 00:00:1785646013.769498   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_11/Assert/Assert
+W0000 00:00:1785646013.769859   25402 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_12/Assert/Assert
+W0000 00:00:1785646039.137286   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal/Assert/Assert
+W0000 00:00:1785646039.137938   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_1/Assert/Assert
+W0000 00:00:1785646039.138537   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_2/Assert/Assert
+W0000 00:00:1785646039.138897   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_3/Assert/Assert
+W0000 00:00:1785646039.139221   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_4/Assert/Assert
+W0000 00:00:1785646039.139564   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_5/Assert/Assert
+W0000 00:00:1785646039.139901   25401 assert_op.cc:38] Ignoring Assert operator Muon/assert_greater_equal_6/Assert/Assert
+muonw 5e-3       1   0.7663   0.4%   0.8523 |  1.7350  0.6164  42.2%
+                 2   0.5905  23.2%   0.4783 |  1.5473  0.4287  45.4%
+                 3   0.6157  20.0%   0.5127 |  1.5213  0.4027  47.4%
+                 4   0.6260  18.6%   0.5187 |  1.5166  0.3980  47.6%
+                 5   0.6531  15.1%   0.5445 |  1.5097  0.3910  47.9%
+                 6   0.6776  11.9%   0.5458 |  1.5099  0.3913  48.6%
+                 7   0.6844  11.0%   0.5507 |  1.5098  0.3912  48.3%
+                 8   0.7028   8.6%   0.5541 |  1.4982  0.3796  48.5%
+                 9   0.6949   9.7%   0.5379 |  1.5003  0.3817  47.7%
+                10   0.7297   5.1%   0.5958 |  1.5003  0.3817  48.6%
+  BEST         value 0.5905 @ep2   policyKL 0.3796 @ep8
+
+muonw 1e-2       1   0.6589  14.3%   0.6389 |  1.7074  0.5888  39.7%
+                 2   0.6157  19.9%   0.5197 |  1.5565  0.4379  44.1%
+                 3   0.6244  18.8%   0.5057 |  1.5225  0.4039  47.2%
+                 4   0.6550  14.8%   0.5337 |  1.5150  0.3964  51.1%
+                 5   0.6467  15.9%   0.5073 |  1.5088  0.3902  48.2%
+                 6   0.6690  13.0%   0.5154 |  1.5211  0.4025  50.7%
+                 7   0.6862  10.8%   0.5150 |  1.5076  0.3890  47.5%
+                 8   0.7232   6.0%   0.5691 |  1.5091  0.3905  47.9%
+                 9   0.6936   9.8%   0.5207 |  1.5009  0.3823  48.2%
+                10   0.7130   7.3%   0.5483 |  1.5027  0.3841  47.8%
+  BEST         value 0.6157 @ep2   policyKL 0.3823 @ep9
+

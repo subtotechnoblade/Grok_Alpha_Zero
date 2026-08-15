@@ -1,0 +1,64 @@
+
+=== run2 gen 0: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3397  (train 12679)
+  target=z:  RAW held-out MSE = 1.0337   (const-0 = 0.9258)   |   DEDUP objective = 0.9566  (const-0 = 0.8487)
+            by ply bucket: 0-9: 1.0281 (const0 0.9398)  10-21: 1.1201 (const0 0.9389)  22-41: 0.9549 (const0 0.9018)
+  target=t:  RAW held-out MSE = 0.7187   (const-0 = 0.6653)   |   DEDUP objective = 0.6695  (const-0 = 0.6160)
+            by ply bucket: 0-9: 0.6627 (const0 0.6000)  10-21: 0.7422 (const0 0.6307)  22-41: 0.7418 (const0 0.7518)
+  search-q reference on the same held-out samples: 0.7108
+
+=== run2 gen 5: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3427  (train 14232)
+  target=z:  RAW held-out MSE = 0.5987   (const-0 = 0.8162)   |   DEDUP objective = 0.4542  (const-0 = 0.6717)
+            by ply bucket: 0-9: 0.7940 (const0 0.8495)  10-21: 0.6150 (const0 0.8435)  22-41: 0.4318 (const0 0.7656)
+  target=t:  RAW held-out MSE = 0.4118   (const-0 = 0.6124)   |   DEDUP objective = 0.3190  (const-0 = 0.5196)
+            by ply bucket: 0-9: 0.5102 (const0 0.5628)  10-21: 0.3934 (const0 0.5969)  22-41: 0.3516 (const0 0.6651)
+  search-q reference on the same held-out samples: 0.5831
+
+=== run2 gen 10: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3145  (train 13453)
+  target=z:  RAW held-out MSE = 0.5617   (const-0 = 0.8932)   |   DEDUP objective = 0.4287  (const-0 = 0.7601)
+            by ply bucket: 0-9: 0.7934 (const0 0.9199)  10-21: 0.5700 (const0 0.9142)  22-41: 0.3274 (const0 0.8442)
+  target=t:  RAW held-out MSE = 0.4022   (const-0 = 0.6925)   |   DEDUP objective = 0.3165  (const-0 = 0.6068)
+            by ply bucket: 0-9: 0.5217 (const0 0.6306)  10-21: 0.4074 (const0 0.6965)  22-41: 0.2802 (const0 0.7484)
+  search-q reference on the same held-out samples: 0.5488
+
+=== run2 gen 15: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3505  (train 14327)
+  target=z:  RAW held-out MSE = 0.3769   (const-0 = 0.8682)   |   DEDUP objective = 0.2580  (const-0 = 0.7493)
+            by ply bucket: 0-9: 0.5723 (const0 0.8899)  10-21: 0.4090 (const0 0.8865)  22-41: 0.2037 (const0 0.8362)
+  target=t:  RAW held-out MSE = 0.2712   (const-0 = 0.6905)   |   DEDUP objective = 0.1948  (const-0 = 0.6140)
+            by ply bucket: 0-9: 0.3755 (const0 0.6087)  10-21: 0.2901 (const0 0.6878)  22-41: 0.1774 (const0 0.7536)
+  search-q reference on the same held-out samples: 0.4395
+
+=== run3 gen 0: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3041  (train 12898)
+  target=z:  RAW held-out MSE = 0.8647   (const-0 = 0.9309)   |   DEDUP objective = 0.7776  (const-0 = 0.8439)
+            by ply bucket: 0-9: 0.9113 (const0 0.9487)  10-21: 0.9053 (const0 0.9434)  22-41: 0.7768 (const0 0.9006)
+  target=t:  RAW held-out MSE = 0.4008   (const-0 = 0.4738)   |   DEDUP objective = 0.3693  (const-0 = 0.4423)
+            by ply bucket: 0-9: 0.3414 (const0 0.3642)  10-21: 0.3617 (const0 0.4126)  22-41: 0.4995 (const0 0.6445)
+  search-q reference on the same held-out samples: 0.6857
+
+=== run3 gen 5: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3288  (train 13607)
+  target=z:  RAW held-out MSE = 0.4894   (const-0 = 0.9361)   |   DEDUP objective = 0.2836  (const-0 = 0.7303)
+            by ply bucket: 0-9: 0.7387 (const0 0.9494)  10-21: 0.4694 (const0 0.9466)  22-41: 0.2990 (const0 0.9150)
+  target=t:  RAW held-out MSE = 0.2124   (const-0 = 0.5531)   |   DEDUP objective = 0.1373  (const-0 = 0.4780)
+            by ply bucket: 0-9: 0.2786 (const0 0.4010)  10-21: 0.1811 (const0 0.4903)  22-41: 0.1867 (const0 0.7410)
+  search-q reference on the same held-out samples: 0.5661
+
+=== run3 gen 10: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3658  (train 14257)
+  target=z:  RAW held-out MSE = 0.3516   (const-0 = 0.7474)   |   DEDUP objective = 0.2368  (const-0 = 0.6325)
+            by ply bucket: 0-9: 0.5527 (const0 0.7800)  10-21: 0.3475 (const0 0.7789)  22-41: 0.2177 (const0 0.6995)
+  target=t:  RAW held-out MSE = 0.1759   (const-0 = 0.4567)   |   DEDUP objective = 0.1330  (const-0 = 0.4138)
+            by ply bucket: 0-9: 0.2189 (const0 0.3423)  10-21: 0.1569 (const0 0.4132)  22-41: 0.1621 (const0 0.5704)
+  search-q reference on the same held-out samples: 0.4097
+
+=== run3 gen 15: search-free learner (HistGBM, 42 board cells + ply + 3 tactical feats), trained on 80% of GAMES, scored on the other 20% ===
+  held-out samples 3251  (train 13495)
+  target=z:  RAW held-out MSE = 0.3476   (const-0 = 0.4832)   |   DEDUP objective = 0.2547  (const-0 = 0.3903)
+            by ply bucket: 0-9: 0.4813 (const0 0.5490)  10-21: 0.4117 (const0 0.5429)  22-41: 0.2061 (const0 0.3912)
+  target=t:  RAW held-out MSE = 0.1722   (const-0 = 0.2885)   |   DEDUP objective = 0.1376  (const-0 = 0.2540)
+            by ply bucket: 0-9: 0.1955 (const0 0.2590)  10-21: 0.1793 (const0 0.2855)  22-41: 0.1509 (const0 0.3109)
+  search-q reference on the same held-out samples: 0.3264

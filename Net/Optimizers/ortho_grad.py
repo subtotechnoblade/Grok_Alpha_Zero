@@ -1,15 +1,33 @@
+import re
+
 from keras.src import ops
 from keras.src.optimizers import optimizer
 import tensorflow as tf
 
 class Orthograd(optimizer.Optimizer):
-    def __init__(self, base_optimizer, **kwargs):
+    """Removes the component of each gradient parallel to the weight it updates.
+
+    exclude_layers: regex patterns matched against variable.path. Matching variables
+        are passed through untouched. Empty by default.
+    min_ndim: variables with fewer dimensions are passed through. The projection is
+        identically zero for a 1-element variable.
+    """
+
+    def __init__(self, base_optimizer, exclude_layers=(), min_ndim=2, **kwargs):
         super().__init__(learning_rate=1.0, name="Orthograd_" + base_optimizer.name, **kwargs)
         self.base_optimizer = base_optimizer
+        self.exclude_layers = list(exclude_layers)
+        self.min_ndim = min_ndim
+
+    def _should_orthogonalize(self, variable):
+        if len(variable.shape) < self.min_ndim:
+            return False
+        return not any(re.search(p, variable.path) for p in self.exclude_layers)
 
     def build(self, variables):
         super().build(variables)
         self.base_optimizer.build(variables)
+        self.ortho_mask = [self._should_orthogonalize(var) for var in variables]
 
     def orthogonalize(self, var, grad):
         g = tf.reshape(grad, (-1,))
@@ -34,12 +52,15 @@ class Orthograd(optimizer.Optimizer):
         # frozen at t = 1 forever (1 - beta_1^t = 0.1, 1 - beta_2^t = 0.005).
         self.base_optimizer.iterations.assign(self.iterations)
 
-        ortho_gradients = self.orthogonalize(variable, gradient)
-        self.base_optimizer.update_step(ortho_gradients, variable, self.base_optimizer.learning_rate)
+        if self.ortho_mask[self._get_variable_index(variable)]:
+            gradient = self.orthogonalize(variable, gradient)
+        self.base_optimizer.update_step(gradient, variable, self.base_optimizer.learning_rate)
 
     def get_config(self):
         config = super().get_config()
         config.update({
             "base_optimizer": self.base_optimizer,
+            "exclude_layers": self.exclude_layers,
+            "min_ndim": self.min_ndim,
         })
         return config

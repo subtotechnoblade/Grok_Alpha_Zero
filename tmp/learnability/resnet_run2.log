@@ -1,0 +1,39 @@
+2026-08-01 13:29:05.720231: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 13:29:07.096012: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 13:29:10.860411: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tensorflow_updated\Lib\site-packages\keras\src\backend\tensorflow\core.py:222: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+
+  [ResNet prod +OrthoGrad] params=379848 target=blend orthograd=True
+    ep  1 loss=2.4767 train_blend=0.5362 val_blend=0.5480 nxt_blend=0.5350
+    ep  2 loss=2.4531 train_blend=0.5257 val_blend=0.5378 nxt_blend=0.5345
+    ep  3 loss=2.4289 train_blend=0.5114 val_blend=0.5253 nxt_blend=0.5344
+    ep  4 loss=2.4041 train_blend=0.4962 val_blend=0.5122 nxt_blend=0.5330
+    ep  5 loss=2.3792 train_blend=0.4803 val_blend=0.4986 nxt_blend=0.5334
+    ep  6 loss=2.3556 train_blend=0.4673 val_blend=0.4880 nxt_blend=0.5327
+    ep  7 loss=2.3311 train_blend=0.4548 val_blend=0.4780 nxt_blend=0.5338
+    ep  8 loss=2.3108 train_blend=0.4414 val_blend=0.4658 nxt_blend=0.5333
+    ep  9 loss=2.2930 train_blend=0.4318 val_blend=0.4584 nxt_blend=0.5367
+    ep 10 loss=2.2737 train_blend=0.4228 val_blend=0.4526 nxt_blend=0.5386
+    ep 11 loss=2.2588 train_blend=0.4189 val_blend=0.4486 nxt_blend=0.5380
+    ep 12 loss=2.2429 train_blend=0.4102 val_blend=0.4433 nxt_blend=0.5411
+    ep 13 loss=2.2303 train_blend=0.4076 val_blend=0.4411 nxt_blend=0.5397
+    ep 14 loss=2.2295 train_blend=0.4009 val_blend=0.4357 nxt_blend=0.5402
+    ep 15 loss=2.2185 train_blend=0.3810 val_blend=0.4227 nxt_blend=0.5386
+    ep 16 loss=2.1977 train_blend=0.3987 val_blend=0.4344 nxt_blend=0.5421
+    ep 17 loss=2.1854 train_blend=0.3923 val_blend=0.4287 nxt_blend=0.5382
+    ep 18 loss=2.1788 train_blend=0.3997 val_blend=0.4349 nxt_blend=0.5374
+    ep 19 loss=2.1607 train_blend=0.3819 val_blend=0.4230 nxt_blend=0.5404
+    ep 20 loss=2.1473 train_blend=0.3801 val_blend=0.4197 nxt_blend=0.5385
+    ep 21 loss=2.1352 train_blend=0.3931 val_blend=0.4300 nxt_blend=0.5406
+    ep 22 loss=2.1200 train_blend=0.3700 val_blend=0.4143 nxt_blend=0.5364
+    ep 23 loss=2.1087 train_blend=0.3820 val_blend=0.4234 nxt_blend=0.5429
+    ep 24 loss=2.0969 train_blend=0.3666 val_blend=0.4132 nxt_blend=0.5482
+    ep 25 loss=2.0912 train_blend=0.3775 val_blend=0.4200 nxt_blend=0.5436
+    ep 26 loss=2.0732 train_blend=0.3673 val_blend=0.4140 nxt_blend=0.5375
+    ep 27 loss=2.0628 train_blend=0.3710 val_blend=0.4160 nxt_blend=0.5520
+    ep 28 loss=2.0527 train_blend=0.3642 val_blend=0.4120 nxt_blend=0.5442
+    ep 29 loss=2.0437 train_blend=0.3688 val_blend=0.4154 nxt_blend=0.5433
+    ep 30 loss=2.0363 train_blend=0.3567 val_blend=0.4083 nxt_blend=0.5448
+  -> ResNet prod +OrthoGrad [blend] best ep 30: train=0.3567 val=0.4083 nxt=0.5448  (643s)
+  [ResNet prod (Muon only)] params=379848 target=blend orthograd=False

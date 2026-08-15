@@ -1,0 +1,14 @@
+2026-08-01 13:47:55.326125: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 13:47:56.583931: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-08-01 13:48:00.067293: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:From C:\Users\TryHarder\anaconda3\envs\tensorflow_updated\Lib\site-packages\keras\src\backend\tensorflow\core.py:222: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.
+
+  [ResNet prod +OrthoGrad] target=z params=379848
+    ep  1 loss=2.5949 train_z=0.6546 val_z=0.6803 nxt_z=0.6882
+    ep  2 loss=2.5707 train_z=0.6439 val_z=0.6700 nxt_z=0.6877
+    ep  3 loss=2.5456 train_z=0.6286 val_z=0.6570 nxt_z=0.6883
+    ep  4 loss=2.5188 train_z=0.6119 val_z=0.6431 nxt_z=0.6889
+    ep  5 loss=2.4930 train_z=0.5948 val_z=0.6288 nxt_z=0.6901
+    ep  6 loss=2.4665 train_z=0.5788 val_z=0.6152 nxt_z=0.6911
+    ep  7 loss=2.4401 train_z=0.5654 val_z=0.6046 nxt_z=0.6940

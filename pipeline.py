@@ -136,6 +136,10 @@ def Validate_Configs(configs):
     if train_config["games_per_generation"] < 2:
         raise ValueError("Games per generation can't be less than 2")
 
+    initial_games = train_config.get("initial_games_per_generation")
+    if initial_games is not None and initial_games < 2:
+        raise ValueError("Initial games per generation can't be less than 2")
+
     if not train_config["use_gpu"] and train_config["use_tensorrt"]:
         raise ValueError("You must use the GPU for tensorrt")
 

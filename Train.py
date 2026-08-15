@@ -11,6 +11,8 @@ from Net.Optimizers.nadam import Nadam
 from Net.Optimizers.muon import Muon
 from Net.Optimizers.ortho_grad import Orthograd
 from Net.Optimizers.grok_fast import Grokfast_EMA
+from Net.Schedules import WarmupCosine
+from Net.Callbacks import NormalizedValLoss
 
 
 def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict],
@@ -26,8 +28,17 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
         learning_rate /= accum_steps  # this is to counter the gradients being scaled by accum_steps thus we divide
 
     optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
-    optimizer_config["kwargs"]["learning_rate"] = learning_rate  # this is to overwrite learning rate in kwargs if it was a function
-    optimizer = optimizer(**optimizer_config["kwargs"])
+    kwargs = dict(optimizer_config["kwargs"])  # a copy: pipeline.py re-reads kwargs each generation
+    if optimizer_config.get("use_orthograd", False):
+        print("use_orthograd is on: step schedule disabled, using a flat lr for this generation.")
+        kwargs["learning_rate"] = learning_rate
+    else:
+        total_steps = len(train_dataloader) * optimizer_config["train_epochs"]
+        kwargs["learning_rate"] = WarmupCosine(
+            learning_rate, total_steps,
+            warmup_frac=optimizer_config.get("lr_warmup_frac", 0.05),
+            floor_frac=optimizer_config.get("lr_floor_frac", 0.05))
+    optimizer = optimizer(**kwargs)
 
     # order matters, grads -> orthograd -> grokfast EMA filter -> optimizer
     # orthograd(grokfast_EMA(base_optimizer))
@@ -35,10 +46,11 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
         optimizer = Grokfast_EMA(optimizer, lamb=optimizer_config["grokfast_lambda"])
 
     if optimizer_config.get("use_orthograd", False):
-        optimizer = Orthograd(optimizer)
+        optimizer = Orthograd(optimizer,
+                              exclude_layers=optimizer_config.get("orthograd_exclude", ()))
 
     if not train_config.get("use_gumbel", False):
-        policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32")
+        policy_loss, value_loss, kld = Policy_Loss(dtype="float32"), Value_Loss(dtype="float32"), KLD(dtype="float32", reduction=None)
     else:
         if build_config.get("use_stablemax", False):
             activation_fn = Stablemax(dtype="float32")
@@ -51,21 +63,24 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
 
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
-                  metrics={"policy": kld})
+                  weighted_metrics={"policy": tf.keras.metrics.KLDivergence(name="policy_kld")}
+                  )
+
+    norm_val_loss = NormalizedValLoss()  # must precede the checkpoint, it writes val_norm
 
     save_best_model = tf.keras.callbacks.ModelCheckpoint(
-        filepath=tmp_best,  # Save path (e.g., .keras, .h5, or directory)
-        monitor='val_loss',  # Monitor validation loss
-        save_best_only=True,  # Save ONLY the best model
+        filepath=tmp_best,
+        monitor='val_norm',
+        save_best_only=True,
         save_weights_only=True,
-        mode='min',  # 'min' for val_loss (lower = better)
-        verbose=1  # Optional: show message when saving
+        mode='min',
+        verbose=1
     )
 
     model.fit(train_dataloader,
               validation_data=test_dataloader,
               epochs=optimizer_config["train_epochs"],
-              callbacks=[save_best_model])
+              callbacks=[norm_val_loss, save_best_model])
 
     model.load_weights(tmp_best)
     os.remove(tmp_best)
