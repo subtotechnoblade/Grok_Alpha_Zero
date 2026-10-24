@@ -18,7 +18,7 @@ def build_model(input_shape, policy_shape, configs):
     inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
     x = inputs
 
-    eyes = tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal', name="eyes")(x)
+    eyes = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal', name="eyes")(x)
     eyes = tf.keras.layers.BatchNormalization()(eyes)
     eyes = tf.keras.layers.Activation("relu")(eyes)
 
@@ -58,7 +58,7 @@ def build_model(input_shape, policy_shape, configs):
         if build_config["use_stablemax"]:
             policy = Stablemax(name="policy", dtype="float32")(policy)  # MUST NAME THIS "policy"
         else:
-            policy = tf.keras.layers.Activation("softmax", dtype="float64", name="policy")(policy)  # MUST NAME THIS "policy"
+            policy = tf.keras.layers.Activation("softmax", dtype="float32", name="policy")(policy)  # MUST NAME THIS "policy"
 
     value = tf.keras.layers.BatchNormalization()(x)
     value = tf.keras.layers.Activation("relu")(value)
