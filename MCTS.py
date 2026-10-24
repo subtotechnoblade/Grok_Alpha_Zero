@@ -266,8 +266,10 @@ class MCTS:
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0,
 
     def _apply_dirichlet(self, legal_policy, epsilon):
-        return ((1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(
-            self.dirichlet_alpha * np.ones_like(legal_policy))).astype(np.float32, copy=False)
+        # small alphas draw components near 1e-100, flushing those to 0 in float32 is correct
+        with np.errstate(under="ignore"):
+            return ((1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(
+                self.dirichlet_alpha * np.ones_like(legal_policy))).astype(np.float32, copy=False)
 
     @staticmethod
     def make_terminal_actions_fn(do_action_fn, check_win_fn, use_njit):
