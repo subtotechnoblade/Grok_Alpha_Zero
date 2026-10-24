@@ -220,7 +220,7 @@ class TrainConfig(ConfigBase):
         "Seconds per move instead of a sim count. Leave None for training - "
         "variable sim counts make inconsistent policy targets."))
     use_njit = Param(None, help=(
-        "Force numba on/off for the search kernels. None = infer per platform."))
+        "Force numba on/off for the search kernels. None = on."))
     create_new_root = Param(True, help=(
         "Discard the tree between SELF PLAY moves so the recorded policy "
         "target is exactly this position's fresh sims under this dirichlet "

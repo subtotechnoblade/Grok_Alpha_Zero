@@ -17,18 +17,26 @@ import onnxruntime as rt
 from Client_Server import Parallelized_Session
 
 
+@njit(cache=True)
+def _copy_flat(dst, src):
+    # an element loop, numba's N-d slice assignment measured ~10x slower
+    for i in range(src.size):
+        dst[i] = src[i]
+
+
 class Node:
-    __slots__ = "child_id", "board", "action_history", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal", "parent"
+    __slots__ = "child_id", "board", "action_history", "history_array", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal", "parent"
 
     def __init__(self,
                  child_id: int,
                  board: np.array,
                  action_history: np.array,
                  current_player: int,
-                 child_legal_actions: deque[np.ndarray],
+                 child_legal_actions: np.ndarray,
                  child_prob_priors: np.array,
                  is_terminal=None,
-                 parent=None):
+                 parent=None,
+                 history_array=None):
         self.child_id = child_id
         self.board = board  # board, this is passed to get_state in order to compute the inputs for the neural network
         # deleted after it has produced a child node based on the current board
@@ -36,17 +44,16 @@ class Node:
         # self.board will be fed into get_state_MCTS in order to get the neural network input
 
         self.action_history = action_history
+        self.history_array = history_array  # action_history as one array, so a child can extend it by a row
         self.current_player = current_player
         self.parent: None or Node or Root = parent
 
         self.children: list[Node] = []  # a list of node objects which are the children aka resulting future actions
 
-        self.child_legal_actions = child_legal_actions  # a list of actions, [action1, action2, ...], will be deleted when completely popped
-        # python lists, not numpy arrays: back propagation does ~20 scalar
-        # increments per simulation and numpy scalar += costs ~30x a list.
-        # _PUCT_select converts to arrays for the jitted PUCT kernel.
-        self.child_visits = [0] * len(child_legal_actions)
-        self.child_values = [0.0] * len(child_legal_actions)
+        self.child_legal_actions = child_legal_actions  # actions sorted by prior, child i is action i, deleted once every child is expanded
+        # numpy arrays handed straight to the jitted PUCT kernel
+        self.child_visits = np.zeros(len(child_legal_actions), dtype=np.int64)
+        self.child_values = np.zeros(len(child_legal_actions), dtype=np.float64)
         self.child_prob_priors = child_prob_priors
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
@@ -78,6 +85,8 @@ class Root(Node):  # inheritance
 class MCTS:
     # will start from point where the game class left off
     # will update itself after every move assuming the methods are called in the right order
+    _terminal_kernels = {}  # one compiled kernel per game per process, shared by every MCTS instance
+
     def __init__(self,
                  game,  # the annotation is for testing and debugging
                  session: rt.InferenceSession or Parallelized_Session or Cache_Wrapper or None = None,
@@ -106,7 +115,7 @@ class MCTS:
         self.fast_find_win = fast_find_win
         self._in_buf = None  # reused inference input buffer, see _fill_buf
 
-        self.use_njit = use_njit if use_njit is not None else hasattr(os, "fork")
+        self.use_njit = use_njit if use_njit is not None else True
         self.c_puct_init = c_puct_init  # determined experimentally
         self.c_puct_base = c_puct_base  # DO NOT CHANGE
 
@@ -127,10 +136,10 @@ class MCTS:
             self.game.do_action_MCTS) and is_jitted(self.game.check_win_MCTS)
 
         # Note that these are functions getting assigned and jitted
-        if njitable and self.use_njit:
-            self.get_terminal_actions = nb.njit(self.get_terminal_actions_fn, cache=hasattr(os, "fork"))
-        else:
-            self.get_terminal_actions = self.get_terminal_actions_fn
+        kernel_key = (self.game.do_action_MCTS, self.game.check_win_MCTS, bool(njitable and self.use_njit))
+        if kernel_key not in MCTS._terminal_kernels:
+            MCTS._terminal_kernels[kernel_key] = self.make_terminal_actions_fn(*kernel_key)
+        self.get_terminal_actions = MCTS._terminal_kernels[kernel_key]
 
         # perform inference call to initialize root
         self.create_expand_root()
@@ -174,13 +183,15 @@ class MCTS:
 
 
     @staticmethod
-    @njit("int64(float32[:], float32[:], uint32[:], int64, float32, float32)", cache=True, fastmath=True)
+    @njit("int64(float32[:], float64[:], int64[:], int64, float32, float32)", cache=True, fastmath=True)
     def _get_best_PUCT_score_index(child_prob_priors: np.array,
-                                   child_values: np.array,
-                                   child_visits: np.array,
+                                   node_child_values: np.array,
+                                   node_child_visits: np.array,
                                    parent_visits: int,
                                    c_puct_init: float,
                                    c_puct_base: float):
+        child_values = node_child_values.astype(np.float32)
+        child_visits = node_child_visits.astype(np.uint32)
         # note that np.log is actually math ln with base e (2.71)
         U = child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (
                 c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
@@ -213,8 +224,8 @@ class MCTS:
 
             # expensive call here, use only if PUCT_scores are needed and are useful
             best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
-                                                         np.asarray(node.child_values, dtype=np.float32),
-                                                         np.asarray(node.child_visits, dtype=np.uint32),
+                                                         node.child_values,
+                                                         node.child_visits,
                                                          parent_visits,
                                                          self.c_puct_init,
                                                          self.c_puct_base)
@@ -249,14 +260,32 @@ class MCTS:
 
     def _get_dummy_outputs(self, input_state):
         # return np.ones(self.game.policy_shape) / self.game.policy_shape[0], 0.0
-        rand_policy = np.random.uniform(low=0, high=1, size=self.game.policy_shape).astype(np.float32, copy=False)
+        rand_policy = np.random.random(self.game.policy_shape).astype(np.float32, copy=False)
         rand_policy /= np.sum(rand_policy)
-        return rand_policy, float(np.random.uniform(-1.0, 1.0, size=(1,)))
+        return rand_policy, np.random.uniform(-1.0, 1.0)
         # return np.ones(self.game.policy_shape) / int(self.game.policy_shape[0]), 0.0,
 
     def _apply_dirichlet(self, legal_policy, epsilon):
         return ((1 - epsilon) * legal_policy + epsilon * np.random.dirichlet(
             self.dirichlet_alpha * np.ones_like(legal_policy))).astype(np.float32, copy=False)
+
+    @staticmethod
+    def make_terminal_actions_fn(do_action_fn, check_win_fn, use_njit):
+        """Bakes the game's functions into the kernel as closure constants, so numba types
+        them once at compile time instead of on every call."""
+        if not use_njit:
+            def get_terminal_actions(action_histories, board, next_player, fast_find_win=False):
+                return MCTS.get_terminal_actions_fn(do_action_fn, check_win_fn, action_histories,
+                                                    board, next_player, fast_find_win)
+            return get_terminal_actions
+
+        terminal_fn = nb.njit(MCTS.get_terminal_actions_fn)
+
+        @nb.njit
+        def get_terminal_actions(action_histories, board, next_player, fast_find_win=False):
+            return terminal_fn(do_action_fn, check_win_fn, action_histories,
+                               board, next_player, fast_find_win)
+        return get_terminal_actions
 
     @staticmethod
     def get_terminal_actions_fn(do_action_fn,
@@ -278,15 +307,19 @@ class MCTS:
         terminal_index = []  # includes winning and drawing actions
         terminal_mask = []  # a list of 0 and 1
 
+        scratch_board = board.copy()  # do_action_fn writes into it, restored after every trial move
+        scratch_flat = scratch_board.reshape(-1)
+        board_flat = board.copy().reshape(-1)
         # where each index corresponds to a drawing action if 0, and a winning action if 1
         for action_id in range(len(action_histories)):
             # Try every legal action and check if the current player won
             legal_action = action_histories[action_id][-1]
             # legal_action = last_actions[action_id]
 
-            result = check_win_fn(do_action_fn(board.copy(), legal_action, next_player),
+            result = check_win_fn(do_action_fn(scratch_board, legal_action, next_player),
                                   next_player,
                                   action_histories[action_id])
+            _copy_flat(scratch_flat, board_flat)
             if result == -2:
                 continue
 
@@ -320,9 +353,7 @@ class MCTS:
             future_action_histories[:, -1] = legal_actions
         else:
             future_action_histories = np.expand_dims(legal_actions, 1)
-        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
-                                                                    self.game.check_win_MCTS,
-                                                                    future_action_histories,
+        terminal_actions, terminal_mask = self.get_terminal_actions(future_action_histories,
                                                                     self.game.board,
                                                                     self.game.get_next_player(),
                                                                     fast_find_win=self.fast_find_win)
@@ -379,7 +410,7 @@ class MCTS:
             self.root = Root(self.game.board.copy(),
                              self.game.action_history.copy(),
                              self.game.get_next_player() * -1,  # current player for no moves placed
-                             deque(legal_actions),
+                             legal_actions,
                              child_prob_prior)
 
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions,
@@ -413,9 +444,9 @@ class MCTS:
         node.children.append(terminal_parent)
         del terminal_parent.child_legal_actions
 
-        terminal_parent.child_values = [float(v) for v in terminal_mask]  # 0 for draws and 1 for wins, thus perfect for child_values
+        terminal_parent.child_values = terminal_mask.astype(np.float64)  # 0 for draws and 1 for wins, thus perfect for child_values
 
-        terminal_parent.child_visits = [1] * len(terminal_mask)  # formality so that we don't get division by 0 when calcing stats
+        terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.int64)  # formality so that we don't get division by 0 when calcing stats
 
         for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
@@ -451,15 +482,20 @@ class MCTS:
     def _expand(self, node: Node) -> (Node, float):
         # note that node is the parent of the child, and node will always be different and unique
         # create the child to expand
-        child_action = node.child_legal_actions.popleft()  # this must be -1 because list pop is O(1),
-        # only when popping from the right
+        child_action = node.child_legal_actions[len(node.children)]  # sorted by prior, so the next unexpanded child
 
         # Note that from now on, -current_player is the current_player for child_board
         child_board = self.game.do_action_MCTS(node.board.copy(), child_action, -node.current_player)
         # must copy, because each node child depends on the parent's board state and its action
         # changing the parent's board without copying will cause the parent's board to be changed too
         child_action_history = node.action_history + [child_action]
-        action_history = np.array(child_action_history, dtype=child_action.dtype)
+        parent_history = node.history_array
+        if parent_history is None or parent_history.dtype != child_action.dtype:
+            action_history = np.array(child_action_history, dtype=child_action.dtype)
+        else:
+            action_history = np.empty((parent_history.shape[0] + 1, *parent_history.shape[1:]), dtype=parent_history.dtype)
+            action_history[:-1] = parent_history
+            action_history[-1] = child_action
         legal_actions = self.game.get_legal_actions_MCTS(child_board,
                                                          -node.current_player,
                                                          action_history)
@@ -470,9 +506,7 @@ class MCTS:
         future_action_histories[:, :-1] = action_history
         future_action_histories[:, -1] = legal_actions
 
-        terminal_actions, terminal_mask = self.get_terminal_actions(self.game.do_action_MCTS,
-                                                                    self.game.check_win_MCTS,
-                                                                    future_action_histories,
+        terminal_actions, terminal_mask = self.get_terminal_actions(future_action_histories,
                                                                     child_board,
                                                                     node.current_player,
                                                                     fast_find_win=self.fast_find_win)
@@ -480,11 +514,14 @@ class MCTS:
         if len(terminal_actions) > 0:
             return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
         else:
-            child_policy, child_value, = self._compute_outputs(
-                self.game.get_input_state_MCTS(child_board,
-                                               -node.current_player,
-                                               action_history),
-                                               len(node.action_history))
+            if self.session is None:
+                child_policy, child_value = self._get_dummy_outputs(None)
+            else:
+                child_policy, child_value, = self._compute_outputs(
+                    self.game.get_input_state_MCTS(child_board,
+                                                   -node.current_player,
+                                                   action_history),
+                                                   len(node.action_history))
             # ^ that depth argument is the PARENT's ply count, but the state being evaluated
             # is the child, one ply deeper. create_expand_root passes the depth of the state
             # it actually evaluates, so the two disagree by one: Cache_Wrapper's
@@ -513,15 +550,16 @@ class MCTS:
                          child_board,
                          child_action_history,
                          node.current_player * -1,
-                         deque(child_legal_actions),
+                         child_legal_actions,
                          child_prob_prior,
                          None,
-                         parent=node)
+                         parent=node,
+                         history_array=action_history)
             # we don't create every possible child nodes because as the tree gets bigger,
             # there will be more redundant children that do nothing (very unlikely to be visited)
             node.children.append(child)
 
-            if len(node.child_legal_actions) == 0:  # we will never use this parent again for generating children
+            if len(node.children) == len(node.child_legal_actions):  # we will never use this parent again for generating children
                 # because node.children is full
                 # and there will no longer be any more legal moves cuz they all have been expanded
                 del node.child_legal_actions  # saves a lot of memory as we no longer need it
@@ -530,12 +568,12 @@ class MCTS:
                 # we can delete it because the NN will not evaluate it again thus saving more memory
                 del node.board
                 del node.current_player
+                node.history_array = None
             # negated child_child_values is the child value
         return child, -child_value, 1  # contact Brian if you don't understand why it is -value
 
     def _back_propagate(self, node: Node, value: float, visits=1) -> None:
-        # must stay python scalars. a numpy float entering the list turns every
-        # later += back into a numpy op, which is the whole cost we just removed
+        # python scalars keep the per level negation and root.visits cheap
         value = float(value)
         visits = int(visits)
         # note that the node class is the child returned by expand or selection method
@@ -582,20 +620,12 @@ class MCTS:
 
         current_iteration = 0
         start_time = time.time()
-        fully_visited = False
 
         while (((iteration_limit is None or current_iteration < iteration_limit) and (
                 time_limit is None or time.time() - start_time < time_limit))):
             loop_start_time = time.time()
 
-            if not fully_visited and 0 not in self.root.child_visits:
-                fully_visited = True
-            # ensures that all the starting nodes are visited at least once
-            if not fully_visited:
-                node = self.root
-            else:
-                node = self._PUCT_select()
-
+            node = self._PUCT_select()
 
             if node.is_terminal is not None:
                 value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
@@ -626,12 +656,13 @@ class MCTS:
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior,
                                     self.root.visits, child.is_terminal]
 
+        expanded_visits = np.asarray(self.root.child_visits[:len(move_probs)], dtype=np.float64)
         if self.tau == 0.0:
-            prob_weights = np.zeros(len(self.root.child_visits), dtype=np.float64)
-            prob_weights[np.argmax(self.root.child_visits)] = 1.0
+            prob_weights = np.zeros(len(expanded_visits), dtype=np.float64)
+            prob_weights[np.argmax(expanded_visits)] = 1.0
         else:
             exp = np.array(1.0 / self.tau, dtype=np.float64)
-            prob_weights = ((np.asarray(self.root.child_visits, dtype=np.float64) ** exp) / (
+            prob_weights = ((expanded_visits ** exp) / (
                     np.array(self.root.visits, np.float64) ** exp))
             prob_weights /= np.sum(prob_weights)  # normalize back into a probability distribution
             prob_weights = np.array(prob_weights, np.float64)
@@ -663,10 +694,16 @@ class MCTS:
 
         # Now that the noise no longer gets baked in during _expand, the re-used subtree
         # arrives here with clean priors. Re-draw the root noise on every move, which is
-        # exactly where alpha zero applies it. NOTE: do not re-sort, self.children is
-        # already ordered to match these priors.
+        # exactly where alpha zero applies it. Expanded children keep their order, only
+        # the unexpanded tail is re-sorted.
         if child.is_terminal is None and self.use_dirichlet:
             child_prob_priors = self._apply_dirichlet(child_prob_priors, self.dirichlet_epsilon)
+            num_expanded = len(child.children)
+            if len(child_prob_priors) - num_expanded > 1:
+                tail_order = np.argsort(child_prob_priors[num_expanded:])[::-1]
+                child_prob_priors[num_expanded:] = child_prob_priors[num_expanded:][tail_order]
+                child_legal_actions = child_legal_actions.copy()
+                child_legal_actions[num_expanded:] = child_legal_actions[num_expanded:][tail_order]
 
         new_root = Root(board=self.game.board.copy(),
                         action_history=child.action_history,
@@ -685,7 +722,7 @@ class MCTS:
         if child.is_terminal is not None:
             del new_root.children, new_root.child_values, new_root.child_prob_priors, new_root.child_legal_actions, new_root.current_player
 
-        new_root.visits = self.root.child_visits[child.child_id]
+        new_root.visits = int(self.root.child_visits[child.child_id])
         self.root = new_root
 
     def prune_tree(self, action, create_new_root=False):
