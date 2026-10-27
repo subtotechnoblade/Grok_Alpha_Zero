@@ -456,6 +456,8 @@ class Server:
 
 def start_server(inputs_feed_info, outputs_feed_info, shms, providers, file_path,
                  per_process_wait_time=0.001, request_ready=None, response_events=None):
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)  # the parent terminates the server once workers have stopped
 
     server = Server(inputs_feed_info,
                     outputs_feed_info,

@@ -1,5 +1,6 @@
 import os
 import time
+import signal
 from pathlib import Path
 
 import h5py as h5
@@ -15,6 +16,12 @@ from MCTS_Gumbel import MCTS_Gumbel
 
 from Client_Server import (Parallelized_Session, start_server, convert_to_single_info,
                            create_shared_memory, create_events)
+
+_stop_requested = {"value": False}
+
+
+def _on_sigint(signum, frame):
+    _stop_requested["value"] = True  # polled between moves
 
 
 class Self_Play:
@@ -72,6 +79,8 @@ class Self_Play:
         actions_count = 0
         winner = -2
         while winner == -2 and actions_count < self.train_config["max_actions"]:
+            if _stop_requested["value"]:
+                return None  # Ctrl+C: drop the unfinished game, nothing is written
             board_states.append(self.game.get_input_state().copy())
 
             current_move_num = len(self.game.action_history)
@@ -85,7 +94,7 @@ class Self_Play:
                 self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
                 action, action_probs = self.mcts.run(
-                    iteration_limit=int(self.iteration_limit * 1.5),
+                    iteration_limit=self.iteration_limit,
                     time_limit=self.time_limit,
                     use_bar=False)
 
@@ -227,6 +236,7 @@ def self_play_task(worker_id,
     # This worker lives for the whole generation and pulls games until the shared counter
     # runs out. Everything before the loop is paid ONCE instead of once per game: the
     # process spawn, the session, the numba warm up, and the memo below.
+    signal.signal(signal.SIGINT, _on_sigint)
     np.random.seed()  # once per PROCESS. Never per game: pointless at best, and a fixed
     # value here would correlate every worker's games with each other.
     import onnxruntime as rt
@@ -250,7 +260,7 @@ def self_play_task(worker_id,
             # plays AND by the whole search inside each game (Self_Play hands the same
             # session object to both trees). That sharing is the point, not an accident.
 
-    while True:
+    while not _stop_requested["value"]:
         # Claim one game. The read and the increment must happen under the SAME lock
         # acquisition, otherwise two workers can both see the last index and the
         # generation overshoots total.
@@ -272,6 +282,8 @@ def self_play_task(worker_id,
                                   folder_path,
                                   generation).play()
         # a fresh Self_Play per game is intended, it owns self.game and mutates it
+        if num_positions is None:
+            break
         with progress.get_lock():
             progress.value += num_positions if count_positions else 1
 
@@ -452,22 +464,33 @@ def run_self_play(game_class,
         jobs.append(worker)
 
     last = 0
-    while any(worker.is_alive() for worker in jobs):
-        time.sleep(0.25)  # the old loop polled is_alive() with no sleep, pinning a core
-        current = min(progress.value, num_left)
-        if current > last:
-            bar.update(current - last)
-            last = current
+    try:
+        while any(worker.is_alive() for worker in jobs):
+            time.sleep(0.25)  # the old loop polled is_alive() with no sleep, pinning a core
+            current = min(progress.value, num_left)
+            if current > last:
+                bar.update(current - last)
+                last = current
 
-        if train_config["use_inference_server"] and not server.is_alive():
-            # Without this the run hangs forever: Parallelized_Session.run spins on the
-            # shared memory flag with no timeout, so a dead server leaves every worker
-            # burning a core while still reporting is_alive() == True.
-            for worker in jobs:
-                worker.terminate()
+            if train_config["use_inference_server"] and not server.is_alive():
+                # Without this the run hangs forever: Parallelized_Session.run spins on the
+                # shared memory flag with no timeout, so a dead server leaves every worker
+                # burning a core while still reporting is_alive() == True.
+                for worker in jobs:
+                    worker.terminate()
+                for shm in shms:
+                    shm.unlink()
+                raise RuntimeError("Inference server died mid generation, self play cannot continue")
+    except KeyboardInterrupt:
+        bar.close()
+        print("\nStopping: waiting for workers to finish any game they are saving...")
+        for worker in jobs:
+            worker.join()
+        if train_config["use_inference_server"]:
+            server.terminate()
             for shm in shms:
                 shm.unlink()
-            raise RuntimeError("Inference server died mid generation, self play cannot continue")
+        raise
     bar.update(min(progress.value, num_left) - last)
     bar.close()
 

@@ -507,4 +507,7 @@ if __name__ == "__main__":
         # logs exactly what it trained with. Dict configs (gomoku, tictactoe)
         # skip this until they migrate
         configs[1].explain()
-    Run(game_class, build_model, configs, run_dir)
+    try:
+        Run(game_class, build_model, configs, run_dir)
+    except KeyboardInterrupt:
+        print("Stopped. Rerun to resume where it left off.")
