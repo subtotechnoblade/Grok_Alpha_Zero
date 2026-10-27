@@ -205,7 +205,7 @@ providers = [
     'CPUExecutionProvider'
 ]
 # session = rt.InferenceSession("Grok_Zero_Train/15/TRT_cache/model_ctx.onnx", providers=providers)
-session = rt.InferenceSession("Grok_Zero_Train/15/model.onnx")
+session = rt.InferenceSession("Grok_Zero_Train/5/model.onnx")
 # mcts = MCTS_Gumbel(game,
 #                     # None,
 #                     session,
@@ -220,13 +220,13 @@ mcts = MCTS(game,
             # None,
             session,
             True,
-            c_puct_init=4.0,
+            c_puct_init=2.0,
             tau=0.0,
             dirichlet_alpha=0.05,
             use_dirichlet=0,
             fast_find_win=False)
 
-total_iterations = 1000
+total_iterations = 3000
 time_limit = None
 
 move_list = []

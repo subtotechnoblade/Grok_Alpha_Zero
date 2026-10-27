@@ -265,6 +265,10 @@ class TrainConfig(ConfigBase):
         "Merge byte-identical states; targets become the occurrence-weighted "
         "mean and the occurrence count becomes the sample weight. Removes "
         "duplicate-label noise without deweighting the opening."))
+    max_sample_weight = Param(None, help=(
+        "Split any deduped train sample heavier than this into equal copies spread "
+        "across batches. Same objective, without one position dominating a batch. "
+        "None = off."), check=lambda v: None if v is None or v >= 1 else "must be >= 1 or None")
     train_batch_size = Param(1024, help="Samples per training batch.",
                              check=_positive)
     test_batch_size = Param(None, help="None = use train_batch_size.")

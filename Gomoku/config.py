@@ -18,7 +18,7 @@ class GomokuTrain(AlphaZeroConfig):
     max_actions = 150
 
     # ---- self play workers / inference ----
-    num_workers = 10
+    num_workers = 12
     use_gpu = True
     use_tensorrt = True
     trt_fp16 = True
@@ -27,13 +27,13 @@ class GomokuTrain(AlphaZeroConfig):
     dml_device_id = None  # 0 = 760M igpu, 1 = 2060
 
     # ---- search ----
-    MCTS_iteration_limit = 400
+    MCTS_iteration_limit = 600
     MCTS_time_limit = None
     use_njit = None
     create_new_root = False
 
     # ---- exploration ----
-    num_explore_actions_first = 3
+    num_explore_actions_first = 4
     num_explore_actions_second = 3
     c_puct_init = 2.0
     dirichlet_alpha = 0.05  # ~10 / 225 legal moves
@@ -41,17 +41,18 @@ class GomokuTrain(AlphaZeroConfig):
 
     # ---- training targets ----
     q_weight = 0.15
-    opening_actions = [[[7, 7], 0.25],
-                       [[6, 6], 0.03], [[7, 6], 0.03], [[8, 6], 0.03], [[6, 7], 0.03],
-                       [[8, 7], 0.03], [[6, 8], 0.03], [[7, 8], 0.03], [[8, 8], 0.03]]
+    # opening_actions = [[[7, 7], 0.25],
+    #                    [[6, 6], 0.03], [[7, 6], 0.03], [[8, 6], 0.03], [[6, 7], 0.03],
+    #                    [[8, 7], 0.03], [[6, 8], 0.03], [[7, 8], 0.03], [[8, 8], 0.03]]
 
     # ---- dataset window ----
     num_previous_generations = 5
     train_percent = 1.0
-    train_decay = 0.1
+    train_decay = 0.25
     test_percent = 0.1
-    test_decay = 0.01
+    test_decay = 0.025
     dedup_average = True
+    max_sample_weight = 32
     train_batch_size = 1024
     test_batch_size = None
 
@@ -60,9 +61,9 @@ train_config = GomokuTrain()
 
 
 PEAK_LR = 1e-2
-LR_DROP = 2.0
-LR_DROP_EVERY = 15
-LR_FLOOR = 2.5e-3
+LR_DROP = 1.5
+LR_DROP_EVERY = 2
+LR_FLOOR = 1.5e-3
 
 
 def lr_schedule(generation):
@@ -73,7 +74,7 @@ def lr_schedule(generation):
 optimizer_config = {
     "optimizer": "adam",  # ["adam", "nadam", "muon"]
     "gradient_accumulation_steps": None,
-    "train_epochs": 8,
+    "train_epochs": 2,
     "kwargs": {
         "learning_rate": lr_schedule,
         "weight_decay": 4e-3,

@@ -46,7 +46,7 @@ RUN_FOLDER_NAME = "Grok_Zero_Train"
 
 # Used when --game is not passed, so hitting Run in an IDE works without arguments.
 # Change this to switch which game a bare `python pipeline.py` trains.
-DEFAULT_GAME = "Connect4"
+DEFAULT_GAME = "Gomoku"
 
 
 class _LazyBuildModel:
@@ -251,7 +251,8 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
                                                        train_decay=train_config["train_decay"],
                                                        test_percent=train_config["test_percent"],
                                                        test_decay=train_config["test_decay"],
-                                                       dedup_average=train_config.get("dedup_average", False), )
+                                                       dedup_average=train_config.get("dedup_average", False),
+                                                       max_sample_weight=train_config.get("max_sample_weight"), )
     model = train(train_dataloader, test_dataloader, model, learning_rate, configs,
                   run_dir=Path(run_dir).as_posix())
     Make_Generation_Folder(run_dir, generation + 1)

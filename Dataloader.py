@@ -64,6 +64,21 @@ def dedup_average(states, policies, values):
 
 
 
+def split_heavy_samples(states, policies, values, weights, max_weight):
+    """Replace each sample heavier than max_weight with ceil(w / max_weight) copies that
+    share its weight. The objective is unchanged; the copies land in different batches.
+    Weights are renormalized to mean 1."""
+    weights = np.asarray(weights, dtype=np.float32)
+    repeats = np.maximum(np.ceil(weights / max_weight), 1).astype(np.int64)
+    if (repeats == 1).all():
+        return states, policies, values, weights
+    index = np.repeat(np.arange(len(weights)), repeats)
+    split_weights = np.repeat(weights / repeats, repeats)
+    split_weights *= len(split_weights) / split_weights.sum()
+    return ([states[i] for i in index], [policies[i] for i in index], [values[i] for i in index],
+            split_weights.astype(np.float32))
+
+
 class Create_Train_Test_Split:
     def __init__(self,
                  parent_path,
@@ -72,7 +87,8 @@ class Create_Train_Test_Split:
                  train_decay=0.95,
                  test_percent=0.1,
                  test_decay=0.95,
-                 dedup_average=False):
+                 dedup_average=False,
+                 max_sample_weight=None):
         self.parent_path = parent_path
         np.random.seed()
 
@@ -90,6 +106,7 @@ class Create_Train_Test_Split:
         self.test_percent = test_percent
         self.test_decay = test_decay
         self.dedup_average = dedup_average
+        self.max_sample_weight = max_sample_weight
 
 
     def split(self):
@@ -124,12 +141,14 @@ class Create_Train_Test_Split:
                 # positions puts a board in train and its own mirror/rotation in test, so
                 # val_loss just tracks train loss and ModelCheckpoint(save_best_only) can
                 # never detect overfitting.
-                shuffled_game_ids = np.random.permutation(num_games)
-                num_test_games = int(test_percent * num_games)
+                # one fixed draw per game, seeded by its generation, so a game below the base
+                # test_percent is held out in every window and is never trained on
+                game_draws = np.random.default_rng([int(generation), 0]).random(num_games)
+                train_draws = (game_draws - self.test_percent) / max(1.0 - self.test_percent, 1e-12)
 
-                test_game_ids = set(shuffled_game_ids[:num_test_games].tolist())
-                remaining_game_ids = shuffled_game_ids[num_test_games:]
-                train_game_ids = set(remaining_game_ids[:int(train_percent * len(remaining_game_ids))].tolist())
+                test_game_ids = set(np.flatnonzero(game_draws < test_percent).tolist())
+                train_game_ids = set(np.flatnonzero((game_draws >= self.test_percent)
+                                                    & (train_draws < train_percent)).tolist())
 
                 for game_id in tqdm(range(num_games), desc=f"Collecting data from gen: {generation}"):
                     is_test = game_id in test_game_ids
@@ -182,6 +201,14 @@ class Create_Train_Test_Split:
             # no dedup -> every stored sample already carries its own frequency
             self.train_weights = np.ones(len(self.train_states), dtype=np.float32)
             self.test_weights = np.ones(len(self.test_states), dtype=np.float32)
+
+        if self.max_sample_weight is not None and len(self.train_weights):
+            num_before = len(self.train_states)
+            self.train_states, self.train_policies, self.train_values, self.train_weights = split_heavy_samples(
+                self.train_states, self.train_policies, self.train_values, self.train_weights,
+                self.max_sample_weight)
+            print(f"Split samples heavier than {self.max_sample_weight}: train {num_before} -> "
+                  f"{len(self.train_states)}, max weight now {self.train_weights.max():.1f}")
 
         print("-" * 40)
         # print(f"Total Games: {total_games}")
@@ -250,7 +277,8 @@ def Create_Dataset(folder_path,
                    train_decay=0.75,
                    test_percent=0.1,
                    test_decay=0.75,
-                   dedup_average=False):
+                   dedup_average=False,
+                   max_sample_weight=None):
     ((train_states, train_policies, train_values, train_weights),
      (test_states, test_policies, test_values, test_weights)) = Create_Train_Test_Split(
         folder_path,
@@ -259,7 +287,8 @@ def Create_Dataset(folder_path,
         train_decay,
         test_percent,
         test_decay,
-        dedup_average=dedup_average).split()
+        dedup_average=dedup_average,
+        max_sample_weight=max_sample_weight).split()
 
     train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size,
                                   weights=train_weights)
