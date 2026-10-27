@@ -204,6 +204,7 @@ class Self_Play:
                                     dtype=np.float32,
                                     data=augmented_values[inc],
                                     chunks=None)
+        return board_states.shape[0]
 
 
 def self_play_task(worker_id,
@@ -217,11 +218,12 @@ def self_play_task(worker_id,
                    folder_path: str,
                    generation: int,
                    claimed,
-                   total_games: int,
+                   total: int,
                    progress,
                    stats_q,
                    request_ready=None,
-                   response_ready=None):
+                   response_ready=None,
+                   count_positions=False):
     # This worker lives for the whole generation and pulls games until the shared counter
     # runs out. Everything before the loop is paid ONCE instead of once per game: the
     # process spawn, the session, the numba warm up, and the memo below.
@@ -251,22 +253,27 @@ def self_play_task(worker_id,
     while True:
         # Claim one game. The read and the increment must happen under the SAME lock
         # acquisition, otherwise two workers can both see the last index and the
-        # generation overshoots total_games.
-        with claimed.get_lock():
-            if claimed.value >= total_games:
-                break
-            claimed.value += 1
+        # generation overshoots total.
+        if count_positions:
+            with progress.get_lock():
+                if progress.value >= total:
+                    break
+        else:
+            with claimed.get_lock():
+                if claimed.value >= total:
+                    break
+                claimed.value += 1
 
-        Self_Play(game_class(),
-                  session,
-                  build_config,
-                  train_config,
-                  lock,
-                  folder_path,
-                  generation).play()
+        num_positions = Self_Play(game_class(),
+                                  session,
+                                  build_config,
+                                  train_config,
+                                  lock,
+                                  folder_path,
+                                  generation).play()
         # a fresh Self_Play per game is intended, it owns self.game and mutates it
         with progress.get_lock():
-            progress.value += 1
+            progress.value += num_positions if count_positions else 1
 
     # Hand the memo stats to the parent rather than printing here: the tqdm bar is live
     # in the parent and its \r redraws overwrite anything a worker writes to the terminal.
@@ -296,6 +303,15 @@ def games_for_generation(train_config, generation):
     return int(train_config["games_per_generation"])
 
 
+def positions_for_generation(train_config, generation):
+    """Position target for this generation, or None to stop on a game count instead."""
+    initial = train_config.get("initial_positions_per_generation")
+    if generation == 0 and initial:
+        return int(initial)
+    target = train_config.get("positions_per_generation")
+    return None if target is None else int(target)
+
+
 def run_self_play(game_class,
                   configs,
                   folder_path,
@@ -305,18 +321,21 @@ def run_self_play(game_class,
         raise ValueError("Dataset file hasn't been created. Self play depends on that file!")
 
     generation = int(Path(folder_path).name)  # separator agnostic, see Dataloader
-    target_games = games_for_generation(train_config, generation)
+    target_positions = positions_for_generation(train_config, generation)
+    count_positions = target_positions is not None
+    target = target_positions if count_positions else games_for_generation(train_config, generation)
+    unit = "positions" if count_positions else "games"
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5") as dataset_file:
-        num_games_left = int(target_games - dataset_file["game_stats"][2])
+        num_left = int(target - dataset_file["game_stats"][1 if count_positions else 2])
 
-    if num_games_left <= 0:
-        print(f"Finished generating {target_games} games!")
+    if num_left <= 0:
+        print(f"Finished generating {target} {unit}!")
         return
 
     num_workers = train_config["num_workers"]
-    if num_games_left < num_workers:
-        num_workers = num_games_left
+    if not count_positions and num_left < num_workers:
+        num_workers = num_left
 
     game = game_class()
     inputs_shape = game.get_input_state().shape
@@ -374,8 +393,8 @@ def run_self_play(game_class,
                                 "value": [-1, 1]}
 
     print(
-        f"Running with {num_workers} workers for {num_games_left} games with {onnx_file_path} for generation: {generation}!\n")
-    bar = tqdm(total=num_games_left, desc="Generating self play games")
+        f"Running with {num_workers} workers for {num_left} {unit} with {onnx_file_path} for generation: {generation}!\n")
+    bar = tqdm(total=num_left, desc=f"Generating self play {unit}")
     shms = []
     request_ready, response_events = None, [None] * num_workers
     if train_config["use_inference_server"]:
@@ -422,11 +441,12 @@ def run_self_play(game_class,
                                   folder_path,
                                   generation,
                                   claimed,
-                                  num_games_left,
+                                  num_left,
                                   progress,
                                   stats_q,
                                   request_ready,
-                                  response_events[worker_id]),
+                                  response_events[worker_id],
+                                  count_positions),
                             name=f"{worker_id}")
         worker.start()
         jobs.append(worker)
@@ -434,7 +454,7 @@ def run_self_play(game_class,
     last = 0
     while any(worker.is_alive() for worker in jobs):
         time.sleep(0.25)  # the old loop polled is_alive() with no sleep, pinning a core
-        current = progress.value
+        current = min(progress.value, num_left)
         if current > last:
             bar.update(current - last)
             last = current
@@ -448,7 +468,7 @@ def run_self_play(game_class,
             for shm in shms:
                 shm.unlink()
             raise RuntimeError("Inference server died mid generation, self play cannot continue")
-    bar.update(progress.value - last)
+    bar.update(min(progress.value, num_left) - last)
     bar.close()
 
     # Drain before joining: a process that has queued items does not exit until they are
@@ -480,9 +500,9 @@ def run_self_play(game_class,
             shm.unlink()
 
     with h5.File(f"{folder_path}/Self_Play_Data.h5", "r") as file:
-        games_played = int(file["game_stats"][2])
-    if games_played < target_games:
-        warn(f"Generation ended {target_games - games_played} games short. "
+        done = int(file["game_stats"][1 if count_positions else 2])
+    if done < target:
+        warn(f"Generation ended {target - done} {unit} short. "
              f"Re-running this generation will top it up.")
 
 

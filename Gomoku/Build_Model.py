@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from Net.ResNet.ResNet_Block import ResNet_Block
+from Net.ResNet.ResNet_Block import ResNet_Block, Global_Pool_Block
 
 from Net.Stablemax import Stablemax
 
@@ -25,8 +25,13 @@ def build_model(input_shape, policy_shape, configs):
 
     x = eyes
     mul = 1
+    global_pool_blocks = build_config.get("global_pool_blocks", ())
     for layer_id in range(num_resnet_layers):
-        x = ResNet_Block(int(num_filters * mul), (3, 3), strides=(1, 1), padding="same", bn_momentum=bn_momentum)(x)
+        if layer_id in global_pool_blocks:
+            x = Global_Pool_Block(int(num_filters * mul), build_config.get("pool_filters", 32), (3, 3),
+                                  bn_momentum=bn_momentum)(x)
+        else:
+            x = ResNet_Block(int(num_filters * mul), (3, 3), strides=(1, 1), padding="same", bn_momentum=bn_momentum)(x)
 
     # pre activation
     policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(x)
@@ -35,22 +40,8 @@ def build_model(input_shape, policy_shape, configs):
 
     policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(policy)
     policy = tf.keras.layers.Activation("relu")(policy)
-    policy = tf.keras.layers.Conv2D(8, (3, 3), padding="same", kernel_initializer='he_normal')(policy)
-
-    policy = tf.keras.layers.Reshape((policy.shape[-3] * policy.shape[-2] * policy.shape[-1],))(policy)
-
-    policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(policy)
-    policy = tf.keras.layers.Activation("relu")(policy)
-    policy = tf.keras.layers.Dense(512, kernel_initializer='he_normal', name="policy_1")(policy)
-
-    policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(policy)
-    policy = tf.keras.layers.Activation("relu")(policy)
-
-    # policy = tf.keras.layers.Dense(512)(policy)
-    # policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(policy)
-    # policy = tf.keras.layers.Activation("relu")(policy)
-
-    policy = tf.keras.layers.Dense(policy_shape[0], dtype="float32", name="policy_2")(policy) # NOTE THAT THIS IS A LOGIT not prob
+    policy = tf.keras.layers.Conv2D(1, (1, 1), padding="same", dtype="float32", name="policy_2")(policy)
+    policy = tf.keras.layers.Reshape((policy_shape[0],), dtype="float32")(policy)  # NOTE THAT THIS IS A LOGIT not prob
     # policy *= build_config["rr_alpha"] # rich representation
 
     if train_config["use_gumbel"]:
@@ -63,20 +54,12 @@ def build_model(input_shape, policy_shape, configs):
 
     value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(x)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Conv2D(32, (3, 3), padding="same", kernel_initializer='he_normal')(value)
+    value = tf.keras.layers.Conv2D(32, (1, 1), padding="same", kernel_initializer='he_normal', name="value_1")(value)
 
     value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Conv2D(4, (1, 1), padding="same", kernel_initializer='he_normal')(value)
-
-    value = tf.keras.layers.Reshape((value.shape[-3] * value.shape[-2] * value.shape[-1],))(value)
-
-    value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)
-    value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(256, kernel_initializer='he_normal', name="value_1")(value)
-
-    value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)
-    value = tf.keras.layers.Activation("relu")(value)
+    value = tf.keras.layers.Concatenate()([tf.keras.layers.GlobalAveragePooling2D()(value),
+                                           tf.keras.layers.GlobalMaxPooling2D()(value)])
     value = tf.keras.layers.Dense(128, kernel_initializer='he_normal', name="value_2")(value)
 
     value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)

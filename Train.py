@@ -61,12 +61,15 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                                         Value_Loss_Gumbel(dtype="float64"),
                                         KLD_Gumbel(activation_fn=activation_fn, dtype="float64"))
 
+    value_loss_weight = optimizer_config.get("value_loss_weight", 1.0)
     model.compile(optimizer=optimizer,
                   loss={"policy": policy_loss, "value": value_loss},
+                  loss_weights={"policy": 1.0, "value": value_loss_weight},
                   weighted_metrics={"policy": tf.keras.metrics.KLDivergence(name="policy_kld")}
                   )
 
-    norm_val_loss = NormalizedValLoss()  # must precede the checkpoint, it writes val_norm
+    # must precede the checkpoint, it writes val_norm
+    norm_val_loss = NormalizedValLoss(weights={"val_value_loss": value_loss_weight})
 
     save_best_model = tf.keras.callbacks.ModelCheckpoint(
         filepath=tmp_best,

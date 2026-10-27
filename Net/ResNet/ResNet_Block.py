@@ -40,6 +40,37 @@ class ResNet_Block(tf.keras.layers.Layer):
         x += residual
         return x
 
+class Global_Pool_Block(tf.keras.layers.Layer):
+    """Pre-activation residual block whose middle activations get a per-channel bias from the
+    whole board: global mean + max of a pooling branch through a dense layer (KataGo style)."""
+
+    def __init__(self, filters=256, pool_filters=32, kernel_size=(3, 3), bn_momentum=0.99, **kwargs):
+        super().__init__(**kwargs)
+        self.filters = filters
+
+        self.bn1 = tf.keras.layers.BatchNormalization(momentum=bn_momentum)
+        self.conv1 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, padding="same", use_bias=False, kernel_initializer='he_normal')
+
+        self.conv_pool = tf.keras.layers.Conv2D(pool_filters, kernel_size=kernel_size, padding="same", use_bias=False, kernel_initializer='he_normal')
+        self.bn_pool = tf.keras.layers.BatchNormalization(momentum=bn_momentum)
+        self.pool_dense = tf.keras.layers.Dense(filters, use_bias=False, kernel_initializer='he_normal')
+
+        self.bn2 = tf.keras.layers.BatchNormalization(momentum=bn_momentum)
+        self.conv2 = tf.keras.layers.Conv2D(filters, kernel_size=kernel_size, padding="same", use_bias=False, kernel_initializer='he_normal')
+
+    def call(self, inputs):
+        x = tf.keras.layers.Activation("relu")(self.bn1(inputs))
+
+        pooled = tf.keras.layers.Activation("relu")(self.bn_pool(self.conv_pool(x)))
+        pooled = tf.concat([tf.reduce_mean(pooled, axis=[1, 2]), tf.reduce_max(pooled, axis=[1, 2])], axis=-1)
+        board_bias = self.pool_dense(pooled)[:, None, None, :]
+
+        x = self.conv1(x) + board_bias
+        x = tf.keras.layers.Activation("relu")(self.bn2(x))
+        x = self.conv2(x)
+        return inputs + x
+
+
 class Recurrent_ResNet(tf.keras.layers.Layer):
     def __init__(self,  num_layers, filters, kernel_size=(3, 3), recurrence=2, **kwargs):
         super().__init__(**kwargs)

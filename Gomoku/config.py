@@ -8,6 +8,8 @@ build_config = {"num_resnet_layers": 4,
                 "use_stablemax": False,
                 "mixed_precision": "mixed_float16",  # None, or mixed_float16
                 "bn_momentum": 0.9,
+                "global_pool_blocks": (1, 3),
+                "pool_filters": 32,
           }
 
 
@@ -16,6 +18,8 @@ class GomokuTrain(AlphaZeroConfig):
     total_generations = 100
     initial_games_per_generation = 2000
     games_per_generation = 1000
+    initial_positions_per_generation = 70000
+    positions_per_generation = 30000
     max_actions = 150
 
     # ---- self play workers / inference ----
@@ -76,7 +80,8 @@ def lr_schedule(generation):
 optimizer_config = {
     "optimizer": "adam",  # ["adam", "nadam", "muon"]
     "gradient_accumulation_steps": None,
-    "train_epochs": 2,
+    "train_epochs": 6,
+    "value_loss_weight": 0.25,
     "kwargs": {
         "learning_rate": lr_schedule,
         "weight_decay": 4e-3,

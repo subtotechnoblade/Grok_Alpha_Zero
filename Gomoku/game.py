@@ -91,8 +91,13 @@ class Gomoku:
     @staticmethod
     @njit(cache=True)
     def get_input_state_MCTS(board: np.array, current_player: int, action_history: np.array) -> np.array:
-        next_player_plane = np.ones_like(board) * -current_player
-        return np.stack((next_player_plane, board), -1)
+        # planes: player to move's stones, opponent's stones, ones, black to move
+        to_move = -current_player
+        mine = (board == to_move).astype(np.int8)
+        theirs = (board == current_player).astype(np.int8)
+        ones = np.ones_like(mine)
+        black_to_move = ones * np.int8(to_move == -1)
+        return np.stack((mine, theirs, ones, black_to_move), -1)
 
 
     def check_win(self) -> int:

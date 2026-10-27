@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from warnings import warn
 import h5py as h5
@@ -62,6 +63,21 @@ def dedup_average(states, policies, values):
             list(value_means.astype(np.float32)),
             counts.astype(np.float32))
 
+
+
+def drop_seen_test_states(train_states, test_states, test_policies, test_values, test_weights):
+    """Remove every test state that is byte-identical to some train state. The game-id split
+    keeps a game and its augmentations together, but other games still reach the same boards
+    (openings, symmetric copies of whole games). Test weights are renormalized to mean 1."""
+    seen = {hashlib.blake2b(np.ascontiguousarray(s).tobytes(), digest_size=16).digest() for s in train_states}
+    keep = np.array([hashlib.blake2b(np.ascontiguousarray(s).tobytes(), digest_size=16).digest() not in seen
+                     for s in test_states], dtype=bool)
+    test_weights = np.asarray(test_weights, dtype=np.float32)[keep]
+    if len(test_weights):
+        test_weights *= len(test_weights) / test_weights.sum()
+    index = np.flatnonzero(keep)
+    return ([test_states[i] for i in index], [test_policies[i] for i in index],
+            [test_values[i] for i in index], test_weights, int((~keep).sum()))
 
 
 def split_heavy_samples(states, policies, values, weights, max_weight):
@@ -201,6 +217,12 @@ class Create_Train_Test_Split:
             # no dedup -> every stored sample already carries its own frequency
             self.train_weights = np.ones(len(self.train_states), dtype=np.float32)
             self.test_weights = np.ones(len(self.test_states), dtype=np.float32)
+
+        num_test = len(self.test_states)
+        (self.test_states, self.test_policies, self.test_values, self.test_weights,
+         num_seen) = drop_seen_test_states(self.train_states, self.test_states, self.test_policies,
+                                           self.test_values, self.test_weights)
+        print(f"Dropped test states also in train: {num_seen} of {num_test}")
 
         if self.max_sample_weight is not None and len(self.train_weights):
             num_before = len(self.train_states)

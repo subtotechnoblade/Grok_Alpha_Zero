@@ -186,6 +186,16 @@ class TrainConfig(ConfigBase):
         "Games for generation 0 only, which has no network and is the base every "
         "later generation bootstraps from. None = use games_per_generation."),
         check=lambda v: None if v is None or v >= 2 else "must be >= 2 or None")
+    positions_per_generation = Param(None, help=(
+        "Stop self play once this many positions (moves, before augmentation) are "
+        "recorded instead of after a game count, so shorter games do not shrink the "
+        "training set. Overshoots by at most one game per worker. None = use "
+        "games_per_generation."),
+        check=lambda v: None if v is None or v >= 1 else "must be >= 1 or None")
+    initial_positions_per_generation = Param(None, help=(
+        "positions_per_generation for generation 0 only. None = use "
+        "positions_per_generation, or the game counts if that is None too."),
+        check=lambda v: None if v is None or v >= 1 else "must be >= 1 or None")
     max_actions = Param(help=(
         "Hard cap on game length. Reaching it WITHOUT a win is scored a draw."),
         check=_positive)
