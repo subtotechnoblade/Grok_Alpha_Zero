@@ -445,7 +445,6 @@ def Run(game_class, build_model_fn, configs, run_dir):
 
     if "Self_Play_Data.h5" not in os.listdir(current_path):
         Make_Dataset_File(current_path)
-        current_generation += 1
 
     for generation in range(current_generation, train_config["total_generations"]):
         this_gen = gen_path(run_dir, generation)
