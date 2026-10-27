@@ -190,22 +190,22 @@ game = Gomoku()
 
 
 providers = [
-    # ('TensorrtExecutionProvider', {
-    #     # "trt_engine_cache_enable": True,
-    #     # "trt_dump_ep_context_model": True,
-    #     # "trt_builder_optimization_level": 5,
-    #     # "trt_auxiliary_streams": 0,
-    #     # "trt_ep_context_file_path": "Gomoku/Cache/",
-    #     #
-    #     # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    #     # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    #     # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
-    # }),
-    # 'CUDAExecutionProvider',
+    ('TensorrtExecutionProvider', {
+        # "trt_engine_cache_enable": True,
+        # "trt_dump_ep_context_model": True,
+        # "trt_builder_optimization_level": 5,
+        # "trt_auxiliary_streams": 0,
+        # "trt_ep_context_file_path": "Gomoku/Cache/",
+        #
+        # "trt_profile_min_shapes": f"inputs:1x15x15,input_state:{num_layers}x2x1x{embed_size},input_state_matrix:{num_layers}x1x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_max_shapes": f"inputs:{max_shape}x15x15,input_state:{num_layers}x2x{max_shape}x{embed_size},input_state_matrix:{num_layers}x{max_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+        # "trt_profile_opt_shapes": f"inputs:{opt_shape}x15x15,input_state:{num_layers}x2x{opt_shape}x{embed_size},input_state_matrix:{num_layers}x{opt_shape}x{num_heads}x{embed_size // num_heads}x{embed_size // num_heads}",
+    }),
+    'CUDAExecutionProvider',
     'CPUExecutionProvider'
 ]
-# session = rt.InferenceSession("Grok_Zero_Train/15/TRT_cache/model_ctx.onnx", providers=providers)
-session = rt.InferenceSession("Grok_Zero_Train/5/model.onnx")
+session = rt.InferenceSession("Grok_Zero_Train/6/TRT_cache/model_ctx.onnx", providers=providers)
+# session = rt.InferenceSession("Grok_Zero_Train/6/model.onnx")
 # mcts = MCTS_Gumbel(game,
 #                     # None,
 #                     session,
@@ -221,12 +221,13 @@ mcts = MCTS(game,
             session,
             True,
             c_puct_init=2.0,
+            fpu_reduction=0.2,
             tau=0.0,
             dirichlet_alpha=0.05,
             use_dirichlet=0,
             fast_find_win=False)
 
-total_iterations = 3000
+total_iterations = 100000
 time_limit = None
 
 move_list = []

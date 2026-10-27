@@ -36,6 +36,7 @@ class GomokuTrain(AlphaZeroConfig):
     num_explore_actions_first = 4
     num_explore_actions_second = 3
     c_puct_init = 2.0
+    fpu_reduction = 0.2
     dirichlet_alpha = 0.05  # ~10 / 225 legal moves
     dirichlet_epsilon = 0.25
 

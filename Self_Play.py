@@ -44,6 +44,7 @@ class Self_Play:
                                    session=self.sess if self.generation > 0 else None,
                                    use_njit=train_config["use_njit"],
                                    c_puct_init=self.train_config["c_puct_init"],
+                                   fpu_reduction=self.train_config.get("fpu_reduction", 0.0),
                                    use_dirichlet=True,
                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                    dirichlet_epsilon=dirichlet_epsilon,

@@ -296,6 +296,11 @@ class AlphaZeroConfig(TrainConfig):
         "costs search depth. Root dirichlet noise, not this, is the "
         "mechanism for reconsidering a move the prior dismissed."),
         check=_positive)
+    fpu_reduction = Param(0.0, help=(
+        "First play urgency. Unvisited children score Q = (parent's mean child Q) "
+        "- fpu_reduction instead of 0, so a side that is losing deepens its best "
+        "replies rather than trying every legal move first. 0 = unvisited Q is 0."),
+        check=_non_negative)
     dirichlet_alpha = Param(1.33, help=(
         "Root noise concentration, rule of thumb 10 / branching factor."),
         check=_positive)

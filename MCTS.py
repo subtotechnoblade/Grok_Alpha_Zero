@@ -93,6 +93,7 @@ class MCTS:
                  use_njit=None,
                  c_puct_init: float = 2.5,
                  c_puct_base: float = 19_652,
+                 fpu_reduction: float = 0.0,
                  use_dirichlet=True,
                  dirichlet_alpha=1.11,
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
@@ -104,6 +105,7 @@ class MCTS:
         :param session: onnruntime session or a wrapper session which uses an onnxruntime session. None defaults to a random policy and value
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
         :param c_puct_base: Don't touch, it's the value that determine how much alpha zero explores deeper down the tree
+        :param fpu_reduction: Unvisited children score Q = (parent's mean child Q) - fpu_reduction. 0 = unvisited Q is 0
         :param use_dirichlet: To use dirichlet exploration noise or not
         :param dirichlet_alpha: The exploration rate in the alpa zero paper, should be (average moves per game / 10)
         :param dirichlet_epsilon: The weighting that dirichlet noise has over the policy
@@ -118,6 +120,7 @@ class MCTS:
         self.use_njit = use_njit if use_njit is not None else True
         self.c_puct_init = c_puct_init  # determined experimentally
         self.c_puct_base = c_puct_base  # DO NOT CHANGE
+        self.fpu_reduction = fpu_reduction
 
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
@@ -159,6 +162,13 @@ class MCTS:
             else:
                 self.c_puct_base = c_puct_base
 
+        fpu_reduction = kwargs.get("fpu_reduction")
+        if fpu_reduction is not None:
+            if fpu_reduction < 0.0:
+                warn("fpu_reduction cannot be negative")
+            else:
+                self.fpu_reduction = fpu_reduction
+
         dirichlet_alpha = kwargs.get("dirichlet_alpha")
         if dirichlet_alpha is not None:
             if dirichlet_alpha <= 0.0:
@@ -183,13 +193,14 @@ class MCTS:
 
 
     @staticmethod
-    @njit("int64(float32[:], float64[:], int64[:], int64, float32, float32)", cache=True, fastmath=True)
+    @njit("int64(float32[:], float64[:], int64[:], int64, float32, float32, float32)", cache=True, fastmath=True)
     def _get_best_PUCT_score_index(child_prob_priors: np.array,
                                    node_child_values: np.array,
                                    node_child_visits: np.array,
                                    parent_visits: int,
                                    c_puct_init: float,
-                                   c_puct_base: float):
+                                   c_puct_base: float,
+                                   fpu_reduction: float):
         child_values = node_child_values.astype(np.float32)
         child_visits = node_child_visits.astype(np.uint32)
         # note that np.log is actually math ln with base e (2.71)
@@ -201,6 +212,10 @@ class MCTS:
         Q = child_values.copy()
         mask = child_visits > 0  # to ensure that we dont have divide by 0
         Q[mask] = child_values[mask] / child_visits[mask]
+        if fpu_reduction > 0.0:
+            total_visits = child_visits.sum()
+            if total_visits > 0:
+                Q[~mask] = child_values.sum() / total_visits - fpu_reduction
 
         PUCT_score = Q + U
         return np.argmax(PUCT_score)
@@ -228,7 +243,8 @@ class MCTS:
                                                          node.child_visits,
                                                          parent_visits,
                                                          self.c_puct_init,
-                                                         self.c_puct_base)
+                                                         self.c_puct_base,
+                                                         self.fpu_reduction)
             if best_index == len(node.children):
                 return node
 
