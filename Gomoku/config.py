@@ -78,10 +78,11 @@ def lr_schedule(generation):
 
 
 optimizer_config = {
-    "optimizer": "adam",  # ["adam", "nadam", "muon"]
+    "optimizer": "nadam",  # ["adam", "nadam", "muon", "sgd"]
     "gradient_accumulation_steps": None,
     "train_epochs": 6,
     "value_loss_weight": 0.25,
+    "checkpoint_value_weight": 0.1,  # value's weight in val_norm only; omit to use value_loss_weight
     "kwargs": {
         "learning_rate": lr_schedule,
         "weight_decay": 4e-3,

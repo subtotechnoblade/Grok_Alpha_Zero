@@ -27,7 +27,8 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
     if accum_steps is not None and accum_steps >= 2:
         learning_rate /= accum_steps  # this is to counter the gradients being scaled by accum_steps thus we divide
 
-    optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon}[optimizer_config["optimizer"].lower()]
+    optimizer = {"adam": Adam, "nadam": Nadam, "muon": Muon,
+                 "sgd": tf.keras.optimizers.SGD}[optimizer_config["optimizer"].lower()]
     kwargs = dict(optimizer_config["kwargs"])  # a copy: pipeline.py re-reads kwargs each generation
     if optimizer_config.get("use_orthograd", False):
         print("use_orthograd is on: step schedule disabled, using a flat lr for this generation.")
@@ -68,8 +69,13 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                   weighted_metrics={"policy": tf.keras.metrics.KLDivergence(name="policy_kld")}
                   )
 
+    baseline = model.evaluate(test_dataloader, verbose=0, return_dict=True)
+    baseline = {f"val_{k}": float(v) for k, v in baseline.items() if k in ("policy_loss", "value_loss")}
+    print(f"Pre-training val: policy {baseline['val_policy_loss']:.4f} value {baseline['val_value_loss']:.4f}")
+
     # must precede the checkpoint, it writes val_norm
-    norm_val_loss = NormalizedValLoss(weights={"val_value_loss": value_loss_weight})
+    checkpoint_value_weight = optimizer_config.get("checkpoint_value_weight", value_loss_weight)
+    norm_val_loss = NormalizedValLoss(weights={"val_value_loss": checkpoint_value_weight}, baseline=baseline)
 
     save_best_model = tf.keras.callbacks.ModelCheckpoint(
         filepath=tmp_best,

@@ -1,17 +1,20 @@
+import math
+
 import tensorflow as tf
 
 
 class NormalizedValLoss(tf.keras.callbacks.Callback):
-    """logs['val_norm'] = weighted sum of each val loss divided by its own first-epoch value.
+    """logs['val_norm'] = weighted sum of each val loss divided by its baseline value: the
+    pre-training val loss when given and finite, else the first-epoch value.
 
     Must be listed before ModelCheckpoint in callbacks.
     """
 
-    def __init__(self, keys=("val_value_loss", "val_policy_loss"), weights=None):
+    def __init__(self, keys=("val_value_loss", "val_policy_loss"), weights=None, baseline=None):
         super().__init__()
         self.keys = tuple(keys)
         self.weights = dict(weights or {})
-        self.first = {}
+        self.first = {k: v for k, v in (baseline or {}).items() if math.isfinite(v) and v > 0}
 
     def on_epoch_end(self, epoch, logs=None):
         if logs is None:
