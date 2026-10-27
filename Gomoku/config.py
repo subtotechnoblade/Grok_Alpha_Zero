@@ -6,7 +6,8 @@ build_config = {"num_resnet_layers": 4,
                 "num_filters": 128,
 
                 "use_stablemax": False,
-                "mixed_precision": None,  # None, or mixed_float16
+                "mixed_precision": "mixed_float16",  # None, or mixed_float16
+                "bn_momentum": 0.9,
           }
 
 

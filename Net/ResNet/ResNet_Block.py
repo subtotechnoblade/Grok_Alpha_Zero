@@ -3,16 +3,16 @@ import tensorflow as tf
 # in reference to https://zhangtemplar.github.io/resnet/
 
 class ResNet_Block(tf.keras.layers.Layer):
-    def __init__(self, filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", **kwargs):
+    def __init__(self, filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same", bn_momentum=0.99, **kwargs):
         super().__init__(**kwargs)
         self.filters = filters
         self.kernel_size = kernel_size
         self.strides = strides
 
-        self.bn1 = tf.keras.layers.BatchNormalization()
+        self.bn1 = tf.keras.layers.BatchNormalization(momentum=bn_momentum)
         self.conv1 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=self.strides, padding=padding, use_bias=False, kernel_initializer='he_normal')
 
-        self.bn2 = tf.keras.layers.BatchNormalization()
+        self.bn2 = tf.keras.layers.BatchNormalization(momentum=bn_momentum)
         self.conv2 = tf.keras.layers.Conv2D(self.filters, kernel_size=self.kernel_size, strides=(1, 1), padding="same", use_bias=False, kernel_initializer='he_normal')
 
 
