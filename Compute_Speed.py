@@ -29,7 +29,7 @@ def compute_speed(game_class,
                 ('TensorrtExecutionProvider', {
                     "trt_engine_cache_enable": True,
                     "trt_dump_ep_context_model": True,
-                    "trt_builder_optimization_level": 3,
+                    "trt_builder_optimization_level": 5,
                     "trt_auxiliary_streams": 0,
 
                     "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
