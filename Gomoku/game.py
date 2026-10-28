@@ -169,10 +169,8 @@ class Gomoku:
                         return current_player
                 else:
                     fives = 0
-        # if np.sum(np.abs(board.flatten())) == 15 * 15:
-        #     return 0
-        # ^ ostrich algorithm moment
-        # remember that draw is very unlikely, but possible, just improbable
+        if len(action_history) == 15 * 15:
+            return 0
 
         # if there is no winner, and it is not a draw
         return -2
