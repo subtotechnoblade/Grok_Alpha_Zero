@@ -66,8 +66,8 @@ def compute_speed(game_class,
     for _ in range(iterations):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
     time_taken = time.time() - s
-    print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s "
-          f"(batch {max_shape}, {max_shape * iterations / time_taken:,.0f} rows/s)!")
+    print(f"Took {time_taken / iterations:.5f} seconds per call at {iterations / time_taken:0.2f} calls/s "
+          f"at batch {max_shape} for a total of {max_shape * iterations / time_taken:,.0f} positions/s!")
 
 if __name__ == "__main__":
     from TicTacToe.game import TicTacToe
