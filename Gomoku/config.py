@@ -23,7 +23,7 @@ class GomokuTrain(AlphaZeroConfig):
     max_actions = 150
 
     # ---- self play workers / inference ----
-    num_workers = 12
+    num_workers = 24
     use_gpu = True
     use_tensorrt = True
     trt_fp16 = True
