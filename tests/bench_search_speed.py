@@ -1,5 +1,5 @@
 """Self-play search speed on Gomoku with a real TensorRT model.
-python -m tests.bench_search_speed <model_dir> local|server|batched [workers] [seconds] [leaves_per_batch]
+python -m tests.bench_search_speed <model_dir> local|server|batched [workers] [seconds] [leaves_per_batch] [sims]
 local: one TensorRT session per worker. server: the old Parallelized_Session server (K=1 only).
 batched: Batch_Server with int8 on the wire.
 model_dir holds model.onnx; each TensorRT profile gets its own TRT_cache_<max>/ (use a scratch copy)."""
@@ -26,6 +26,8 @@ def providers_for(model_dir, shape, profile_max):
         "trt_dump_ep_context_model": True,
         "trt_builder_optimization_level": 5,
         "trt_auxiliary_streams": 0,
+        "trt_timing_cache_enable": True,
+        "trt_timing_cache_path": f"{model_dir}/",
         "trt_ep_context_file_path": f"{model_dir}/TRT_cache_{profile_max}/",
         "trt_profile_min_shapes": f"inputs:1x{s}",
         "trt_profile_max_shapes": f"inputs:{profile_max}x{s}",
@@ -117,6 +119,7 @@ if __name__ == "__main__":
     workers = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     seconds = float(sys.argv[4]) if len(sys.argv) > 4 else 60.0
     k = int(sys.argv[5]) if len(sys.argv) > 5 else 1
+    SIMS = int(sys.argv[6]) if len(sys.argv) > 6 else SIMS
     ctx = mp
     counter = ctx.Value("q", 0)
     stats = ctx.Array("q", len(STATS))
@@ -177,7 +180,7 @@ if __name__ == "__main__":
             shm.close()
             shm.unlink()
     batches, rows, collisions, terminal = stats[:]
-    print(f"RESULT mode={mode} workers={workers} K={k} sims/s={counter.value / elapsed:,.0f} "
+    print(f"RESULT mode={mode} workers={workers} K={k} sims={SIMS} sims/s={counter.value / elapsed:,.0f} "
           f"gpu_util_mean={np.mean(util) if util else float('nan'):.0f}% "
           f"rows/batch={rows / max(batches, 1):.2f} collisions/sim={collisions / max(counter.value, 1):.3f} "
           f"terminal/sim={terminal / max(counter.value, 1):.3f} over {elapsed:.0f}s", flush=True)
