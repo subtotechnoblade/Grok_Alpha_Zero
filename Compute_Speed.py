@@ -16,20 +16,20 @@ def compute_speed(game_class,
     build_config, train_config, optimizer_config = configs
 
     game = game_class()
-    board_shape = game.board.shape
-    str_board_shape = convert_shape(board_shape)
+    str_board_shape = convert_shape(game.get_input_state().shape)
+    leaves_per_batch = train_config.get("leaves_per_batch", 1) if not train_config.get("use_gumbel") else 1
+    max_shape = train_config["num_workers"] * leaves_per_batch
 
     onnx_file_path = f"{folder_path}/model.onnx"
     available_providers = rt.get_available_providers()
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
-            max_shape = train_config["num_workers"]
             onnx_file_path = f"{folder_path}/TRT_cache/model_ctx.onnx"
             providers = [
                 ('TensorrtExecutionProvider', {
                     "trt_engine_cache_enable": True,
                     "trt_dump_ep_context_model": True,
-                    "trt_builder_optimization_level": 5,
+                    "trt_builder_optimization_level": 3,
                     "trt_auxiliary_streams": 0,
 
                     "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
@@ -57,7 +57,7 @@ def compute_speed(game_class,
 
     sess = rt.InferenceSession(onnx_file_path, providers=providers)
 
-    dummy_inputs = np.random.uniform(-1, 2, (train_config["num_workers"], *game.get_input_state().shape)).astype(np.float32)
+    dummy_inputs = np.random.uniform(-1, 2, (max_shape, *game.get_input_state().shape)).astype(np.float32)
 
     for _ in range(500):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
@@ -66,7 +66,8 @@ def compute_speed(game_class,
     for _ in range(iterations):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})
     time_taken = time.time() - s
-    print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s!")
+    print(f"Took {time_taken / iterations} seconds per iteration at {iterations / time_taken:0.2f} it/s "
+          f"(batch {max_shape}, {max_shape * iterations / time_taken:,.0f} rows/s)!")
 
 if __name__ == "__main__":
     from TicTacToe.game import TicTacToe

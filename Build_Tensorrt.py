@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 # This assumes that use_tensorrt is True in train config
 def convert_shape(shape):
@@ -19,17 +21,19 @@ def cache_tensorrt(game_class,
     build_config, train_config, optimizer_config = configs
 
     game = game_class()
-    board_shape = game.board.shape
-    str_board_shape = convert_shape(board_shape)
-    max_shape = train_config["num_workers"]
+    str_board_shape = convert_shape(game.get_input_state().shape)
+    leaves_per_batch = train_config.get("leaves_per_batch", 1) if not train_config.get("use_gumbel") else 1
+    max_shape = train_config["num_workers"] * leaves_per_batch
 
 
     providers = [
         ('TensorrtExecutionProvider', {
             "trt_engine_cache_enable": True,
             "trt_dump_ep_context_model": True,
-            "trt_builder_optimization_level": 5,
+            "trt_builder_optimization_level": 3,
             "trt_auxiliary_streams": 0,
+            "trt_timing_cache_enable": True,
+            "trt_timing_cache_path": f"{Path(folder_path).parent}/",
 
             "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
             "trt_profile_min_shapes": f"inputs:1x{str_board_shape}",

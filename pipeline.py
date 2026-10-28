@@ -435,13 +435,14 @@ def Run(game_class, build_model_fn, configs, run_dir):
         if p.exitcode != 0:
             raise RuntimeError("Main process stopped")
 
-    p = mp.Process(target=compute_speed,
-                   args=(game_class, configs, current_path))
-    p.start()
-    p.join()
+    if current_generation > 0:
+        p = mp.Process(target=compute_speed,
+                       args=(game_class, configs, current_path))
+        p.start()
+        p.join()
 
-    if p.exitcode != 0:
-        raise RuntimeError("Main process stopped")
+        if p.exitcode != 0:
+            raise RuntimeError("Main process stopped")
 
     if "Self_Play_Data.h5" not in os.listdir(current_path):
         Make_Dataset_File(current_path)

@@ -25,7 +25,7 @@ def _copy_flat(dst, src):
 
 
 class Node:
-    __slots__ = "child_id", "board", "action_history", "history_array", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal", "parent"
+    __slots__ = "child_id", "board", "action_history", "history_array", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal", "parent", "child_inflight", "inflight_total"
 
     def __init__(self,
                  child_id: int,
@@ -55,6 +55,8 @@ class Node:
         self.child_visits = np.zeros(len(child_legal_actions), dtype=np.int64)
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float64)
         self.child_prob_priors = child_prob_priors
+        self.child_inflight = None  # virtual loss counts, only allocated while a path below is in flight
+        self.inflight_total = 0
 
         self.is_terminal = is_terminal  # this is the winning player None for not winning node, -1 and 1 for win, 0 for draw
 
@@ -94,6 +96,9 @@ class MCTS:
                  c_puct_init: float = 2.5,
                  c_puct_base: float = 19_652,
                  fpu_reduction: float = 0.0,
+                 virtual_loss: float = 1.0,
+                 leaves_per_batch: int = 1,
+                 max_collisions: int = None,
                  use_dirichlet=True,
                  dirichlet_alpha=1.11,
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
@@ -106,6 +111,11 @@ class MCTS:
         :param c_puct_init: Increase this to increase the exploration, too much can causes divergence
         :param c_puct_base: Don't touch, it's the value that determine how much alpha zero explores deeper down the tree
         :param fpu_reduction: Unvisited children score Q = (parent's mean child Q) - fpu_reduction. 0 = unvisited Q is 0
+        :param virtual_loss: Value each in-flight visit counts as while its leaf waits for the network, as a loss.
+        0 = in-flight visits only add visits
+        :param leaves_per_batch: Leaves selected (under virtual loss) per network call. 1 = classic sequential search
+        :param max_collisions: Selections that land on a leaf already in the batch before the batch is sent early.
+        None = leaves_per_batch
         :param use_dirichlet: To use dirichlet exploration noise or not
         :param dirichlet_alpha: The exploration rate in the alpa zero paper, should be (average moves per game / 10)
         :param dirichlet_epsilon: The weighting that dirichlet noise has over the policy
@@ -121,6 +131,19 @@ class MCTS:
         self.c_puct_init = c_puct_init  # determined experimentally
         self.c_puct_base = c_puct_base  # DO NOT CHANGE
         self.fpu_reduction = fpu_reduction
+        self.virtual_loss = virtual_loss
+        if leaves_per_batch < 1:
+            raise ValueError("leaves_per_batch must be >= 1")
+        self.leaves_per_batch = int(leaves_per_batch)
+        self.max_collisions = self.leaves_per_batch if max_collisions is None else int(max_collisions)
+        if self.max_collisions < 1:
+            raise ValueError("max_collisions must be >= 1")
+        inner_session = getattr(session, "session", session)
+        if self.leaves_per_batch > 1 and isinstance(inner_session, Parallelized_Session):
+            raise NotImplementedError("Parallelized_Session takes one row per request, use Batched_Session")
+        self._input_dtype = getattr(inner_session, "input_dtype", np.float32)
+        self._batch_buf = None
+        self.search_stats = {"batches": 0, "network_rows": 0, "collisions": 0, "terminal": 0}
 
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
@@ -168,6 +191,13 @@ class MCTS:
                 warn("fpu_reduction cannot be negative")
             else:
                 self.fpu_reduction = fpu_reduction
+
+        virtual_loss = kwargs.get("virtual_loss")
+        if virtual_loss is not None:
+            if virtual_loss < 0.0:
+                warn("virtual_loss cannot be negative")
+            else:
+                self.virtual_loss = virtual_loss
 
         dirichlet_alpha = kwargs.get("dirichlet_alpha")
         if dirichlet_alpha is not None:
@@ -220,9 +250,58 @@ class MCTS:
         PUCT_score = Q + U
         return np.argmax(PUCT_score)
 
+    @staticmethod
+    @njit("int64(float32[:], float64[:], int64[:], int64[:], int64, float32, float32, float32, float32)",
+          cache=True, fastmath=True)
+    def _get_best_PUCT_score_index_inflight(child_prob_priors: np.array,
+                                            node_child_values: np.array,
+                                            node_child_visits: np.array,
+                                            node_child_inflight: np.array,
+                                            parent_visits: int,
+                                            c_puct_init: float,
+                                            c_puct_base: float,
+                                            fpu_reduction: float,
+                                            virtual_loss: float):
+        child_values = node_child_values.astype(np.float32) - virtual_loss * node_child_inflight.astype(np.float32)
+        child_visits = (node_child_visits + node_child_inflight).astype(np.uint32)
+        U = child_prob_priors * ((parent_visits ** 0.5) / (child_visits + 1)) * (
+                c_puct_init + np.log((parent_visits + c_puct_base + 1) / c_puct_base))
+
+        Q = child_values.copy()
+        mask = child_visits > 0
+        Q[mask] = child_values[mask] / child_visits[mask]
+        if fpu_reduction > 0.0:
+            total_visits = child_visits.sum()
+            if total_visits > 0:
+                Q[~mask] = child_values.sum() / total_visits - fpu_reduction
+
+        PUCT_score = Q + U
+        return np.argmax(PUCT_score)
+
+    def _apply_virtual_loss(self, leaf: Node) -> None:
+        node = leaf
+        while node.parent is not None:
+            node_id = node.child_id
+            node = node.parent
+            if node.child_inflight is None:
+                node.child_inflight = np.zeros(len(node.child_visits), dtype=np.int64)
+            node.child_inflight[node_id] += 1
+            node.inflight_total += 1
+
+    def _revert_virtual_loss(self, leaf: Node) -> None:
+        node = leaf
+        while node.parent is not None:
+            node_id = node.child_id
+            node = node.parent
+            node.inflight_total -= 1
+            if node.inflight_total == 0:
+                node.child_inflight = None
+            else:
+                node.child_inflight[node_id] -= 1
+
     def _PUCT_select(self) -> Node:
         node = self.root
-        parent_visits = self.root.visits
+        parent_visits = self.root.visits + self.root.inflight_total
 
         # heavily optimized code
         while True:
@@ -238,19 +317,35 @@ class MCTS:
                 return terminal_nodes[np.random.randint(low=0, high=len(terminal_nodes))]
 
             # expensive call here, use only if PUCT_scores are needed and are useful
-            best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
-                                                         node.child_values,
-                                                         node.child_visits,
-                                                         parent_visits,
-                                                         self.c_puct_init,
-                                                         self.c_puct_base,
-                                                         self.fpu_reduction)
+            inflight = node.child_inflight
+            if inflight is None:
+                best_index = self._get_best_PUCT_score_index(node.child_prob_priors,
+                                                             node.child_values,
+                                                             node.child_visits,
+                                                             parent_visits,
+                                                             self.c_puct_init,
+                                                             self.c_puct_base,
+                                                             self.fpu_reduction)
+            else:
+                best_index = self._get_best_PUCT_score_index_inflight(node.child_prob_priors,
+                                                                      node.child_values,
+                                                                      node.child_visits,
+                                                                      inflight,
+                                                                      parent_visits,
+                                                                      self.c_puct_init,
+                                                                      self.c_puct_base,
+                                                                      self.fpu_reduction,
+                                                                      self.virtual_loss)
             if best_index == len(node.children):
                 return node
 
             # change the node pointer to the selected child at best_index
             parent_visits = node.child_visits[best_index]
+            if inflight is not None:
+                parent_visits += inflight[best_index]
             node: Node = node.children[best_index]
+            if node.child_prob_priors is None:
+                return node  # pending: reserved and waiting for the network
 
     def _compute_outputs(self, inputs, depth=0):
         if self.session is not None:
@@ -270,7 +365,7 @@ class MCTS:
         # every consumer copies before returning: onnxruntime copies into the session,
         # Parallelized_Session into shared memory, Cache_Wrapper keys on .tobytes()
         if self._in_buf is None or self._in_buf.shape[1:] != inputs.shape:
-            self._in_buf = np.empty((1, *inputs.shape), dtype=np.float32)
+            self._in_buf = np.empty((1, *inputs.shape), dtype=self._input_dtype)
         self._in_buf[0] = inputs
         return self._in_buf
 
@@ -497,7 +592,10 @@ class MCTS:
         # don't backprop child as there could be multiple ways to win, but all backprop only cares
         # if someone wins
 
-    def _expand(self, node: Node) -> (Node, float):
+    def _reserve(self, node: Node):
+        """CPU half of an expansion. Returns (terminal_parent, (value, visits), False) when the child
+        resolves without the network, else (pending_child, (inputs, depth), True). The pending child is
+        already in node.children with child_prob_priors None until _complete fills it."""
         # note that node is the parent of the child, and node will always be different and unique
         # create the child to expand
         child_action = node.child_legal_actions[len(node.children)]  # sorted by prior, so the next unexpanded child
@@ -530,67 +628,62 @@ class MCTS:
                                                                     fast_find_win=self.fast_find_win)
 
         if len(terminal_actions) > 0:
-            return self._expand_with_terminal_actions(node, child_board, child_action, terminal_actions, terminal_mask)
-        else:
-            if self.session is None:
-                child_policy, child_value = self._get_dummy_outputs(None)
-            else:
-                child_policy, child_value, = self._compute_outputs(
-                    self.game.get_input_state_MCTS(child_board,
-                                                   -node.current_player,
-                                                   action_history),
-                                                   len(node.action_history))
-            # ^ that depth argument is the PARENT's ply count, but the state being evaluated
-            # is the child, one ply deeper. create_expand_root passes the depth of the state
-            # it actually evaluates, so the two disagree by one: Cache_Wrapper's
-            # max_cache_depth ends up storing one ply deeper here than the name suggests.
-            # Harmless today because the cache is keyed by the state bytes and depth only
-            # gates WHETHER we store, never what we look up. Pick one convention when the
-            # cache gets reworked.
+            terminal_parent, value, visits = self._expand_with_terminal_actions(node, child_board, child_action,
+                                                                                 terminal_actions, terminal_mask)
+            return terminal_parent, (value, visits), False
 
-            # note that child policy is the probabilities for the children of child
-            # because we store the policy with the parent rather than in the children
-            child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child_board,
-                                                                                            -node.current_player,
-                                                                                            action_history,
-                                                                                            child_policy,
-                                                                          True, False)  # pass numba defaults, omitting them is 27x slower
+        inputs = None
+        if self.session is not None:
+            inputs = self.game.get_input_state_MCTS(child_board, -node.current_player, action_history)
+        depth = len(node.action_history)
+        # ^ that depth argument is the PARENT's ply count, but the state being evaluated
+        # is the child, one ply deeper. create_expand_root passes the depth of the state
+        # it actually evaluates, so the two disagree by one: Cache_Wrapper's
+        # max_cache_depth ends up storing one ply deeper here than the name suggests.
+        # Harmless today because the cache is keyed by the state bytes and depth only
+        # gates WHETHER we store, never what we look up. Pick one convention when the
+        # cache gets reworked.
 
-            # if self.use_dirichlet:
-            #     child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
+        child = Node(len(node.children),
+                     child_board,
+                     child_action_history,
+                     node.current_player * -1,
+                     legal_actions,
+                     None,
+                     None,
+                     parent=node,
+                     history_array=action_history)
+        # we don't create every possible child nodes because as the tree gets bigger,
+        # there will be more redundant children that do nothing (very unlikely to be visited)
+        node.children.append(child)
 
-            sort_index = np.argsort(child_prob_prior)[::-1]
-            child_prob_prior = child_prob_prior[sort_index]
+        if len(node.children) == len(node.child_legal_actions):  # we will never use this parent again for generating children
+            # because node.children is full
+            # and there will no longer be any more legal moves cuz they all have been expanded
+            del node.child_legal_actions  # saves a lot of memory as we no longer need it
 
-            child_legal_actions = child_legal_actions[sort_index]
+            # since we got the policy and value from inputs node.board
+            # we can delete it because the NN will not evaluate it again thus saving more memory
+            del node.board
+            del node.current_player
+            node.history_array = None
+        return child, (inputs, depth), True
 
-            child = Node(len(node.children),
-                         child_board,
-                         child_action_history,
-                         node.current_player * -1,
-                         child_legal_actions,
-                         child_prob_prior,
-                         None,
-                         parent=node,
-                         history_array=action_history)
-            # we don't create every possible child nodes because as the tree gets bigger,
-            # there will be more redundant children that do nothing (very unlikely to be visited)
-            node.children.append(child)
+    def _complete(self, child: Node, child_policy, child_value) -> float:
+        """Network half of an expansion: fills a pending child's priors, returns the value to back up."""
+        # note that child policy is the probabilities for the children of child
+        # because we store the policy with the parent rather than in the children
+        child_legal_actions, child_prob_prior = self.game.get_legal_actions_policy_MCTS(child.board,
+                                                                                        child.current_player,
+                                                                                        child.history_array,
+                                                                                        child_policy,
+                                                                                        True, False)  # pass numba defaults, omitting them is 27x slower
+        sort_index = np.argsort(child_prob_prior)[::-1]
+        child.child_prob_priors = child_prob_prior[sort_index]
+        child.child_legal_actions = child_legal_actions[sort_index]
+        return -child_value  # contact Brian if you don't understand why it is -value
 
-            if len(node.children) == len(node.child_legal_actions):  # we will never use this parent again for generating children
-                # because node.children is full
-                # and there will no longer be any more legal moves cuz they all have been expanded
-                del node.child_legal_actions  # saves a lot of memory as we no longer need it
-
-                # since we got the policy and value from inputs node.board
-                # we can delete it because the NN will not evaluate it again thus saving more memory
-                del node.board
-                del node.current_player
-                node.history_array = None
-            # negated child_child_values is the child value
-        return child, -child_value, 1  # contact Brian if you don't understand why it is -value
-
-    def _back_propagate(self, node: Node, value: float, visits=1) -> None:
+    def _back_propagate(self, node: Node, value: float, visits=1, revert_virtual_loss=False) -> None:
         # python scalars keep the per level negation and root.visits cheap
         value = float(value)
         visits = int(visits)
@@ -605,8 +698,70 @@ class MCTS:
             # 2. stores the pointer within in the variable rather than indexing twice
             node.child_values[node_id] += value
             node.child_visits[node_id] += visits
+            if revert_virtual_loss:
+                node.inflight_total -= 1
+                if node.inflight_total == 0:
+                    node.child_inflight = None
+                else:
+                    node.child_inflight[node_id] -= 1
             value *= -1  # negate for the opponent's move
         self.root.visits += visits
+
+    def _evaluate(self, payloads):
+        """One network call for every pending leaf. Returns (policy, value) per leaf, in order."""
+        if self.session is None:
+            return [self._get_dummy_outputs(None) for _ in payloads]
+        n = len(payloads)
+        shape = payloads[0][0].shape
+        if self._batch_buf is None or self._batch_buf.shape[1:] != shape:
+            self._batch_buf = np.empty((self.leaves_per_batch, *shape), dtype=self._input_dtype)
+        buf = self._batch_buf[:n]
+        for i, (inputs, _) in enumerate(payloads):
+            buf[i] = inputs
+        if self.cache_session:
+            policy, value = self.session.run_batch(["policy", "value"], buf, [depth for _, depth in payloads])
+        else:
+            policy, value = self.session.run(output_names=["policy", "value"], input_feed={"inputs": buf})
+        return [(policy[i].astype(np.float32, copy=False), value[i][0]) for i in range(n)]
+
+    def _run_batch(self, target: int) -> int:
+        """Selects up to target leaves under virtual loss, evaluates them in one call, backs them up.
+        Returns the number of simulations completed (terminal ones resolve without the network)."""
+        pending, payloads, with_loss = [], [], []
+        done = 0
+        collisions = 0
+        while done + len(pending) < target and collisions < self.max_collisions:
+            node = self._PUCT_select()
+            if node.is_terminal is not None:
+                self._back_propagate(node, 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0, 1)
+                self.search_stats["terminal"] += 1
+                done += 1
+                continue
+            if node.child_prob_priors is None:
+                collisions += 1
+                continue
+            leaf, payload, is_pending = self._reserve(node)
+            if not is_pending:
+                self._back_propagate(leaf, *payload)
+                self.search_stats["terminal"] += 1
+                done += 1
+                continue
+            pending.append(leaf)
+            payloads.append(payload)
+            last = done + len(pending) >= target
+            with_loss.append(not last)  # nothing selects after the last leaf, so it needs no virtual loss
+            if not last:
+                self._apply_virtual_loss(leaf)
+        self.search_stats["collisions"] += collisions
+
+        if pending:
+            outputs = self._evaluate(payloads)
+            self.search_stats["batches"] += 1
+            self.search_stats["network_rows"] += len(pending)
+            for leaf, (policy, value), loss in zip(pending, outputs, with_loss):
+                self._back_propagate(leaf, self._complete(leaf, policy, value), 1, revert_virtual_loss=loss)
+            done += len(pending)
+        return done
 
     def run(self, iteration_limit: int or bool = None, time_limit: int or float = None, use_bar=True):
         """
@@ -643,23 +798,17 @@ class MCTS:
                 time_limit is None or time.time() - start_time < time_limit))):
             loop_start_time = time.time()
 
-            node = self._PUCT_select()
-
-            if node.is_terminal is not None:
-                value = 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0
-                visits = 1
-            else:
-                node, value, visits = self._expand(node)
-
-
-            self._back_propagate(node, value, visits)
+            target = self.leaves_per_batch
+            if iteration_limit is not None:
+                target = max(1, min(target, int(iteration_limit) - current_iteration))
+            done = self._run_batch(target)
 
             if use_bar:
                 if iteration_limit:
-                    bar.update(1)
+                    bar.update(done)
                 else:
                     bar.update(time.time() - loop_start_time)
-            current_iteration += 1
+            current_iteration += done
         if use_bar:
             bar.close()
 

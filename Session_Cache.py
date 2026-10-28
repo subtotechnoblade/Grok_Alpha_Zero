@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Cache_Wrapper:
     """In-memory memo of neural network outputs for the opening region of the game.
 
@@ -29,26 +32,45 @@ class Cache_Wrapper:
         self.misses = 0
 
     def run(self, output_names, input_feed: dict, depth):
-        if depth >= self.max_cache_depth:
-            # too deep to ever be seen twice, don't pay for the hash
-            return self.session.run(output_names, input_feed)
+        return self.run_batch(output_names, input_feed["inputs"], (depth,))
 
-        key = input_feed["inputs"].tobytes()
-        # tobytes() copies into C order if the view isn't contiguous, which is what we want
+    def run_batch(self, output_names, inputs, depths):
+        """Rows are looked up independently: hits come from the memo, misses go to the session as one
+        sub-batch, and outputs come back in row order. Stores and returns per-row outputs."""
+        rows = None
+        keys = {}
+        for i, depth in enumerate(depths):
+            if depth < self.max_cache_depth:
+                # too deep to ever be seen twice, don't pay for the hash
+                key = inputs[i].tobytes()
+                hit = self.cache.get(key)
+                if hit is not None:
+                    self.hits += 1
+                    if rows is None:
+                        rows = [None] * len(inputs)
+                    rows[i] = hit
+                    # safe to hand back the same arrays: get_legal_actions_policy_MCTS fancy
+                    # indexes the policy (policy[legal_actions]) which copies, and every later
+                    # in place op is on that copy. No caller mutates what we return.
+                    continue
+                self.misses += 1
+                keys[i] = key
 
-        outputs = self.cache.get(key)
-        if outputs is not None:
-            self.hits += 1
+        if rows is None:
+            outputs = self.session.run(output_names, {"inputs": inputs})
+            for i, key in keys.items():
+                if len(self.cache) < self.max_entries:
+                    self.cache[key] = [output[i].copy() for output in outputs]
             return outputs
-            # safe to hand back the same arrays: get_legal_actions_policy_MCTS fancy
-            # indexes the policy (policy[legal_actions]) which copies, and every later
-            # in place op is on that copy. No caller mutates what we return.
 
-        self.misses += 1
-        outputs = self.session.run(output_names, input_feed)
-        if len(self.cache) < self.max_entries:
-            self.cache[key] = outputs
-        return outputs
+        miss = [i for i in range(len(inputs)) if rows[i] is None]
+        if miss:
+            outputs = self.session.run(output_names, {"inputs": inputs[miss]})
+            for j, i in enumerate(miss):
+                rows[i] = [output[j].copy() for output in outputs]
+                if i in keys and len(self.cache) < self.max_entries:
+                    self.cache[keys[i]] = rows[i]
+        return [np.stack([row[k] for row in rows]) for k in range(len(output_names))]
 
     def stats(self):
         total = self.hits + self.misses

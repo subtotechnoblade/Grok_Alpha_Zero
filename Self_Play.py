@@ -14,8 +14,8 @@ import multiprocessing as mp
 from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
 
-from Client_Server import (Parallelized_Session, start_server, convert_to_single_info,
-                           create_shared_memory, create_events)
+from Client_Server import Batched_Session, start_batch_server, create_wakeups
+from Transport import ChannelSpec, create_slots
 
 _stop_requested = {"value": False}
 
@@ -42,7 +42,9 @@ class Self_Play:
         self.folder_path = folder_path
         self.generation = generation
 
-        self.iteration_limit = self.train_config["MCTS_iteration_limit"]
+        leaves_per_batch = 1 if train_config["use_gumbel"] else self.train_config.get("leaves_per_batch", 1)
+        self.cycles = self.train_config["MCTS_iteration_limit"] // leaves_per_batch
+        self.iteration_limit = self.train_config["MCTS_iteration_limit"] if self.generation > 0 else self.cycles
         self.time_limit = self.train_config["MCTS_time_limit"]
 
         if train_config["use_gumbel"] is False:
@@ -52,6 +54,9 @@ class Self_Play:
                                    use_njit=train_config["use_njit"],
                                    c_puct_init=self.train_config["c_puct_init"],
                                    fpu_reduction=self.train_config.get("fpu_reduction", 0.0),
+                                   virtual_loss=self.train_config.get("virtual_loss", 1.0),
+                                   leaves_per_batch=leaves_per_batch if self.generation > 0 else 1,
+                                   max_collisions=self.train_config.get("max_collisions"),
                                    use_dirichlet=True,
                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                    dirichlet_epsilon=dirichlet_epsilon,
@@ -219,8 +224,7 @@ class Self_Play:
 def self_play_task(worker_id,
                    info,
                    game_class,
-                   input_feed_info: dict,
-                   output_feed_info: dict,
+                   channel_spec,
                    build_config: dict,
                    train_config: dict,
                    lock: mp.Lock,
@@ -243,12 +247,7 @@ def self_play_task(worker_id,
     session = None
     if generation > 0:
         if train_config["use_inference_server"]:
-            session = Parallelized_Session(worker_id,
-                                           info,
-                                           input_feed_info,
-                                           output_feed_info,
-                                           request_ready,
-                                           response_ready, )
+            session = Batched_Session(channel_spec, info, request_ready, response_ready)
         else:
             providers, onnx_path = info
             session = rt.InferenceSession(onnx_path, providers=providers)
@@ -295,7 +294,9 @@ def self_play_task(worker_id,
     else:
         stats_q.put((worker_id, None))
 
-    if train_config["use_inference_server"]:
+    if train_config["use_inference_server"] and generation > 0:
+        if session is not None:
+            getattr(session, "session", session).client.close()  # numpy views must go before the slot closes
         info.close()
 
 
@@ -350,24 +351,28 @@ def run_self_play(game_class,
         num_workers = num_left
 
     game = game_class()
-    inputs_shape = game.get_input_state().shape
+    input_state = game.get_input_state()
+    inputs_shape = input_state.shape
+    # integer and bool states travel as they are (int8 is 4x less than float32), anything else as float32
+    wire_dtype = input_state.dtype if input_state.dtype.kind in "biu" else np.float32
     policy_shape = game.policy_shape
     str_board_shape = convert_shape(inputs_shape)
-    del game
+    del game, input_state
+    leaves_per_batch = train_config.get("leaves_per_batch", 1) if not train_config["use_gumbel"] else 1
 
     import onnxruntime as rt
     available_providers = rt.get_available_providers()
     onnx_file_path = f"{folder_path}/model.onnx"
     if train_config["use_gpu"]:
         if train_config["use_tensorrt"]:
-            max_shape = train_config["num_workers"]
+            max_shape = train_config["num_workers"] * leaves_per_batch
             onnx_file_path = f"{folder_path}/TRT_cache/model_ctx.onnx"
 
             providers = [
                 ('TensorrtExecutionProvider', {
                     "trt_engine_cache_enable": True,
                     "trt_dump_ep_context_model": True,
-                    "trt_builder_optimization_level": 5,
+                    "trt_builder_optimization_level": 3,
                     "trt_auxiliary_streams": 0,
 
                     "trt_ep_context_file_path": f"{folder_path}/TRT_cache/",
@@ -400,26 +405,25 @@ def run_self_play(game_class,
     else:
         providers = ['CPUExecutionProvider']
 
-    batched_input_feed_info = {"inputs": [[-1, *inputs_shape], np.float32]}
-    batched_output_feed_info = {"policy": [-1, *policy_shape],
-                                "value": [-1, 1]}
+    channel_spec = ChannelSpec({"inputs": (inputs_shape, wire_dtype)},
+                               {"policy": (policy_shape, np.float32), "value": ((1,), np.float32)},
+                               max_rows=leaves_per_batch)
 
     print(
         f"Running with {num_workers} workers for {num_left} {unit} with {onnx_file_path} for generation: {generation}!\n")
     bar = tqdm(total=num_left, desc=f"Generating self play {unit}")
     shms = []
     request_ready, response_events = None, [None] * num_workers
-    if train_config["use_inference_server"]:
-        shms = create_shared_memory(batched_input_feed_info, batched_output_feed_info, num_workers)
-        request_ready, response_events = create_events(num_workers)
-        server = mp.Process(target=start_server, args=(batched_input_feed_info,
-                                                       batched_output_feed_info,
-                                                       shms,
-                                                       providers,
-                                                       onnx_file_path,
-                                                       per_process_wait_time,
-                                                       request_ready,
-                                                       response_events))
+    use_server = train_config["use_inference_server"] and generation > 0
+    if use_server:
+        shms = create_slots(channel_spec, num_workers)
+        request_ready, response_events = create_wakeups(num_workers)
+        server = mp.Process(target=start_batch_server, args=(channel_spec,
+                                                             shms,
+                                                             providers,
+                                                             onnx_file_path,
+                                                             request_ready,
+                                                             response_events))
         server.start()
 
     lock = mp.Lock()
@@ -435,18 +439,17 @@ def run_self_play(game_class,
     #
     # This does NOT disturb what the old comment here protected: workers still spawn once
     # and live the whole generation, so worker i still owns shm slot i for its entire
-    # life, which is the invariant Parallelized_Session wants. Only the loop bound moved.
+    # life, which is the invariant Batched_Session wants. Only the loop bound moved.
     claimed = mp.Value("i", 0)
 
     jobs = []
     for worker_id in range(num_workers):
         worker = mp.Process(target=self_play_task,
                             args=(worker_id,
-                                  shms[worker_id] if train_config["use_inference_server"] else [providers,
+                                  shms[worker_id] if use_server else [providers,
                                                                                                 onnx_file_path],
                                   game_class,
-                                  convert_to_single_info(batched_input_feed_info),
-                                  convert_to_single_info(batched_output_feed_info),
+                                  channel_spec,
                                   build_config,
                                   train_config,
                                   lock,
@@ -472,8 +475,8 @@ def run_self_play(game_class,
                 bar.update(current - last)
                 last = current
 
-            if train_config["use_inference_server"] and not server.is_alive():
-                # Without this the run hangs forever: Parallelized_Session.run spins on the
+            if use_server and not server.is_alive():
+                # Without this the run hangs forever: Batched_Session.run waits on the
                 # shared memory flag with no timeout, so a dead server leaves every worker
                 # burning a core while still reporting is_alive() == True.
                 for worker in jobs:
@@ -486,7 +489,7 @@ def run_self_play(game_class,
         print("\nStopping: waiting for workers to finish any game they are saving...")
         for worker in jobs:
             worker.join()
-        if train_config["use_inference_server"]:
+        if use_server:
             server.terminate()
             for shm in shms:
                 shm.unlink()
@@ -511,13 +514,13 @@ def run_self_play(game_class,
     for worker in jobs:
         worker.join()
         if worker.exitcode != 0:
-            if train_config["use_inference_server"]:
+            if use_server:
                 server.terminate()
             for shm in shms:
                 shm.unlink()
             raise RuntimeError("Main process stopped as self play worker ran into an error")
 
-    if train_config["use_inference_server"]:
+    if use_server:
         server.terminate()
         for shm in shms:
             shm.unlink()

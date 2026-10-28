@@ -311,6 +311,19 @@ class AlphaZeroConfig(TrainConfig):
         "- fpu_reduction instead of 0, so a side that is losing deepens its best "
         "replies rather than trying every legal move first. 0 = unvisited Q is 0."),
         check=_non_negative)
+    leaves_per_batch = Param(1, help=(
+        "Leaves each worker selects under virtual loss before one network call. "
+        "1 = classic sequential search, bit-identical to the unbatched MCTS. The "
+        "inference server and the TensorRT profile are sized num_workers x this."),
+        check=lambda v: None if isinstance(v, int) and v >= 1 else "must be an int >= 1")
+    virtual_loss = Param(1.0, help=(
+        "How much each in-flight visit counts as a loss while its leaf waits for "
+        "the network. 0 = in-flight visits only add visits."),
+        check=_non_negative)
+    max_collisions = Param(None, help=(
+        "Selections landing on a leaf already in the batch before the batch is "
+        "sent early. None = leaves_per_batch."),
+        check=lambda v: None if v is None or (isinstance(v, int) and v >= 1) else "must be an int >= 1 or None")
     dirichlet_alpha = Param(1.33, help=(
         "Root noise concentration, rule of thumb 10 / branching factor."),
         check=_positive)

@@ -163,6 +163,12 @@ def create_events(num_workers):
     return mp.Event(), [mp.Event() for _ in range(num_workers)]
 
 
+def create_wakeups(num_workers):
+    """One Wakeup the workers share to wake Batch_Server, plus one per worker for replies."""
+    from Transport import Wakeup
+    return Wakeup(), [Wakeup() for _ in range(num_workers)]
+
+
 class Parallelized_Session:
     def __init__(self,
                  worker_id,
@@ -495,6 +501,78 @@ def convert_to_single_info(batched_info):
         arr_shape[arr_shape == -1] = 1
         unbatched_info[name] = arr_shape.tolist()
     return unbatched_info
+
+
+class Batched_Session:
+    """Client for Batch_Server. Same run() as an onnxruntime session, for 1..spec.max_rows rows."""
+
+    def __init__(self, spec, shm, request_ready=None, response_ready=None, spin_limit=SPIN_LIMIT):
+        from Transport import ClientEnd
+        self.client = ClientEnd(spec, shm, request_ready, response_ready, spin_limit)
+        self.input_names = list(spec.inputs)
+        self.input_dtype = spec.inputs[self.input_names[0]].dtype
+
+    def run(self, output_names, input_feed, run_options=None):
+        outputs = self.client.request({name: input_feed[name] for name in self.input_names})
+        return [outputs[name] for name in output_names]
+
+
+class Batch_Server:
+    """Combines every waiting request into one engine call and routes each client's rows back.
+
+    Each loop is one greedy scan: whatever is waiting runs now, and requests arriving during a run form the
+    next batch. Rows are copied into one preallocated batch per input (casting from the wire dtype to the
+    model dtype in the copy) at a recorded offset, and each client gets rows [offset, offset + n) back.
+    Padding, if the provider needs fixed shapes, is the engine's job."""
+
+    def __init__(self, spec, slots, engine, request_ready=None, response_events=None, model_dtypes=None):
+        from Transport import ServerEnd
+        events = response_events or [None] * len(slots)
+        self.ends = [ServerEnd(spec, shm, event) for shm, event in zip(slots, events)]
+        self.engine = engine
+        self.request_ready = request_ready
+        self.output_names = list(spec.outputs)
+        self.capacity = spec.max_rows * len(slots)
+        model_dtypes = model_dtypes or {}
+        self.batch = {name: np.empty((self.capacity, *a.shape), dtype=model_dtypes.get(name, np.float32))
+                      for name, a in spec.inputs.items()}
+        self.batches = 0
+        self.rows = 0
+
+    def step(self) -> int:
+        """Serves everything waiting right now. Returns the rows run, 0 if nothing was waiting."""
+        routes = []
+        total = 0
+        for end in self.ends:
+            n = end.pending()
+            if n:
+                for name, rows in end.inputs(n).items():
+                    self.batch[name][total:total + n] = rows
+                routes.append((end, total, n))
+                total += n
+        if not routes:
+            return 0
+        outputs = self.engine.run(self.output_names, {name: arr[:total] for name, arr in self.batch.items()})
+        for end, start, n in routes:
+            out = end.outputs(n)
+            for name, values in zip(self.output_names, outputs):
+                out[name][:] = values[start:start + n]
+            end.respond()
+        self.batches += 1
+        self.rows += total
+        return total
+
+    def serve_forever(self):
+        while True:
+            if self.step() == 0 and self.request_ready is not None:
+                self.request_ready.wait(0.05)
+
+
+def start_batch_server(spec, slots, providers, file_path, request_ready=None, response_events=None):
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)  # the parent terminates the server once workers have stopped
+    engine = make_engine(file_path, providers, spec.max_rows * len(slots))
+    Batch_Server(spec, slots, engine, request_ready, response_events).serve_forever()
 
 
 if __name__ == "__main__":
