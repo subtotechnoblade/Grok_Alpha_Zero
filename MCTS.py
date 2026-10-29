@@ -880,6 +880,8 @@ class MCTS:
 
         if child.is_terminal is None:
             new_root.children = child.children
+            for grandchild in new_root.children:
+                grandchild.parent = new_root
             new_root.child_values = child.child_values
             new_root.child_visits = child.child_visits
 
