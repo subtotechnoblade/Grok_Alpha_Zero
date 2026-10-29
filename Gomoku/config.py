@@ -32,7 +32,7 @@ class GomokuTrain(AlphaZeroConfig):
     dml_device_id = None  # 0 = 760M igpu, 1 = 2060
 
     # ---- search ----
-    MCTS_iteration_limit = 1800
+    MCTS_iteration_limit = 1000
     MCTS_time_limit = None
     leaves_per_batch = 8
     virtual_loss = 1.0
