@@ -108,9 +108,10 @@ class Create_Train_Test_Split:
         self.parent_path = parent_path
         np.random.seed()
 
-        self.generation = max([int(Path(path).name) for path in glob(self.parent_path + "/*")])
+        gen_dirs = [path for path in glob(self.parent_path + "/*") if Path(path).name.isdigit()]
+        self.generation = max([int(Path(path).name) for path in gen_dirs])
 
-        self.files = sorted([path + "/Self_Play_Data.h5" for path in glob(self.parent_path + "/*")], key=lambda path: int(Path(path).parent.name))
+        self.files = sorted([path + "/Self_Play_Data.h5" for path in gen_dirs], key=lambda path: int(Path(path).parent.name))
 
         if self.generation >= 1:  # gen 0 has no network, drop it from every later window
             self.files = [f for f in self.files if int(Path(f).parent.name) != 0]
