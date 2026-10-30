@@ -223,6 +223,28 @@ class Gomoku:
         augmented_boards, augmented_policies = self.augment_sample_fn(input_states, policies)
         return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
+    num_symmetries = 8
+
+    @staticmethod
+    def apply_symmetry(states, ids):
+        """(n, 15, 15, c) states, symmetry id 0-7 per row: 0-3 rotate k quarter turns, 4-7 mirror first."""
+        out = np.empty_like(states)
+        for s in np.unique(ids):
+            rows = ids == s
+            out[rows] = np.rot90(np.flip(states[rows], 2) if s >= 4 else states[rows], s % 4, axes=(1, 2))
+        return out
+
+    @staticmethod
+    def undo_symmetry(policies, ids):
+        """(n, 225) policies evaluated under apply_symmetry(ids) back to the original orientation."""
+        grids = policies.reshape(-1, 15, 15)
+        out = np.empty_like(grids)
+        for s in np.unique(ids):
+            rows = ids == s
+            grid = np.rot90(grids[rows], -(s % 4), axes=(1, 2))
+            out[rows] = np.flip(grid, 2) if s >= 4 else grid
+        return out.reshape(-1, 225)
+
 if __name__ == "__main__":
     from Game_Tester import Game_Tester
     import time

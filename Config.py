@@ -218,6 +218,14 @@ class TrainConfig(ConfigBase):
         "Memoise network outputs for positions shallower than this ply. Only "
         "the opening region repeats across games, deep entries never hit."),
         check=_non_negative)
+    symmetric_cache_evals = Param(False, help=(
+        "Average every memoised position over the game's board symmetries "
+        "(needs apply_symmetry / undo_symmetry / num_symmetries on the game). Removes "
+        "orientation noise in the opening, where one net's bias repeats every game."))
+    random_symmetry_evals = Param(False, help=(
+        "Evaluate every other position under one random board symmetry, so the "
+        "net's orientation bias deeper in the tree averages out instead of "
+        "steering every game the same way. Free: same number of evals."))
     dml_device_id = Param(None, help=(
         "Pin the DirectML adapter on multi-GPU machines (None = default). "
         "On this machine: 0 = 760M igpu, 1 = RTX 2060."))

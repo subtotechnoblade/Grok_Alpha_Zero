@@ -254,7 +254,11 @@ def self_play_task(worker_id,
 
         if train_config.get("max_cache_depth", 0) not in [None, 0]: # so both 0 and None are excluded
             from Session_Cache import Cache_Wrapper
-            session = Cache_Wrapper(session, train_config["max_cache_depth"])
+            average, random = train_config.get("symmetric_cache_evals"), train_config.get("random_symmetry_evals")
+            session = Cache_Wrapper(session, train_config["max_cache_depth"],
+                                    symmetries=game_class if average or random else None,
+                                    average_symmetries=bool(average), random_symmetries=bool(random),
+                                    max_rows=channel_spec.max_rows if train_config["use_inference_server"] else None)
             # Wrapped ONCE here, so this single memo is shared by every game this worker
             # plays AND by the whole search inside each game (Self_Play hands the same
             # session object to both trees). That sharing is the point, not an accident.

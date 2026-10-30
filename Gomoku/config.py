@@ -29,6 +29,8 @@ class GomokuTrain(AlphaZeroConfig):
     trt_fp16 = True
     use_inference_server = True
     max_cache_depth = 3
+    symmetric_cache_evals = True
+    random_symmetry_evals = True
     dml_device_id = None  # 0 = 760M igpu, 1 = 2060
 
     # ---- search ----
