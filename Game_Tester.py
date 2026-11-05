@@ -11,8 +11,10 @@ class Game_Tester:
     # single measurement. Time this many calls and divide.
     TIMING_REPEATS = 200
 
-    def __init__(self, game_class):
+    def __init__(self, game_class, aux_heads=False, opponent_policy=False):
         self.game_class = game_class
+        self.aux_heads = aux_heads
+        self.opponent_policy = opponent_policy
         if not isinstance(game_class, type):
             raise TypeError(
                 "Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
@@ -514,6 +516,64 @@ class Game_Tester:
         print("Checking augment sample: Pass\n")
         return True
 
+    def check_aux_targets(self):
+        num_aux_heads = getattr(self.game, "num_aux_heads", None)
+        if not isinstance(num_aux_heads, int) or num_aux_heads < 1:
+            print("Checking compute_aux_targets: Fail")
+            print("aux_heads is on, the game class needs an int attribute num_aux_heads >= 1")
+            return False
+
+        self.reset()
+        while self.game.check_win() == -2 and len(self.game.action_history) < 400:
+            legal_actions = self.game.get_legal_actions()
+            self.game.do_action(legal_actions[np.random.randint(len(legal_actions))])
+        num_positions = len(self.game.action_history)
+
+        try:
+            aux_targets = self.game.compute_aux_targets(self.game.board, np.array(self.game.action_history))
+        except Exception as error:
+            print("Checking compute_aux_targets: Fail")
+            print(f"compute_aux_targets(board, action_history) raised {error!r}")
+            return False
+        finally:
+            self.reset()
+
+        if not isinstance(aux_targets, np.ndarray):
+            print("Checking compute_aux_targets: Fail")
+            print(f"compute_aux_targets must return a numpy array, got {type(aux_targets)}")
+            return False
+
+        if aux_targets.shape != (num_positions, num_aux_heads, 1):
+            print("Checking compute_aux_targets: Fail")
+            print(f"Expected shape (positions, num_aux_heads, 1) = {(num_positions, num_aux_heads, 1)}, "
+                  f"got {aux_targets.shape}")
+            return False
+
+        if aux_targets.dtype.kind != "f" or not np.isfinite(aux_targets).all():
+            print("Checking compute_aux_targets: Fail")
+            print(f"compute_aux_targets must return finite floats, got dtype {aux_targets.dtype}")
+            return False
+
+        print(f"Checking compute_aux_targets: Pass ({num_aux_heads} heads over a {num_positions} move game)\n")
+        return True
+
+    def check_opponent_policy_perm(self):
+        perm = getattr(self.game, "opponent_policy_perm", None)
+        if perm is None:
+            print("opponent_policy_perm is None: the opponent's reply is assumed to share the mover's frame")
+            print("Checking opponent_policy_perm: Pass\n")
+            return True
+
+        perm = np.asarray(perm)
+        size = self.game.policy_shape[0]
+        if perm.shape != (size,) or perm.dtype.kind not in "iu" or not np.array_equal(np.sort(perm), np.arange(size)):
+            print("Checking opponent_policy_perm: Fail")
+            print(f"opponent_policy_perm must be an int permutation of range({size}), got shape {perm.shape}")
+            return False
+
+        print("Checking opponent_policy_perm: Pass\n")
+        return True
+
     def check_compatibility_with_MCTS(self):
         self.game = self.game_class()
 
@@ -597,6 +657,14 @@ class Game_Tester:
             return False
 
         if not self.check_augment_sample():
+            print(self.color_text("Tests Failed"))
+            return False
+
+        if self.aux_heads and not self.check_aux_targets():
+            print(self.color_text("Tests Failed"))
+            return False
+
+        if self.opponent_policy and not self.check_opponent_policy_perm():
             print(self.color_text("Tests Failed"))
             return False
 

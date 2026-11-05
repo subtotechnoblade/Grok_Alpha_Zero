@@ -251,11 +251,28 @@ class TrainConfig(ConfigBase):
         "Value target = (1-q)*z + q*rootQ. 0 = pure game outcome (unbiased, "
         "noisy), 1 = pure search value (suffers the horizon effect)."),
         check=_fraction)
+    aux_heads = Param(False, help=(
+        "Train an extra head on the game's compute_aux_targets, (positions, num_aux_heads, 1) "
+        "per game. Loss weight: optimizer_config aux_loss_weight. Not exported to ONNX."))
+    soft_policy = Param(False, help=(
+        "Train a second policy head on the search policy flattened to pi^(1/T). "
+        "Loss weight: optimizer_config soft_policy_loss_weight. Not exported to ONNX."))
+    opponent_policy = Param(False, help=(
+        "Train an extra policy head on the opponent's reply: the next position's search policy, "
+        "mapped into the mover's frame by the game's opponent_policy_perm (None = same frame). "
+        "Loss weight: optimizer_config opponent_policy_loss_weight. Not exported to ONNX."))
+    soft_policy_temperature = Param(4.0, help=(
+        "T for the soft policy target. 1 = same target as the main policy head."),
+        check=_positive)
     opening_actions = Param([], help=(
         "Forced-opening book: [[action, prob], ...] applied to move 0. "
         "Probabilities may sum below 1, the remainder plays the search move. "
         "Partial books re-falsify beliefs the search refuses to test; a 100% "
         "book previously produced the always-draw network - keep it partial."))
+    opening_positions = Param([], help=(
+        "Starting-position book: [[[action, ...], prob], ...]. A game starts from "
+        "a sampled move sequence, the remainder starts from the empty board. "
+        "The book's own moves are not recorded as training positions."))
     num_explore_actions_first = Param(3, help=(
         "Plies sampled at tau=1 for the FIRST player (its first N moves). "
         "Nearly the only entropy source in self play - root noise cannot "
@@ -304,6 +321,11 @@ class TrainConfig(ConfigBase):
             if total > 1.0 + 1e-9:
                 raise ValueError(
                     f"opening_actions probabilities sum to {total:.3f} > 1")
+        if self.opening_positions:
+            total = sum(prob for _, prob in self.opening_positions)
+            if total > 1.0 + 1e-9:
+                raise ValueError(
+                    f"opening_positions probabilities sum to {total:.3f} > 1")
 
 
 class AlphaZeroConfig(TrainConfig):

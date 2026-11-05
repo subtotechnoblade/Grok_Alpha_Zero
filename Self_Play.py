@@ -185,6 +185,15 @@ class Self_Play:
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
+        opponent_policies = None
+        if self.train_config.get("opponent_policy", False):
+            perm = getattr(self.game, "opponent_policy_perm", None)
+            opponent_policies = np.zeros_like(augmented_policies)
+            opponent_policies[:, :-1] = augmented_policies[:, 1:] if perm is None else augmented_policies[:, 1:][..., perm]
+        aux_targets = None
+        if self.train_config.get("aux_heads", False):
+            aux_targets = self.game.compute_aux_targets(self.game.board, np.array(self.game.action_history))
+            aux_targets = np.asarray(aux_targets, dtype=np.float32)[-board_states.shape[0]:]
 
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
@@ -199,7 +208,7 @@ class Self_Play:
 
             file["game_stats"][winner + 4] += 1  # adding winners/ draws
 
-            dataset_name = (len(file.keys()) - 1) // 3  # starts from 0
+            dataset_name = sum(key.startswith("boards_") for key in file.keys())  # starts from 0
             for inc in range(augmented_policies.shape[0]):
                 file.create_dataset(f"boards_{dataset_name + inc}",
                                     maxshape=(None, *augmented_board_states[inc].shape[1:]),
@@ -218,7 +227,34 @@ class Self_Play:
                                     dtype=np.float32,
                                     data=augmented_values[inc],
                                     chunks=None)
+
+                if opponent_policies is not None:
+                    file.create_dataset(f"opponent_policies_{dataset_name + inc}",
+                                        maxshape=(None, *opponent_policies[inc].shape[1:]),
+                                        dtype=np.float32,
+                                        data=opponent_policies[inc],
+                                        chunks=None)
+
+                if aux_targets is not None:
+                    file.create_dataset(f"aux_heads_{dataset_name + inc}",
+                                        maxshape=(None, *aux_targets.shape[1:]),
+                                        dtype=np.float32,
+                                        data=aux_targets,
+                                        chunks=None)
         return board_states.shape[0]
+
+
+def starting_game(game_class, train_config):
+    game = game_class()
+    book = train_config.get("opening_positions") or []
+    roll = np.random.random()
+    for moves, prob in book:
+        if roll < prob:
+            for move in moves:
+                game.do_action(np.array(move, dtype=np.uint8))
+            break
+        roll -= prob
+    return game
 
 
 def self_play_task(worker_id,
@@ -277,7 +313,7 @@ def self_play_task(worker_id,
                     break
                 claimed.value += 1
 
-        num_positions = Self_Play(game_class(),
+        num_positions = Self_Play(starting_game(game_class, train_config),
                                   session,
                                   build_config,
                                   train_config,

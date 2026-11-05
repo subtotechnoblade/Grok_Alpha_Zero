@@ -63,9 +63,20 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                                         KLD_Gumbel(activation_fn=activation_fn, dtype="float64"))
 
     value_loss_weight = optimizer_config.get("value_loss_weight", 1.0)
+    losses = {"policy": policy_loss, "value": value_loss}
+    loss_weights = {"policy": 1.0, "value": value_loss_weight}
+    if train_config.get("soft_policy", False):
+        losses["soft_policy"] = Policy_Loss(dtype="float32")
+        loss_weights["soft_policy"] = optimizer_config.get("soft_policy_loss_weight", 1.0)
+    if train_config.get("opponent_policy", False):
+        losses["opponent_policy"] = Policy_Loss(dtype="float32")
+        loss_weights["opponent_policy"] = optimizer_config.get("opponent_policy_loss_weight", 0.15)
+    if train_config.get("aux_heads", False):
+        losses["aux"] = Value_Loss(dtype="float32")
+        loss_weights["aux"] = optimizer_config.get("aux_loss_weight", 0.25)
     model.compile(optimizer=optimizer,
-                  loss={"policy": policy_loss, "value": value_loss},
-                  loss_weights={"policy": 1.0, "value": value_loss_weight},
+                  loss=losses,
+                  loss_weights=loss_weights,
                   weighted_metrics={"policy": tf.keras.metrics.KLDivergence(name="policy_kld")}
                   )
 

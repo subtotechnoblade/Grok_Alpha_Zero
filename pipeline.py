@@ -252,7 +252,11 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
                                                        test_percent=train_config["test_percent"],
                                                        test_decay=train_config["test_decay"],
                                                        dedup_average=train_config.get("dedup_average", False),
-                                                       max_sample_weight=train_config.get("max_sample_weight"), )
+                                                       max_sample_weight=train_config.get("max_sample_weight"),
+                                                       aux_heads=train_config.get("aux_heads", False),
+                                                       soft_policy_temperature=train_config.get("soft_policy_temperature")
+                                                       if train_config.get("soft_policy", False) else None,
+                                                       opponent_policy=train_config.get("opponent_policy", False))
     model = train(train_dataloader, test_dataloader, model, learning_rate, configs,
                   run_dir=Path(run_dir).as_posix())
     Make_Generation_Folder(run_dir, generation + 1)
@@ -283,6 +287,10 @@ def Create_onnx(game_class, build_model_fn, configs, folder_path):
         tf.keras.mixed_precision.set_global_policy(policy)
     infer_model = build_model_fn(game.get_input_state().shape, game.policy_shape, configs)
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
+    if len(infer_model.outputs) > 2:
+        infer_model = tf.keras.Model(inputs=infer_model.inputs[0],
+                                     outputs=[infer_model.get_layer("policy").output,
+                                              infer_model.get_layer("value").output])
     convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
     print("Successfully converted to onnx\n")
 
@@ -375,7 +383,8 @@ def Run(game_class, build_model_fn, configs, run_dir):
     # a file with the njit kernels. config.py is separate now, so the cache is valid and
     # deleting it just bought a ~5s recompile in every worker
 
-    if not Game_Tester(game_class).test():
+    if not Game_Tester(game_class, aux_heads=train_config.get("aux_heads", False),
+                       opponent_policy=train_config.get("opponent_policy", False)).test():
         raise ValueError("Tests failed, training cannot continue!")
 
     os.makedirs(run_dir, exist_ok=True)

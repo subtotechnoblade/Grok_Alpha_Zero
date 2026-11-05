@@ -104,8 +104,12 @@ class Create_Train_Test_Split:
                  test_percent=0.1,
                  test_decay=0.95,
                  dedup_average=False,
-                 max_sample_weight=None):
+                 max_sample_weight=None,
+                 aux_heads=False,
+                 opponent_policy=False):
         self.parent_path = parent_path
+        self.aux_heads = aux_heads
+        self.opponent_policy = opponent_policy
         np.random.seed()
 
         gen_dirs = [path for path in glob(self.parent_path + "/*") if Path(path).name.isdigit()]
@@ -144,7 +148,11 @@ class Create_Train_Test_Split:
                 # Self_Play writes one game as `augmentations` CONSECUTIVE dataset triples,
                 # so dataset_id = game_id * augmentations + k (2 per game for connect4,
                 # 8 for gomoku). game_stats[2] counts unaugmented games, so we can recover it.
-                num_datasets = (len(file.keys()) - 1) // 3
+                num_datasets = sum(key.startswith("boards_") for key in file.keys())
+                if self.aux_heads and num_datasets and "aux_heads_0" not in file:
+                    raise ValueError(f"aux_heads is on but gen {generation} has no aux_heads_ datasets")
+                if self.opponent_policy and num_datasets and "opponent_policies_0" not in file:
+                    raise ValueError(f"opponent_policy is on but gen {generation} has no opponent_policies_ datasets")
                 num_games = int(file["game_stats"][2])
 
                 if num_games <= 0 or num_datasets % num_games != 0:
@@ -182,8 +190,17 @@ class Create_Train_Test_Split:
                     # every augmentation of a game follows that game into the same split
                     for dataset_id in range(first_dataset_id, first_dataset_id + augmentations):
                         states += list(file[f"boards_{dataset_id}"])
-                        policies += list(file[f"policies_{dataset_id}"])
-                        values += list(file[f"values_{dataset_id}"])
+                        if self.opponent_policy:
+                            policies += list(np.concatenate([file[f"policies_{dataset_id}"][:],
+                                                             file[f"opponent_policies_{dataset_id}"][:]], axis=1))
+                        else:
+                            policies += list(file[f"policies_{dataset_id}"])
+                        if self.aux_heads:
+                            game_values = file[f"values_{dataset_id}"][:]
+                            game_aux = file[f"aux_heads_{dataset_id}"][:].reshape(len(game_values), -1)
+                            values += list(np.concatenate([game_values, game_aux], axis=1))
+                        else:
+                            values += list(file[f"values_{dataset_id}"])
 
                     total_games += 1
 
@@ -243,9 +260,13 @@ class Create_Train_Test_Split:
 
 
 class Dataloader(tf.keras.utils.PyDataset):
-    def __init__(self, states, policies, values, batch_size, weights=None, *args, **kwargs):
+    def __init__(self, states, policies, values, batch_size, weights=None, aux_heads=False,
+                 soft_policy_temperature=None, opponent_policy=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         np.random.seed()
+        self.aux_heads = aux_heads
+        self.opponent_policy = opponent_policy
+        self.soft_policy_temperature = soft_policy_temperature
         self.states = states
         self.policies = policies
         self.values = values
@@ -289,8 +310,19 @@ class Dataloader(tf.keras.utils.PyDataset):
         weights = self.weights[batched_indexes]
         # (inputs, targets, sample_weights) - keras applies the weights inside the
         # compiled loss wrapper, the custom Loss classes need no change. The weight
-        # structure mirrors the target structure: same weights for both heads
-        return states, (policies, values), (weights, weights)
+        # structure mirrors the target structure: same weights for every head, in model output order
+        opponent_policies = None
+        if self.opponent_policy:
+            policies, opponent_policies = np.split(policies, 2, axis=1)
+        targets = [policies, values[:, :1]]
+        if self.soft_policy_temperature is not None:
+            soft = np.power(policies, 1.0 / self.soft_policy_temperature)
+            targets.append(soft / np.maximum(soft.sum(axis=1, keepdims=True), 1e-12))
+        if opponent_policies is not None:
+            targets.append(opponent_policies)
+        if self.aux_heads:
+            targets.append(values[:, 1:])
+        return states, tuple(targets), tuple(weights for _ in targets)
 
 def Create_Dataset(folder_path,
                    num_previous_generations,
@@ -301,7 +333,10 @@ def Create_Dataset(folder_path,
                    test_percent=0.1,
                    test_decay=0.75,
                    dedup_average=False,
-                   max_sample_weight=None):
+                   max_sample_weight=None,
+                   aux_heads=False,
+                   soft_policy_temperature=None,
+                   opponent_policy=False):
     ((train_states, train_policies, train_values, train_weights),
      (test_states, test_policies, test_values, test_weights)) = Create_Train_Test_Split(
         folder_path,
@@ -311,13 +346,19 @@ def Create_Dataset(folder_path,
         test_percent,
         test_decay,
         dedup_average=dedup_average,
-        max_sample_weight=max_sample_weight).split()
+        max_sample_weight=max_sample_weight,
+        aux_heads=aux_heads,
+        opponent_policy=opponent_policy).split()
 
     train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size,
-                                  weights=train_weights)
+                                  weights=train_weights, aux_heads=aux_heads,
+                                  soft_policy_temperature=soft_policy_temperature,
+                                  opponent_policy=opponent_policy)
     test_dataloader = Dataloader(test_states, test_policies, test_values,
                                  train_batch_size if test_batch_size is None else test_batch_size,
-                                 weights=test_weights)
+                                 weights=test_weights, aux_heads=aux_heads,
+                                 soft_policy_temperature=soft_policy_temperature,
+                                 opponent_policy=opponent_policy)
     return train_dataloader, test_dataloader
 
 if __name__ == "__main__":
