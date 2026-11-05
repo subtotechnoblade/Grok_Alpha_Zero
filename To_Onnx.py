@@ -1,4 +1,20 @@
-def convert_to_onnx(tf_model, input_signature, file_path):  # must call this function "convert_to_onnx"
+def cast_outputs(onnx_model, elem_type):
+    """Append a Cast to elem_type on every graph output, keeping the output names."""
+    from onnx import helper
+    graph = onnx_model.graph
+    for out in graph.output:
+        name, internal = out.name, out.name + "_uncast"
+        for node in graph.node:
+            for field in (node.input, node.output):
+                renamed = [internal if tensor == name else tensor for tensor in field]
+                del field[:]
+                field.extend(renamed)
+        graph.node.append(helper.make_node("Cast", [internal], [name], to=elem_type, name=name + "_cast"))
+        out.type.tensor_type.elem_type = elem_type
+    return onnx_model
+
+
+def convert_to_onnx(tf_model, input_signature, file_path, output_dtype=None):  # must call this function "convert_to_onnx"
     import os
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -12,6 +28,9 @@ def convert_to_onnx(tf_model, input_signature, file_path):  # must call this fun
     onnx_model, _ = tf2onnx.convert.from_keras(tf_model, input_signature, opset=18)
 
     onnx_model = onnxoptimizer.optimize(onnx_model)
+    if output_dtype == "float16":
+        onnx_model = cast_outputs(onnx_model, onnx.TensorProto.FLOAT16)
+        onnx.checker.check_model(onnx_model)
 
     onnx.save(onnx_model, file_path)
 

@@ -306,7 +306,8 @@ def Create_onnx(game_class, build_model_fn, configs, folder_path):
         infer_model = tf.keras.Model(inputs=infer_model.inputs[0],
                                      outputs=[infer_model.get_layer("policy").output,
                                               infer_model.get_layer("value").output])
-    convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx")
+    convert_to_onnx(infer_model, input_signature, f"{folder_path}/model.onnx",
+                    output_dtype=configs[1].get("nn_output_dtype"))
     print("Successfully converted to onnx\n")
 
 

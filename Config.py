@@ -231,6 +231,10 @@ class TrainConfig(ConfigBase):
         "model casts them itself. uint8 needs every state value in 0..255. int8 is not offered: TensorRT rejects "
         "int8 inputs without quantization scales."),
         check=lambda v: None if v in (None, "uint8") else "must be None or 'uint8'")
+    nn_output_dtype = Param(None, help=(
+        "Network output dtype: None = float32, 'float16' = the exported ONNX casts every output to float16, "
+        "halving the GPU-to-host copy. The inference server still hands workers float32."),
+        check=lambda v: None if v in (None, "float16") else "must be None or 'float16'")
     dml_device_id = Param(None, help=(
         "Pin the DirectML adapter on multi-GPU machines (None = default). "
         "On this machine: 0 = 760M igpu, 1 = RTX 2060."))
