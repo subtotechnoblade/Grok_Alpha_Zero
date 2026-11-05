@@ -1,36 +1,46 @@
 """Playout cap randomization with escalation.
 
 Each move is either a full search (recorded as training data) or a cheap one that only picks the move. A cheap
-search escalates to a full one, continuing the same tree, when it looks surprising:
-    policy: KL(cheap visits || prior) above a running percentile
-    value:  |root Q - network value| above a running percentile
-    close:  the Q gap between the two best moves (with enough visits) below the matching running percentile,
-            and below close_gap
-Running percentiles are over this worker's recent cheap searches, so each trigger fires on about
-(100 - escalate_percentile)% of them however the network improves.
+search escalates to a full one, continuing the same tree, when the network looks wrong about the position:
+    policy: the search chose a move the network rated below its favourite by more than escalate_disagreement
+            (log of the prior ratio)
+    value:  |root Q - network value| is above escalate_value_gap
+Both thresholds are absolute, so escalation is common while the network is weak and fades as it improves.
 """
-from collections import deque
-
 import numpy as np
 
 REASONS = ("explore", "random", "policy", "value", "close")
 
 
-def root_signals(child_visits, child_values, child_priors, net_value, close_min_visits):
+def prior_disagreement(child_visits, child_priors):
+    """log(prior of the network's favourite / prior of the most visited move): 0 when search and network agree,
+    log 2 when the search picked a move the network rated at half its favourite. Independent of prior flatness."""
+    priors = np.maximum(np.asarray(child_priors, dtype=np.float64), 1e-12)
+    visits = np.asarray(child_visits)
+    if visits.sum() <= 0:
+        return 0.0
+    return float(np.log(priors.max() / priors[np.argmax(visits)]))
+
+
+def value_gap(child_visits, child_values, net_value):
+    """|root Q - network value|, both from the player to move."""
     visits = np.asarray(child_visits, dtype=np.float64)
     total = visits.sum()
     if total <= 0:
-        return 0.0, False, 0.0, np.inf
+        return 0.0
+    return abs(float(np.asarray(child_values, dtype=np.float64).sum() / total) - float(net_value))
+
+
+def policy_surprise(child_visits, child_priors):
+    """KL(search visits || prior), the policy-surprise weight signal."""
+    visits = np.asarray(child_visits, dtype=np.float64)
+    total = visits.sum()
+    if total <= 0:
+        return 0.0
     priors = np.maximum(np.asarray(child_priors, dtype=np.float64), 1e-8)
     pi = visits / total
     seen = pi > 0
-    kl = float(np.sum(pi[seen] * np.log(pi[seen] / priors[seen])))
-    argmax_changed = bool(np.argmax(visits) != np.argmax(priors))
-    values = np.asarray(child_values, dtype=np.float64)
-    value_surprise = abs(float(values.sum() / total) - float(net_value))
-    q = values[visits >= close_min_visits] / visits[visits >= close_min_visits]
-    gap = float(np.diff(np.sort(q)[-2:])[0]) if len(q) >= 2 else np.inf
-    return kl, argmax_changed, value_surprise, gap
+    return float(np.sum(pi[seen] * np.log(pi[seen] / priors[seen])))
 
 
 def completed_q_policy(child_visits, child_values, child_priors, net_value, c_visit=50.0, c_scale=0.1):
@@ -56,15 +66,12 @@ def completed_q_policy(child_visits, child_values, child_priors, net_value, c_vi
 
 
 class Playout_Cap:
-    def __init__(self, train_config, history=1000, min_history=50):
+    def __init__(self, train_config):
         self.full_search_prob = float(train_config.get("full_search_prob", 1.0))
         self.cheap_sims = int(train_config.get("cheap_sims", 128))
-        self.triggers = {name: bool(train_config.get(f"escalate_{name}", False)) for name in ("policy", "value", "close")}
-        self.percentile = float(train_config.get("escalate_percentile", 90.0))
-        self.close_gap = float(train_config.get("close_gap", 0.02))
-        self.close_min_visits = int(train_config.get("close_min_visits", 10))
-        self.min_history = min_history
-        self.history = {name: deque(maxlen=history) for name in ("policy", "value", "close")}
+        self.triggers = {name: bool(train_config.get(f"escalate_{name}", False)) for name in ("policy", "value")}
+        self.disagreement = float(train_config.get("escalate_disagreement", np.log(2)))
+        self.value_gap = float(train_config.get("escalate_value_gap", 0.3))
 
     @property
     def enabled(self):
@@ -77,22 +84,10 @@ class Playout_Cap:
     def full_search(self):
         return np.random.random() < self.full_search_prob
 
-    def _above(self, name, signal):
-        history = self.history[name]
-        above = len(history) >= self.min_history and signal > np.percentile(history, self.percentile)
-        history.append(signal)
-        return above
-
     def escalate(self, child_visits, child_values, child_priors, net_value=0.0):
         """The reason a cheap search should become a full one, or None."""
-        kl, _, value_surprise, gap = root_signals(child_visits, child_values, child_priors, net_value,
-                                                  self.close_min_visits)
-        reason = None
-        if self.triggers["policy"] and self._above("policy", kl):
-            reason = "policy"
-        if self.triggers["value"] and self._above("value", value_surprise) and reason is None:
-            reason = "value"
-        if self.triggers["close"] and np.isfinite(gap) and self._above("close", -gap) and gap < self.close_gap \
-                and reason is None:
-            reason = "close"
-        return reason
+        if self.triggers["policy"] and prior_disagreement(child_visits, child_priors) > self.disagreement:
+            return "policy"
+        if self.triggers["value"] and value_gap(child_visits, child_values, net_value) > self.value_gap:
+            return "value"
+        return None

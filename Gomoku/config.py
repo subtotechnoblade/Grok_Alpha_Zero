@@ -62,9 +62,8 @@ class GomokuTrain(AlphaZeroConfig):
     cheap_sims = 320
     escalate_policy = True
     escalate_value = True
-    escalate_close = True
-    escalate_percentile = 95.0
-    close_gap = 0.02
+    escalate_disagreement = 0.693
+    escalate_value_gap = 0.3
     cheap_policy_targets = True
     cheap_target_weight = 0.25
     surprise_weighting = True

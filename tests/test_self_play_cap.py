@@ -14,7 +14,7 @@ from pipeline import Make_Dataset_File
 from tests.fake_net import FakeSession
 
 SETTINGS = dict(MCTS_iteration_limit=96, cheap_sims=24, leaves_per_batch=4, max_actions=60, full_search_prob=0.25,
-                escalate_policy=True, escalate_value=True, escalate_close=True, cheap_policy_targets=True,
+                escalate_policy=True, escalate_value=False, cheap_policy_targets=True,
                 cheap_target_weight=0.25, surprise_weighting=True, value_discount=0.99, wdl_head=True,
                 aux_heads=True, opponent_policy=True, num_explore_actions_first=2, num_explore_actions_second=2)
 
@@ -76,6 +76,13 @@ class RecordingTest(unittest.TestCase):
             self.assertNotIn("sample_weights_0", f)
             opp = f["opponent_policies_0"][:]
             self.assertTrue(np.allclose(opp[-1], 0))
+
+    def test_value_trigger_escalates(self):
+        folder, _ = play_games(1, escalate_value=True, escalate_value_gap=0.0)
+        with h5.File(f"{folder}/Self_Play_Data.h5") as f:
+            counts = f["search_stats"][:]
+        self.assertGreater(counts[SEARCH_KINDS.index("value")], 0)
+        self.assertEqual(counts[SEARCH_KINDS.index("close")], 0)
 
     def test_discount_shrinks_early_targets(self):
         folder, _ = play_games(3, full_search_prob=1.0, cheap_policy_targets=False, surprise_weighting=False,

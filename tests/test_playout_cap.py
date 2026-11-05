@@ -3,76 +3,57 @@ import unittest
 
 import numpy as np
 
-from Playout_Cap import Playout_Cap, root_signals
+from Playout_Cap import Playout_Cap, policy_surprise, prior_disagreement, value_gap
 
 
 def config(**overrides):
     base = dict(full_search_prob=0.25, cheap_sims=128, escalate_policy=True, escalate_value=True,
-                escalate_close=True, escalate_percentile=90.0, close_gap=0.02, close_min_visits=10)
+                escalate_disagreement=np.log(2), escalate_value_gap=0.3)
     base.update(overrides)
     return base
 
 
 class SignalTest(unittest.TestCase):
-    def test_agreement_has_no_surprise(self):
-        priors = np.array([0.5, 0.3, 0.2])
-        visits = np.array([50, 30, 20])
-        values = visits * 0.1
-        kl, changed, value_surprise, gap = root_signals(visits, values, priors, 0.1, 10)
-        self.assertAlmostEqual(kl, 0.0, places=12)
-        self.assertFalse(changed)
-        self.assertAlmostEqual(value_surprise, 0.0, places=12)
-        self.assertAlmostEqual(gap, 0.0, places=12)
+    def test_agreement_is_zero(self):
+        self.assertEqual(prior_disagreement([90, 30, 8], [0.5, 0.3, 0.2]), 0.0)
 
-    def test_disagreement(self):
-        priors = np.array([0.7, 0.2, 0.1])
-        visits = np.array([10, 80, 10])
-        values = np.array([10 * -0.5, 80 * 0.3, 10 * 0.0])
-        kl, changed, value_surprise, gap = root_signals(visits, values, priors, -0.4, 10)
-        self.assertGreater(kl, 0.5)
-        self.assertTrue(changed)
-        self.assertAlmostEqual(value_surprise, abs((values.sum() / 100) + 0.4))
-        self.assertAlmostEqual(gap, 0.3)
+    def test_disagreement_ignores_how_flat_the_prior_is(self):
+        flat = np.full(100, 0.01)
+        flat[0] = 0.02
+        visits = np.zeros(100)
+        visits[0] = 128
+        self.assertEqual(prior_disagreement(visits, flat), 0.0)
+        self.assertGreater(policy_surprise(visits, flat), 3.0)
 
-    def test_close_ignores_thin_moves(self):
-        visits = np.array([100, 5, 40])
-        values = np.array([100 * 0.20, 5 * 0.21, 40 * 0.05])
-        self.assertAlmostEqual(root_signals(visits, values, np.ones(3) / 3, 0.0, 10)[3], 0.15)
+    def test_disagreement_is_the_log_prior_ratio(self):
+        self.assertAlmostEqual(prior_disagreement([10, 100, 18], [0.6, 0.2, 0.2]), np.log(3))
+
+    def test_value_gap(self):
+        self.assertAlmostEqual(value_gap([50, 50], [10, 20], -0.2), 0.5)
+        self.assertEqual(value_gap([0, 0], [0, 0], 0.4), 0.0)
 
 
 class EscalationTest(unittest.TestCase):
-    def test_rate_tracks_the_percentile(self):
-        np.random.seed(0)
-        cap = Playout_Cap(config(escalate_value=False, escalate_close=False))
-        priors = np.array([0.4, 0.3, 0.2, 0.1])
-        fired = 0
-        for _ in range(3000):
-            visits = np.random.multinomial(128, priors).astype(float)
-            fired += cap.escalate(visits, np.zeros(4), priors) is not None
-        self.assertLess(fired / 3000, 0.25)
-        self.assertGreater(fired / 3000, 0.05)
+    def test_reasons(self):
+        cap = Playout_Cap(config())
+        priors = [0.6, 0.2, 0.2]
+        self.assertIsNone(cap.escalate([100, 20, 8], [10, 2, 0], priors, 0.1))
+        self.assertEqual(cap.escalate([20, 100, 8], [2, 10, 0], priors, 0.1), "policy")
+        self.assertEqual(cap.escalate([100, 20, 8], [60, 2, 0], priors, -0.2), "value")
 
     def test_triggers_are_independent(self):
-        cap = Playout_Cap(config(escalate_policy=False, escalate_value=False, escalate_close=True))
-        priors = np.array([0.7, 0.2, 0.1])
-        for gap in np.linspace(0.005, 0.3, 60):
-            cap.escalate([50, 50, 0], [10, 10 + 50 * gap, 0], priors)
-        self.assertIsNone(cap.escalate([10, 80, 10], [-5, 24, 0], priors))
-        self.assertEqual(cap.escalate([50, 50, 0], [10, 10.05, 0], priors), "close")
-        self.assertIsNone(cap.escalate([50, 50, 0], [10, 25, 0], priors))
+        priors = [0.6, 0.2, 0.2]
+        no_value = Playout_Cap(config(escalate_value=False))
+        self.assertIsNone(no_value.escalate([100, 20, 8], [60, 2, 0], priors, -0.2))
+        no_policy = Playout_Cap(config(escalate_policy=False))
+        self.assertIsNone(no_policy.escalate([20, 100, 8], [2, 10, 0], priors, 0.1))
 
-    def test_every_trigger_keeps_its_rate(self):
-        np.random.seed(2)
-        cap = Playout_Cap(config(escalate_percentile=95.0))
-        priors = np.array([0.4, 0.3, 0.2, 0.1])
-        reasons = []
-        for _ in range(4000):
-            visits = np.random.multinomial(128, priors).astype(float)
-            values = visits * np.random.uniform(-0.2, 0.2, 4)
-            reasons.append(cap.escalate(visits, values, priors, np.random.uniform(-0.3, 0.3)))
-        for name in ("policy", "value", "close"):
-            self.assertLess(reasons.count(name) / 4000, 0.08, name)
-        self.assertLess(sum(r is not None for r in reasons) / 4000, 0.16)
+    def test_thresholds_are_absolute(self):
+        cap = Playout_Cap(config())
+        priors = [0.6, 0.2, 0.2]
+        for _ in range(500):
+            self.assertIsNone(cap.escalate([100, 20, 8], [10, 2, 0], priors, 0.1))
+        self.assertEqual(cap.escalate([20, 100, 8], [2, 10, 0], priors, 0.1), "policy")
 
     def test_off_by_default(self):
         cap = Playout_Cap({})

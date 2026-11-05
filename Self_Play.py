@@ -13,7 +13,7 @@ import multiprocessing as mp
 
 from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
-from Playout_Cap import Playout_Cap, REASONS, completed_q_policy, root_signals
+from Playout_Cap import Playout_Cap, REASONS, completed_q_policy, policy_surprise
 
 SEARCH_KINDS = REASONS + ("cheap",)
 
@@ -163,8 +163,7 @@ class Self_Play:
                     sample_weights.append(1.0)
                     if self.surprise_weighting:
                         root = self.mcts.root
-                        surprises.append(root_signals(root.child_visits, root.child_values, self.mcts.root_priors(),
-                                                      0.0, 1)[0])
+                        surprises.append(policy_surprise(root.child_visits, self.mcts.root_priors()))
                     else:
                         surprises.append(np.nan)
                 board_states.append(state)

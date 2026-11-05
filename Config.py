@@ -283,20 +283,17 @@ class TrainConfig(ConfigBase):
         "Exploration-ply moves are always full."), check=lambda v: None if 0.0 < v <= 1.0 else "must be in (0, 1]")
     cheap_sims = Param(128, help="Sims for a cheap (unrecorded) search.", check=_positive)
     escalate_policy = Param(False, help=(
-        "Continue a cheap search to the full budget and record it when KL(cheap visits || prior) is above the "
-        "escalate_percentile of recent cheap searches."))
+        "Continue a cheap search to the full budget and record it when the most visited move's prior is below "
+        "the network's favourite by more than escalate_disagreement (log of the ratio)."))
+    escalate_disagreement = Param(0.693, help=(
+        "log(prior of favourite / prior of the search's move) that escalates. 0.693 = the search chose a move "
+        "rated below half the favourite."), check=_non_negative)
     escalate_value = Param(False, help=(
-        "Same, when |root Q - network value| is above the escalate_percentile. Costs one extra network call per "
+        "Same, when |root Q - network value| is above escalate_value_gap. Costs one extra network call per "
         "cheap search."))
-    escalate_close = Param(False, help=(
-        "Same, when the Q gap between the two best moves with close_min_visits visits is among the narrowest "
-        "(100 - escalate_percentile)% of recent cheap searches and below close_gap."))
-    escalate_percentile = Param(90.0, help=(
-        "Running percentile each trigger's signal must beat, so each fires on about (100 - this)% of cheap "
-        "searches."),
-                                check=lambda v: None if 0.0 <= v < 100.0 else "must be in [0, 100)")
-    close_gap = Param(0.02, help="Q gap for escalate_close.", check=_non_negative)
-    close_min_visits = Param(10, help="Visits a move needs to count for escalate_close.", check=_positive)
+    escalate_value_gap = Param(0.3, help=(
+        "Value gap that escalates. Absolute, so escalation fades as the value head improves."),
+        check=_non_negative)
     cheap_policy_targets = Param(False, help=(
         "Also record cheap positions, with a completed-Q policy target (softmax(log prior + sigma(completed Q))) "
         "instead of visit counts, at sample weight cheap_target_weight."))
