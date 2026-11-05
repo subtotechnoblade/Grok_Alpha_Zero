@@ -5,6 +5,8 @@ from Net.ResNet.ResNet_Block import ResNet_Block, Global_Pool_Block
 from Net.Stablemax import Stablemax
 
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
+from Net.Heads import value_output, extra_heads
+from Net.Inputs import network_input
 
 
 def build_model(input_shape, policy_shape, configs):
@@ -16,8 +18,7 @@ def build_model(input_shape, policy_shape, configs):
     num_filters = build_config["num_filters"]
     bn_momentum = build_config.get("bn_momentum", 0.99)
     # input shape should be (3, 3)
-    inputs = tf.keras.layers.Input(batch_shape=(None, *input_shape), name="inputs")  # the name must be "inputs"
-    x = inputs
+    inputs, x = network_input(input_shape, train_config)
 
     eyes = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=(3, 3), strides=(1, 1), padding="same", kernel_initializer='he_normal', name="eyes")(x)
     eyes = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(eyes)
@@ -39,8 +40,8 @@ def build_model(input_shape, policy_shape, configs):
     policy = tf.keras.layers.Conv2D(32, (3, 3), padding="same", kernel_initializer='he_normal')(policy)
 
     policy = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(policy)
-    policy = tf.keras.layers.Activation("relu")(policy)
-    policy = tf.keras.layers.Conv2D(1, (1, 1), padding="same", dtype="float32", name="policy_2")(policy)
+    policy_features = tf.keras.layers.Activation("relu")(policy)
+    policy = tf.keras.layers.Conv2D(1, (1, 1), padding="same", dtype="float32", name="policy_2")(policy_features)
     policy = tf.keras.layers.Reshape((policy_shape[0],), dtype="float32")(policy)  # NOTE THAT THIS IS A LOGIT not prob
     # policy *= build_config["rr_alpha"] # rich representation
 
@@ -64,12 +65,10 @@ def build_model(input_shape, policy_shape, configs):
 
     value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1, dtype="float32", name="value_3")(value)  # MUST NAME THIS "value"
-    # value *= build_config["rr_alpha"] # rich representation
+    value = value_output(value, train_config)
 
-    value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
-
-    return tf.keras.Model(inputs=inputs, outputs=[policy, value])
+    outputs = [policy, value] + extra_heads(x, policy_features, 1, policy_shape[0], train_config, bn_momentum)
+    return tf.keras.Model(inputs=inputs, outputs=outputs)
 
 if __name__ == "__main__":
     from Gomoku.game import Gomoku
