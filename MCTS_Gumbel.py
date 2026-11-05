@@ -178,7 +178,7 @@ class MCTS_Gumbel:
 
         self.use_gumbel_noise = use_gumbel_noise
         self.use_njit = use_njit if use_njit is not None else hasattr(os, "fork")
-        self.m = m
+        self.max_m = self.m = m
         self.c_visit = c_visit
         self.c_scale = c_scale
 
@@ -199,7 +199,7 @@ class MCTS_Gumbel:
     def update_hyperparams(self, *args, **kwargs) -> None:
         m = kwargs.get("m")
         if m is not None:
-            self.m = m
+            self.max_m = self.m = m
 
         c_scale = kwargs.get("c_scale")
         if c_scale is not None:
@@ -578,8 +578,7 @@ class MCTS_Gumbel:
             warn("Time limit isn't allowed for gumbel MCTS defaulting to use 3 * len_legal_actions")
 
         num_starting_legal_actions = len(self.game.get_legal_actions())
-        if self.m > num_starting_legal_actions:
-            self.m = num_starting_legal_actions
+        self.m = min(self.max_m, num_starting_legal_actions)
         if use_bar:
             bar = tqdm(total=iteration_limit)
 
