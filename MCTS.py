@@ -25,7 +25,7 @@ def _copy_flat(dst, src):
 
 
 class Node:
-    __slots__ = "child_id", "board", "action_history", "history_array", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_prob_priors", "is_terminal", "parent", "child_inflight", "inflight_total"
+    __slots__ = "child_id", "board", "action_history", "history_array", "current_player", "children", "child_legal_actions", "child_visits", "child_values", "child_draws", "child_prob_priors", "is_terminal", "parent", "child_inflight", "inflight_total"
 
     def __init__(self,
                  child_id: int,
@@ -54,6 +54,7 @@ class Node:
         # numpy arrays handed straight to the jitted PUCT kernel
         self.child_visits = np.zeros(len(child_legal_actions), dtype=np.int64)
         self.child_values = np.zeros(len(child_legal_actions), dtype=np.float64)
+        self.child_draws = None  # draw mass per child, only allocated when the search tracks draws
         self.child_prob_priors = child_prob_priors
         self.child_inflight = None  # virtual loss counts, only allocated while a path below is in flight
         self.inflight_total = 0
@@ -104,6 +105,7 @@ class MCTS:
                  dirichlet_epsilon=0.25,  # don't change this value, its the weight of exploration noise
                  tau=1.0,
                  fast_find_win=False,  # this is for training, when exploiting change to True
+                 track_draws=False,
                  ):
         """
         :param game: Your game class
@@ -120,9 +122,13 @@ class MCTS:
         :param dirichlet_alpha: The exploration rate in the alpa zero paper, should be (average moves per game / 10)
         :param dirichlet_epsilon: The weighting that dirichlet noise has over the policy
         :param tau: Temperature which controls how a move is chosen, input tau to be a very small number to chose the move with highest probability
+        :param track_draws: Back up the network's "draw" output alongside value. run() then appends each move's
+        draw rate to its stats row. The session must provide a "draw" output
         """
         self.game = game
         self.session = session
+        self.track_draws = bool(track_draws)
+        self._output_names = ["policy", "value", "draw"] if self.track_draws else ["policy", "value"]
         self.cache_session = isinstance(self.session, Cache_Wrapper)
         self.fast_find_win = fast_find_win
         self._in_buf = None  # reused inference input buffer, see _fill_buf
@@ -350,13 +356,13 @@ class MCTS:
     def _compute_outputs(self, inputs, depth=0):
         if self.session is not None:
             kwargs = {
-                "output_names": ["policy", "value"],
+                "output_names": self._output_names,
                 "input_feed": {"inputs": self._fill_buf(inputs)}
             }
             if self.cache_session:
                 kwargs["depth"] = depth
 
-            policy, value = self.session.run(**kwargs)
+            policy, value = self.session.run(**kwargs)[:2]
             return policy[0].astype(np.float32, copy=False), value[0][0]
         return self._get_dummy_outputs(inputs)
 
@@ -500,7 +506,8 @@ class MCTS:
                 del terminal_node.child_legal_actions, terminal_node.child_prob_priors
 
                 self.root.children.append(terminal_node)
-                self._back_propagate(terminal_node, 1.0 if mask_value == 1 else 0.0)
+                self._back_propagate(terminal_node, 1.0 if mask_value == 1 else 0.0,
+                                     draw=0.0 if mask_value == 1 else 1.0)
                 # ^ back propagate each child's OWN outcome. Using the shared `value` gave
                 # drawing moves a winrate of 1.0 whenever any winning move existed
         else:
@@ -560,6 +567,8 @@ class MCTS:
         terminal_parent.child_values = terminal_mask.astype(np.float64)  # 0 for draws and 1 for wins, thus perfect for child_values
 
         terminal_parent.child_visits = np.ones(len(terminal_mask), dtype=np.int64)  # formality so that we don't get division by 0 when calcing stats
+        if self.track_draws:
+            terminal_parent.child_draws = (terminal_mask == 0).astype(np.float64)
 
         for terminal_action, mask_value in zip(terminal_actions, terminal_mask):
             # terminal_board = self.game.do_action_MCTS(child_board, terminal_action)
@@ -683,10 +692,18 @@ class MCTS:
         child.child_legal_actions = child_legal_actions[sort_index]
         return -child_value  # contact Brian if you don't understand why it is -value
 
-    def _back_propagate(self, node: Node, value: float, visits=1, revert_virtual_loss=False) -> None:
+    def _back_propagate(self, node: Node, value: float, visits=1, revert_virtual_loss=False, draw=0.0) -> None:
         # python scalars keep the per level negation and root.visits cheap
         value = float(value)
         visits = int(visits)
+        if self.track_draws:
+            draw = float(draw) * visits
+            leaf = node
+            while leaf.parent is not None:
+                node_id, leaf = leaf.child_id, leaf.parent
+                if leaf.child_draws is None:
+                    leaf.child_draws = np.zeros(len(leaf.child_visits), dtype=np.float64)
+                leaf.child_draws[node_id] += draw
         # note that the node class is the child returned by expand or selection method
         while node.parent is not None:
             # stats are stored in parent
@@ -710,6 +727,8 @@ class MCTS:
     def _evaluate(self, payloads):
         """One network call for every pending leaf. Returns (policy, value) per leaf, in order."""
         if self.session is None:
+            if self.track_draws:
+                return [(*self._get_dummy_outputs(None), 0.0) for _ in payloads]
             return [self._get_dummy_outputs(None) for _ in payloads]
         n = len(payloads)
         shape = payloads[0][0].shape
@@ -719,9 +738,13 @@ class MCTS:
         for i, (inputs, _) in enumerate(payloads):
             buf[i] = inputs
         if self.cache_session:
-            policy, value = self.session.run_batch(["policy", "value"], buf, [depth for _, depth in payloads])
+            outputs = self.session.run_batch(self._output_names, buf, [depth for _, depth in payloads])
         else:
-            policy, value = self.session.run(output_names=["policy", "value"], input_feed={"inputs": buf})
+            outputs = self.session.run(output_names=self._output_names, input_feed={"inputs": buf})
+        policy, value = outputs[0], outputs[1]
+        if self.track_draws:
+            draw = outputs[2]
+            return [(policy[i].astype(np.float32, copy=False), value[i][0], draw[i][0]) for i in range(n)]
         return [(policy[i].astype(np.float32, copy=False), value[i][0]) for i in range(n)]
 
     def _run_batch(self, target: int) -> int:
@@ -733,7 +756,8 @@ class MCTS:
         while done + len(pending) < target and collisions < self.max_collisions:
             node = self._PUCT_select()
             if node.is_terminal is not None:
-                self._back_propagate(node, 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0, 1)
+                self._back_propagate(node, 1 if (node.is_terminal == 1 or node.is_terminal == -1) else 0, 1,
+                                     draw=1.0 if node.is_terminal == 0 else 0.0)
                 self.search_stats["terminal"] += 1
                 done += 1
                 continue
@@ -742,7 +766,7 @@ class MCTS:
                 continue
             leaf, payload, is_pending = self._reserve(node)
             if not is_pending:
-                self._back_propagate(leaf, *payload)
+                self._back_propagate(leaf, *payload, draw=1.0 if payload[0] == 0 else 0.0)
                 self.search_stats["terminal"] += 1
                 done += 1
                 continue
@@ -758,8 +782,9 @@ class MCTS:
             outputs = self._evaluate(payloads)
             self.search_stats["batches"] += 1
             self.search_stats["network_rows"] += len(pending)
-            for leaf, (policy, value), loss in zip(pending, outputs, with_loss):
-                self._back_propagate(leaf, self._complete(leaf, policy, value), 1, revert_virtual_loss=loss)
+            for leaf, output, loss in zip(pending, outputs, with_loss):
+                self._back_propagate(leaf, self._complete(leaf, output[0], output[1]), 1, revert_virtual_loss=loss,
+                                     draw=output[2] if self.track_draws else 0.0)
             done += len(pending)
         return done
 
@@ -822,6 +847,10 @@ class MCTS:
                                                                                          self.root.child_prob_priors)):
             move_probs[child_id] = [child.action_history[-1], prob, winrate, value, visits, prob_prior,
                                     self.root.visits, child.is_terminal]
+        if self.track_draws:
+            draws = self.root.child_draws if self.root.child_draws is not None else np.zeros(len(self.root.child_visits))
+            for child_id in range(len(move_probs)):
+                move_probs[child_id].append(float(draws[child_id]) / max(int(self.root.child_visits[child_id]), 1))
 
         expanded_visits = np.asarray(self.root.child_visits[:len(move_probs)], dtype=np.float64)
         if self.tau == 0.0:
@@ -884,6 +913,7 @@ class MCTS:
                 grandchild.parent = new_root
             new_root.child_values = child.child_values
             new_root.child_visits = child.child_visits
+            new_root.child_draws = child.child_draws
 
             if len(child.children) == len(child.child_visits):
                 del new_root.child_legal_actions, new_root.current_player
