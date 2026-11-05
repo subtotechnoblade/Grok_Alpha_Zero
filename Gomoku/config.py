@@ -29,6 +29,7 @@ class GomokuTrain(AlphaZeroConfig):
     trt_fp16 = True
     use_inference_server = True
     nn_input_dtype = "uint8"
+    nn_output_dtype = "float16"
     max_cache_depth = 3
     symmetric_cache_evals = True
     random_symmetry_evals = True
@@ -52,7 +53,7 @@ class GomokuTrain(AlphaZeroConfig):
 
     # ---- training targets ----
     q_weight = 0.25
-    aux_heads = False  # Gomoku defines no compute_aux_targets yet
+    aux_heads = True
     soft_policy = True
     opponent_policy = True
     soft_policy_temperature = 4.0

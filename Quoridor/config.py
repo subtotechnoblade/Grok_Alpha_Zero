@@ -29,6 +29,7 @@ class QuoridorTrain(AlphaZeroConfig):
     trt_fp16 = True
     use_inference_server = True
     nn_input_dtype = "uint8"
+    nn_output_dtype = "float16"
     max_cache_depth = 3
     symmetric_cache_evals = False
     random_symmetry_evals = True
