@@ -42,3 +42,6 @@ Thumbs.db
 
 # TensorRT timing caches (machine specific, regenerated on demand)
 *.timing
+
+# Native solver build output
+Quoridor/cpp/*.so

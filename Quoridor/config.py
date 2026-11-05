@@ -68,6 +68,7 @@ class QuoridorTrain(AlphaZeroConfig):
     cheap_policy_targets = True
     cheap_target_weight = 0.25
     surprise_weighting = True
+    endgame_solver = True
 
     # ---- dataset window ----
     num_previous_generations = 5

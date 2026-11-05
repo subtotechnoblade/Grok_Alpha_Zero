@@ -15,7 +15,7 @@ from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
 from Playout_Cap import Playout_Cap, REASONS, completed_q_policy, policy_surprise
 
-SEARCH_KINDS = REASONS + ("cheap",)
+SEARCH_KINDS = REASONS + ("cheap", "solver")
 
 from Client_Server import Batched_Session, start_batch_server, create_wakeups
 from Transport import ChannelSpec, create_slots
@@ -49,6 +49,7 @@ class Self_Play:
         self.use_cap = self.cap.enabled and generation > 0 and not train_config["use_gumbel"]
         self.record_cheap = self.use_cap and bool(train_config.get("cheap_policy_targets", False))
         self.surprise_weighting = bool(train_config.get("surprise_weighting", False)) and not train_config["use_gumbel"]
+        self.endgame = bool(train_config.get("endgame_solver", False)) and hasattr(game, "endgame_targets")
 
         leaves_per_batch = 1 if train_config["use_gumbel"] else self.train_config.get("leaves_per_batch", 1)
         self.cycles = self.train_config["MCTS_iteration_limit"] // leaves_per_batch
@@ -103,10 +104,11 @@ class Self_Play:
         target_q = []
         target_d = []
         target_z = []
-        plies, sample_weights, surprises, kinds = [], [], [], []
+        plies, sample_weights, surprises, kinds, exact_rows = [], [], [], [], []
         search_counts = np.zeros(len(SEARCH_KINDS) + 2, dtype=np.int64)  # kinds..., moves, sims
 
         full = True  # the first root was built with noise
+        stale = False
         actions_count = 0
         winner = -2
         while winner == -2 and actions_count < self.train_config["max_actions"]:
@@ -116,9 +118,21 @@ class Self_Play:
 
             current_move_num = len(self.game.action_history)
             kind, net_value, sims = "random", 0.0, self.iteration_limit
+            exact = self.game.endgame_targets() if self.endgame else None
 
+            if stale and exact is None:
+                if self.train_config["use_gumbel"]:
+                    self.mcts_gumbel = self.create_MCTS_Gumbel()
+                else:
+                    self.mcts.create_expand_root()
+                stale = False
+
+            if exact is not None:
+                kind, sims = "solver", 0
+                keep = exact[2]
+                action = keep[np.random.randint(len(keep))]
             # using normal MCTS
-            if not self.train_config["use_gumbel"]:
+            elif not self.train_config["use_gumbel"]:
                 explore = self._explore(current_move_num)
                 self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
@@ -151,7 +165,11 @@ class Self_Play:
             search_counts[-1] += sims
 
             if kind is not None or self.record_cheap:
-                if kind is None:
+                if exact is not None:
+                    improved_policy = self.game.compute_policy_improvement((a, 1.0 / len(keep)) for a in keep)
+                    sample_weights.append(1.0)
+                    surprises.append(np.nan)
+                elif kind is None:
                     root = self.mcts.root
                     policy = completed_q_policy(root.child_visits, root.child_values, self.mcts.root_priors(), net_value,
                                                 c_scale=self.train_config.get("completed_q_scale", 0.1))
@@ -170,12 +188,18 @@ class Self_Play:
                 improved_policies.append(improved_policy)
                 plies.append(current_move_num)
                 kinds.append(kind or "cheap")
+                exact_rows.append(exact is not None)
 
-                # the played action's stats (gumbel doesn't always play the 0th action in action probs)
-                played = next(entry for entry in action_probs if np.array_equal(entry[0], action))
-                target_q.append(played[2])
-                if self.wdl:
-                    target_d.append(played[8])
+                if exact is not None:
+                    target_q.append(0.0)  # replaced by the discounted exact result below
+                    if self.wdl:
+                        target_d.append(0.0)
+                else:
+                    # the played action's stats (gumbel doesn't always play the 0th action in action probs)
+                    played = next(entry for entry in action_probs if np.array_equal(entry[0], action))
+                    target_q.append(played[2])
+                    if self.wdl:
+                        target_d.append(played[8])
 
                 target_z.append(self.game.get_next_player())  # Important that this is before do_action()
                 # the player that made this position's move, not the next player
@@ -197,7 +221,9 @@ class Self_Play:
             winner = self.game.check_win()
 
             if winner == -2:  # or else there will be an error, because you are pruning a winning move
-                if not self.train_config["use_gumbel"]:
+                if exact is not None:
+                    stale = True
+                elif not self.train_config["use_gumbel"]:
                     if self.use_cap:
                         full = self._explore(len(self.game.action_history)) or self.cap.full_search()
                         self.mcts.use_dirichlet = full  # root noise only on full searches
@@ -230,6 +256,8 @@ class Self_Play:
         discount = self.train_config.get("value_discount", 1.0)
         if discount < 1.0:
             target_z *= (discount ** (game_length - 1 - plies)).astype(np.float32).reshape((-1, 1))
+        exact_rows = np.array(exact_rows, dtype=bool)
+        target_q[exact_rows] = target_z[exact_rows]
 
         sample_weights = np.array(sample_weights, dtype=np.float32)
         surprises = np.array(surprises, dtype=np.float64)
@@ -290,6 +318,11 @@ class Self_Play:
 
             if "search_stats" not in file:
                 file.create_dataset("search_stats", data=np.zeros(len(search_counts), dtype=np.int64))
+            elif len(file["search_stats"]) < len(search_counts):
+                old = file["search_stats"][...]
+                del file["search_stats"]
+                file.create_dataset("search_stats", data=np.insert(old, len(old) - 2,
+                                                                    np.zeros(len(search_counts) - len(old))))
             file["search_stats"][...] = file["search_stats"][...] + search_counts
 
             if rows is None:

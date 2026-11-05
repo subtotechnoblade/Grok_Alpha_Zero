@@ -16,7 +16,8 @@ from tests.fake_net import FakeSession
 SETTINGS = dict(MCTS_iteration_limit=96, cheap_sims=24, leaves_per_batch=4, max_actions=60, full_search_prob=0.25,
                 escalate_policy=True, escalate_value=False, cheap_policy_targets=True,
                 cheap_target_weight=0.25, surprise_weighting=True, value_discount=0.99, wdl_head=True,
-                aux_heads=True, opponent_policy=True, num_explore_actions_first=2, num_explore_actions_second=2)
+                aux_heads=True, opponent_policy=True, num_explore_actions_first=2, num_explore_actions_second=2,
+                endgame_solver=False)
 
 
 def play_games(n, **overrides):
@@ -103,6 +104,41 @@ class RecordingTest(unittest.TestCase):
             self.assertEqual(counts[SEARCH_KINDS.index("cheap")], 0)
             self.assertEqual(recorded[0], counts[-2])
             self.assertEqual(counts[-1], 96 * counts[-2])
+
+
+class EndgameSolverTest(unittest.TestCase):
+    def test_races_are_played_by_the_solver(self):
+        game = Quoridor()
+        game.board[2, 0, :] = 0
+        folder = tempfile.mkdtemp()
+        Make_Dataset_File(folder)
+        tc = qc.train_config.replace(**{**SETTINGS, "endgame_solver": True})
+        session = FakeSession(game.get_input_state().shape, game.policy_shape[0], seed=0, scale=0.002)
+        n = Self_Play(game, session, qc.build_config, tc, mp.Lock(), folder, 1).play()
+        with h5.File(f"{folder}/Self_Play_Data.h5") as f:
+            counts, stats = f["search_stats"][:], f["game_stats"][:]
+            values, policies = f["values_0"][:], f["policies_0"][:]
+        self.assertEqual(counts[SEARCH_KINDS.index("solver")], counts[-2])
+        self.assertEqual((counts[-2], counts[-1]), (n, 0))
+        winner = -1 if stats[3] else 1
+        mover = np.where(np.arange(n) % 2 == 0, -1, 1)
+        np.testing.assert_allclose(values[:, 0] - values[:, 2], mover * winner * 0.99 ** (n - 1 - np.arange(n)),
+                                   rtol=1e-5)
+        np.testing.assert_allclose(policies.sum(1), 1, atol=1e-5)
+
+    def test_search_stats_from_before_the_solver_are_padded(self):
+        folder = tempfile.mkdtemp()
+        Make_Dataset_File(folder)
+        with h5.File(f"{folder}/Self_Play_Data.h5", "r+") as f:
+            f.create_dataset("search_stats", data=np.arange(len(SEARCH_KINDS) + 1, dtype=np.int64))
+        game = Quoridor()
+        session = FakeSession(game.get_input_state().shape, game.policy_shape[0], seed=0, scale=0.002)
+        Self_Play(game, session, qc.build_config, qc.train_config.replace(**SETTINGS), mp.Lock(), folder,
+                  1)._write(None, 0, 1, np.ones(len(SEARCH_KINDS) + 2, dtype=np.int64))
+        with h5.File(f"{folder}/Self_Play_Data.h5") as f:
+            counts = f["search_stats"][:]
+        old = np.arange(len(SEARCH_KINDS) + 1)
+        np.testing.assert_array_equal(counts, np.concatenate([old[:-2], [0], old[-2:]]) + 1)
 
 
 class ExactSearchTest(unittest.TestCase):

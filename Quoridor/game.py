@@ -396,6 +396,11 @@ class Quoridor:
             return 1
         return -2
 
+    def endgame_targets(self):
+        """None, or (value for the player to move, plies to the end, optimal actions) once the race is proven."""
+        from Quoridor.solver import race_targets
+        return race_targets(self.board, self.next_player)
+
     num_aux_heads = NUM_AUX_HEADS
     opponent_policy_perm = FLIP_PERM
 

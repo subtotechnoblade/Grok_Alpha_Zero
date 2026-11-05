@@ -306,6 +306,11 @@ class TrainConfig(ConfigBase):
     surprise_weighting = Param(False, help=(
         "KataGo policy surprise weighting: a recorded full search gets weight 0.5 + 0.5 * KL(target || prior) / "
         "mean KL over that game's full searches, so weights still average 1."))
+    endgame_solver = Param(False, help=(
+        "Once the game's endgame_targets() proves the position (Quoridor: both players out of walls), the solver "
+        "plays the rest of the game instead of MCTS. Those positions are recorded with exact targets: the "
+        "discounted proven result as value and the policy spread evenly over every move that keeps it. Earlier "
+        "positions get the exact game result as z. Ignored by games without endgame_targets()."))
     opening_actions = Param([], help=(
         "Forced-opening book: [[action, prob], ...] applied to move 0. "
         "Probabilities may sum below 1, the remainder plays the search move. "
