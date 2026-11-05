@@ -256,7 +256,8 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
                                                        aux_heads=train_config.get("aux_heads", False),
                                                        soft_policy_temperature=train_config.get("soft_policy_temperature")
                                                        if train_config.get("soft_policy", False) else None,
-                                                       opponent_policy=train_config.get("opponent_policy", False))
+                                                       opponent_policy=train_config.get("opponent_policy", False),
+                                                       value_width=3 if train_config.get("wdl_head", False) else 1)
     model = train(train_dataloader, test_dataloader, model, learning_rate, configs,
                   run_dir=Path(run_dir).as_posix())
     Make_Generation_Folder(run_dir, generation + 1)
@@ -287,7 +288,13 @@ def Create_onnx(game_class, build_model_fn, configs, folder_path):
         tf.keras.mixed_precision.set_global_policy(policy)
     infer_model = build_model_fn(game.get_input_state().shape, game.policy_shape, configs)
     infer_model.load_weights(f"{folder_path}/model.weights.h5")
-    if len(infer_model.outputs) > 2:
+    if "wdl" in infer_model.output_names:
+        wdl = infer_model.get_layer("wdl").output
+        value = tf.keras.layers.Activation("linear", dtype="float32", name="value")(wdl[:, 0:1] - wdl[:, 2:3])
+        draw = tf.keras.layers.Activation("linear", dtype="float32", name="draw")(wdl[:, 1:2])
+        infer_model = tf.keras.Model(inputs=infer_model.inputs[0],
+                                     outputs=[infer_model.get_layer("policy").output, value, draw])
+    elif len(infer_model.outputs) > 2:
         infer_model = tf.keras.Model(inputs=infer_model.inputs[0],
                                      outputs=[infer_model.get_layer("policy").output,
                                               infer_model.get_layer("value").output])

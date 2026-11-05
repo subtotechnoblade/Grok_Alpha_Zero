@@ -63,10 +63,12 @@ def build_model(input_shape, policy_shape, configs):
 
     value = tf.keras.layers.BatchNormalization(momentum=bn_momentum)(value)
     value = tf.keras.layers.Activation("relu")(value)
-    value = tf.keras.layers.Dense(1, dtype="float32", name="value_3")(value)  # MUST NAME THIS "value"
-    # value *= build_config["rr_alpha"] # rich representation
-
-    value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
+    if train_config.get("wdl_head", False):
+        value = tf.keras.layers.Dense(3, dtype="float32", name="value_3")(value)
+        value = tf.keras.layers.Activation("softmax", dtype="float32", name="wdl")(value)
+    else:
+        value = tf.keras.layers.Dense(1, dtype="float32", name="value_3")(value)  # MUST NAME THIS "value"
+        value = tf.keras.layers.Activation("tanh", dtype="float32", name="value")(value)
 
     outputs = [policy, value]
     if train_config.get("soft_policy", False):

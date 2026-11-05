@@ -63,8 +63,11 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                                         KLD_Gumbel(activation_fn=activation_fn, dtype="float64"))
 
     value_loss_weight = optimizer_config.get("value_loss_weight", 1.0)
-    losses = {"policy": policy_loss, "value": value_loss}
-    loss_weights = {"policy": 1.0, "value": value_loss_weight}
+    value_name = "wdl" if train_config.get("wdl_head", False) else "value"
+    if value_name == "wdl":
+        value_loss = Policy_Loss(dtype="float32")
+    losses = {"policy": policy_loss, value_name: value_loss}
+    loss_weights = {"policy": 1.0, value_name: value_loss_weight}
     if train_config.get("soft_policy", False):
         losses["soft_policy"] = Policy_Loss(dtype="float32")
         loss_weights["soft_policy"] = optimizer_config.get("soft_policy_loss_weight", 1.0)
@@ -81,12 +84,14 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
                   )
 
     baseline = model.evaluate(test_dataloader, verbose=0, return_dict=True)
-    baseline = {f"val_{k}": float(v) for k, v in baseline.items() if k in ("policy_loss", "value_loss")}
-    print(f"Pre-training val: policy {baseline['val_policy_loss']:.4f} value {baseline['val_value_loss']:.4f}")
+    value_key = f"val_{value_name}_loss"
+    baseline = {f"val_{k}": float(v) for k, v in baseline.items() if k in ("policy_loss", f"{value_name}_loss")}
+    print(f"Pre-training val: policy {baseline['val_policy_loss']:.4f} {value_name} {baseline[value_key]:.4f}")
 
     # must precede the checkpoint, it writes val_norm
     checkpoint_value_weight = optimizer_config.get("checkpoint_value_weight", value_loss_weight)
-    norm_val_loss = NormalizedValLoss(weights={"val_value_loss": checkpoint_value_weight}, baseline=baseline)
+    norm_val_loss = NormalizedValLoss(keys=(value_key, "val_policy_loss"),
+                                      weights={value_key: checkpoint_value_weight}, baseline=baseline)
 
     save_best_model = tf.keras.callbacks.ModelCheckpoint(
         filepath=tmp_best,

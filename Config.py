@@ -261,6 +261,10 @@ class TrainConfig(ConfigBase):
         "Train an extra policy head on the opponent's reply: the next position's search policy, "
         "mapped into the mover's frame by the game's opponent_policy_perm (None = same frame). "
         "Loss weight: optimizer_config opponent_policy_loss_weight. Not exported to ONNX."))
+    wdl_head = Param(False, help=(
+        "Value head predicts win/draw/loss (softmax, crossentropy) instead of one tanh value. The ONNX export "
+        "keeps value = W - L and adds a draw output; the search backs up draws and the target blends the game "
+        "result with the searched W/D/L by q_weight."))
     soft_policy_temperature = Param(4.0, help=(
         "T for the soft policy target. 1 = same target as the main policy head."),
         check=_positive)
@@ -374,6 +378,8 @@ class GumbelAZConfig(TrainConfig):
 
     def validate(self):
         super().validate()
+        if self.wdl_head:
+            raise ValueError("wdl_head is not supported with gumbel AlphaZero")
         if self.MCTS_time_limit is not None:
             raise ValueError(
                 "gumbel uses iteration_limit for sequential halving, "

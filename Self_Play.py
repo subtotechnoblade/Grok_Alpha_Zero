@@ -41,6 +41,7 @@ class Self_Play:
         self.lock = lock
         self.folder_path = folder_path
         self.generation = generation
+        self.wdl = bool(train_config.get("wdl_head", False))
 
         leaves_per_batch = 1 if train_config["use_gumbel"] else self.train_config.get("leaves_per_batch", 1)
         self.cycles = self.train_config["MCTS_iteration_limit"] // leaves_per_batch
@@ -61,7 +62,8 @@ class Self_Play:
                                    dirichlet_alpha=self.train_config["dirichlet_alpha"],
                                    dirichlet_epsilon=dirichlet_epsilon,
                                    tau=1.0,
-                                   fast_find_win=False)
+                                   fast_find_win=False,
+                                   track_draws=self.wdl)
         else:
             self.mcts_gumbel = self.create_MCTS_Gumbel()
 
@@ -79,6 +81,7 @@ class Self_Play:
         board_states = []
         improved_policies = []
         target_q = []
+        target_d = []
         target_z = []
 
         actions_count = 0
@@ -112,15 +115,11 @@ class Self_Play:
             improved_policy = self.game.compute_policy_improvement(map(lambda x: x[:2], action_probs)) # This takes the first and seconds element of which is the [action, prob]
             improved_policies.append(improved_policy)
 
-            if np.array_equal(action_probs[0][0], action):
-                target_q.append(action_probs[0][2])
-            else:
-                # we need to find the q assigned for the played action (because gumbel is a little weird, the 0th action in action probs
-                # isn't always the one that gets played)
-                for i in range(1, len(action_probs)):
-                    if np.array_equal(action_probs[i][0], action):
-                        target_q.append(action_probs[i][2])
-                        break
+            # the played action's stats (gumbel doesn't always play the 0th action in action probs)
+            played = next(entry for entry in action_probs if np.array_equal(entry[0], action))
+            target_q.append(played[2])
+            if self.wdl:
+                target_d.append(played[8])
 
             target_z.append(self.game.get_next_player())  # Important that this is before do_action()
             # We can safely say that target_values are the players that played the move, not the next player
@@ -181,7 +180,15 @@ class Self_Play:
             # not smooth z, it drags the target toward zero by a factor the later
             # generations never see. Warm up on the pure game outcome instead.
             q_weight = 0.0
-        target_values = (1.0 - q_weight) * target_z + q_weight * target_q
+        if self.wdl:
+            z = target_z[:, 0]
+            outcome = np.stack([z == 1, z == 0, z == -1], axis=1).astype(np.float32)
+            q = target_q[:, 0]
+            d = np.clip(np.array(target_d, dtype=np.float32), 0.0, 1.0 - np.abs(q))
+            searched = np.stack([(1.0 - d + q) / 2, d, (1.0 - d - q) / 2], axis=1)
+            target_values = ((1.0 - q_weight) * outcome + q_weight * searched).astype(np.float32)
+        else:
+            target_values = (1.0 - q_weight) * target_z + q_weight * target_q
 
         augmented_board_states, augmented_policies = self.game.augment_sample(board_states, improved_policies)
         augmented_values = np.repeat(np.expand_dims(target_values, 0), repeats=augmented_policies.shape[0], axis=0)
@@ -446,7 +453,8 @@ def run_self_play(game_class,
         providers = ['CPUExecutionProvider']
 
     channel_spec = ChannelSpec({"inputs": (inputs_shape, wire_dtype)},
-                               {"policy": (policy_shape, np.float32), "value": ((1,), np.float32)},
+                               {"policy": (policy_shape, np.float32), "value": ((1,), np.float32),
+                                **({"draw": ((1,), np.float32)} if train_config.get("wdl_head", False) else {})},
                                max_rows=leaves_per_batch)
 
     print(

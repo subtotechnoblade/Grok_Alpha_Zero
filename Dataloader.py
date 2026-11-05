@@ -106,9 +106,11 @@ class Create_Train_Test_Split:
                  dedup_average=False,
                  max_sample_weight=None,
                  aux_heads=False,
-                 opponent_policy=False):
+                 opponent_policy=False,
+                 value_width=1):
         self.parent_path = parent_path
         self.aux_heads = aux_heads
+        self.value_width = value_width
         self.opponent_policy = opponent_policy
         np.random.seed()
 
@@ -149,6 +151,9 @@ class Create_Train_Test_Split:
                 # so dataset_id = game_id * augmentations + k (2 per game for connect4,
                 # 8 for gomoku). game_stats[2] counts unaugmented games, so we can recover it.
                 num_datasets = sum(key.startswith("boards_") for key in file.keys())
+                if num_datasets and file["values_0"].shape[1] != self.value_width:
+                    raise ValueError(f"gen {generation} stores {file['values_0'].shape[1]} value columns, "
+                                     f"expected {self.value_width} (wdl_head changed mid-run?)")
                 if self.aux_heads and num_datasets and "aux_heads_0" not in file:
                     raise ValueError(f"aux_heads is on but gen {generation} has no aux_heads_ datasets")
                 if self.opponent_policy and num_datasets and "opponent_policies_0" not in file:
@@ -261,11 +266,12 @@ class Create_Train_Test_Split:
 
 class Dataloader(tf.keras.utils.PyDataset):
     def __init__(self, states, policies, values, batch_size, weights=None, aux_heads=False,
-                 soft_policy_temperature=None, opponent_policy=False, *args, **kwargs):
+                 soft_policy_temperature=None, opponent_policy=False, value_width=1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         np.random.seed()
         self.aux_heads = aux_heads
         self.opponent_policy = opponent_policy
+        self.value_width = value_width
         self.soft_policy_temperature = soft_policy_temperature
         self.states = states
         self.policies = policies
@@ -314,14 +320,14 @@ class Dataloader(tf.keras.utils.PyDataset):
         opponent_policies = None
         if self.opponent_policy:
             policies, opponent_policies = np.split(policies, 2, axis=1)
-        targets = [policies, values[:, :1]]
+        targets = [policies, values[:, :self.value_width]]
         if self.soft_policy_temperature is not None:
             soft = np.power(policies, 1.0 / self.soft_policy_temperature)
             targets.append(soft / np.maximum(soft.sum(axis=1, keepdims=True), 1e-12))
         if opponent_policies is not None:
             targets.append(opponent_policies)
         if self.aux_heads:
-            targets.append(values[:, 1:])
+            targets.append(values[:, self.value_width:])
         return states, tuple(targets), tuple(weights for _ in targets)
 
 def Create_Dataset(folder_path,
@@ -336,7 +342,8 @@ def Create_Dataset(folder_path,
                    max_sample_weight=None,
                    aux_heads=False,
                    soft_policy_temperature=None,
-                   opponent_policy=False):
+                   opponent_policy=False,
+                   value_width=1):
     ((train_states, train_policies, train_values, train_weights),
      (test_states, test_policies, test_values, test_weights)) = Create_Train_Test_Split(
         folder_path,
@@ -348,17 +355,20 @@ def Create_Dataset(folder_path,
         dedup_average=dedup_average,
         max_sample_weight=max_sample_weight,
         aux_heads=aux_heads,
-        opponent_policy=opponent_policy).split()
+        opponent_policy=opponent_policy,
+        value_width=value_width).split()
 
     train_dataloader = Dataloader(train_states, train_policies, train_values, train_batch_size,
                                   weights=train_weights, aux_heads=aux_heads,
                                   soft_policy_temperature=soft_policy_temperature,
-                                  opponent_policy=opponent_policy)
+                                  opponent_policy=opponent_policy,
+                                  value_width=value_width)
     test_dataloader = Dataloader(test_states, test_policies, test_values,
                                  train_batch_size if test_batch_size is None else test_batch_size,
                                  weights=test_weights, aux_heads=aux_heads,
                                  soft_policy_temperature=soft_policy_temperature,
-                                 opponent_policy=opponent_policy)
+                                 opponent_policy=opponent_policy,
+                                  value_width=value_width)
     return train_dataloader, test_dataloader
 
 if __name__ == "__main__":
