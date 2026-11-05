@@ -28,6 +28,7 @@ class QuoridorTrain(AlphaZeroConfig):
     use_tensorrt = True
     trt_fp16 = True
     use_inference_server = True
+    nn_input_dtype = "uint8"
     max_cache_depth = 3
     symmetric_cache_evals = False
     random_symmetry_evals = True
@@ -55,6 +56,18 @@ class QuoridorTrain(AlphaZeroConfig):
     soft_policy = True
     opponent_policy = True
     soft_policy_temperature = 4.0
+    wdl_head = True
+    value_discount = 0.99
+    full_search_prob = 0.25
+    cheap_sims = 128
+    escalate_policy = True
+    escalate_value = True
+    escalate_close = True
+    escalate_percentile = 90.0
+    close_gap = 0.02
+    cheap_policy_targets = True
+    cheap_target_weight = 0.25
+    surprise_weighting = True
 
     # ---- dataset window ----
     num_previous_generations = 5
@@ -90,6 +103,8 @@ optimizer_config = {
     "soft_policy_loss_weight": 1.0,
     "opponent_policy_loss_weight": 0.15,
     "aux_loss_weight": 0.25,
+    "ema_decay": 0.99,
+    "ema_bn_batches": 50,
     "checkpoint_value_weight": 0.1,
     "kwargs": {
         "learning_rate": lr_schedule,
