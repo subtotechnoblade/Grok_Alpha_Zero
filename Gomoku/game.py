@@ -1,6 +1,25 @@
 import numpy as np
 from numba import njit
 
+NUM_AUX_HEADS = 3
+MOVES_LEFT_SCALE = 100.0
+WIN_SOON_PLIES = 10
+
+
+@njit(cache=True)
+def _five_through(board, x, y, player):
+    n = board.shape[0]
+    for dx, dy in ((1, 0), (0, 1), (1, 1), (1, -1)):
+        count = 1
+        for sign in (1, -1):
+            cx, cy = x + sign * dx, y + sign * dy
+            while 0 <= cx < n and 0 <= cy < n and board[cy, cx] == player:
+                count += 1
+                cx, cy = cx + sign * dx, cy + sign * dy
+        if count >= 5:
+            return True
+    return False
+
 
 class Gomoku:
     def __init__(self, width=15, height=15):
@@ -224,6 +243,36 @@ class Gomoku:
         return np.array(augmented_boards, dtype=self.board.dtype).transpose([1, 0, 2, 3, 4]), np.array(augmented_policies, dtype=np.float32).reshape((-1, 8, 225)).transpose([1, 0, 2])
 
     num_symmetries = 8
+    num_aux_heads = NUM_AUX_HEADS
+
+    @staticmethod
+    @njit(cache=True)
+    def compute_aux_targets(board: np.array, action_history: np.array, MODE=0) -> np.array:
+        """(len(action_history), NUM_AUX_HEADS, 1) float32 from the FINAL board. Row i is the position before
+        action i, seen by the player making action i (black moves on even i).
+        Heads: moves left, I win within WIN_SOON_PLIES plies, the opponent wins within WIN_SOON_PLIES plies."""
+        num_positions = len(action_history)
+        winner = 0
+        if num_positions > 0:
+            last = -1 if (num_positions - 1) % 2 == 0 else 1
+            x, y = action_history[-1][0], action_history[-1][1]
+            if _five_through(board, x, y, last):
+                winner = last
+        plies = np.arange(num_positions)
+        mover = np.where(plies % 2 == 0, -1, 1)
+        soon = (num_positions - plies) <= WIN_SOON_PLIES
+
+        # moves left
+        moves_left = ((num_positions - plies) / MOVES_LEFT_SCALE).reshape(-1, 1)
+
+        # I win soon
+        win_soon = ((mover == winner) & soon).astype(np.float64).reshape(-1, 1)
+
+        # the opponent wins soon
+        lose_soon = ((mover == -winner) & soon & (winner != 0)).astype(np.float64).reshape(-1, 1)
+
+        out = np.concatenate((moves_left, win_soon, lose_soon), axis=1)
+        return out.astype(np.float32).reshape(num_positions, NUM_AUX_HEADS, 1)
 
     @staticmethod
     def apply_symmetry(states, ids):

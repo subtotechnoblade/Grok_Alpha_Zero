@@ -7,6 +7,7 @@ from Net.Stablemax import Stablemax
 from Net.Grok_Model import Grok_Fast_EMA_Model, Ortho_Model, Ortho_Grok_Fast_EMA_Model
 from Net.Heads import value_output, extra_heads
 from Net.Inputs import network_input
+from Gomoku.game import NUM_AUX_HEADS
 
 
 def build_model(input_shape, policy_shape, configs):
@@ -67,7 +68,8 @@ def build_model(input_shape, policy_shape, configs):
     value = tf.keras.layers.Activation("relu")(value)
     value = value_output(value, train_config)
 
-    outputs = [policy, value] + extra_heads(x, policy_features, 1, policy_shape[0], train_config, bn_momentum)
+    outputs = [policy, value] + extra_heads(x, policy_features, 1, policy_shape[0], train_config, bn_momentum,
+                                            num_aux_heads=NUM_AUX_HEADS)
     return tf.keras.Model(inputs=inputs, outputs=outputs)
 
 if __name__ == "__main__":
