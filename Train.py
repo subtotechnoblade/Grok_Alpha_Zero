@@ -12,7 +12,7 @@ from Net.Optimizers.muon import Muon
 from Net.Optimizers.ortho_grad import Orthograd
 from Net.Optimizers.grok_fast import Grokfast_EMA
 from Net.Schedules import WarmupCosine
-from Net.Callbacks import NormalizedValLoss
+from Net.Callbacks import NormalizedValLoss, EMAWeights
 
 
 def train(train_dataloader, test_dataloader, model, learning_rate, configs: list[dict],
@@ -102,10 +102,17 @@ def train(train_dataloader, test_dataloader, model, learning_rate, configs: list
         verbose=1
     )
 
+    callbacks = [norm_val_loss, save_best_model]
+    validation_data = test_dataloader
+    if optimizer_config.get("ema_decay"):
+        callbacks.insert(0, EMAWeights(optimizer_config["ema_decay"], test_dataloader, train_dataloader,
+                                       bn_batches=optimizer_config.get("ema_bn_batches", 50)))
+        validation_data = None
+
     model.fit(train_dataloader,
-              validation_data=test_dataloader,
+              validation_data=validation_data,
               epochs=optimizer_config["train_epochs"],
-              callbacks=[norm_val_loss, save_best_model])
+              callbacks=callbacks)
 
     model.load_weights(tmp_best)
     os.remove(tmp_best)
