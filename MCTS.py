@@ -14,7 +14,7 @@ from tqdm import tqdm
 from warnings import warn
 
 import onnxruntime as rt
-from Client_Server import Parallelized_Session
+from Client_Server import Parallelized_Session, session_input_dtypes
 
 
 @njit(cache=True)
@@ -63,14 +63,15 @@ class Node:
 
 
 class Root(Node):  # inheritance
-    __slots__ = "visits"
+    __slots__ = "visits", "raw_priors"
 
     def __init__(self,
                  board: np.array,
                  action_history: list or tuple or np.array,
                  current_player: int,
                  child_legal_actions: list[tuple[int]] or list[int],
-                 child_prob_priors: np.array):
+                 child_prob_priors: np.array,
+                 raw_priors: np.array = None):
         super().__init__(0,
                          board,
                          action_history,
@@ -81,6 +82,7 @@ class Root(Node):  # inheritance
                          parent=None)
         # root's child_id will always be 0 because it is not needed
         self.visits = 0
+        self.raw_priors = raw_priors  # the network's priors before root noise, same order as child_prob_priors
         # don't need value because it isn't needed in PUCT calculations
         del self.child_id  # saved 24 bytes OMG
 
@@ -148,6 +150,8 @@ class MCTS:
         if self.leaves_per_batch > 1 and isinstance(inner_session, Parallelized_Session):
             raise NotImplementedError("Parallelized_Session takes one row per request, use Batched_Session")
         self._input_dtype = getattr(inner_session, "input_dtype", np.float32)
+        if hasattr(inner_session, "get_inputs"):
+            self._input_dtype = next(iter(session_input_dtypes(inner_session).values()))
         self._batch_buf = None
         self.search_stats = {"batches": 0, "network_rows": 0, "collisions": 0, "terminal": 0}
 
@@ -520,6 +524,7 @@ class MCTS:
                                                                                       # dtype is automatically inferred
                                                                                       child_policy,
                                                                           True, False)  # pass numba defaults, omitting them is 27x slower
+            raw_prior = child_prob_prior
             if self.use_dirichlet:
                 child_prob_prior = self._apply_dirichlet(child_prob_prior, self.dirichlet_epsilon)
 
@@ -531,7 +536,8 @@ class MCTS:
                              self.game.action_history.copy(),
                              self.game.get_next_player() * -1,  # current player for no moves placed
                              legal_actions,
-                             child_prob_prior)
+                             child_prob_prior,
+                             raw_priors=raw_prior[sorted_idx])
 
     def _expand_with_terminal_actions(self, node, terminal_parent_board, terminal_parent_action, terminal_actions,
                                       terminal_mask):
@@ -788,10 +794,19 @@ class MCTS:
             done += len(pending)
         return done
 
-    def run(self, iteration_limit: int or bool = None, time_limit: int or float = None, use_bar=True):
+    def root_priors(self):
+        """The network's priors for the root's children, before root noise."""
+        return self.root.raw_priors if self.root.raw_priors is not None else self.root.child_prob_priors
+
+    def root_value(self):
+        """The network's value of the root position, from the player to move."""
+        return float(self._compute_outputs(self.game.get_input_state(), len(self.game.action_history))[1])
+
+    def run(self, iteration_limit: int or bool = None, time_limit: int or float = None, use_bar=True, exact=False):
         """
         :param iteration_limit: The number of iterations MCTS is allowed to run, default will be 5 * number of legal moves
         :param time_limit: The time limit MCTS is allowed to run, note that MCTS can go over the time limit by small amounts
+        :param exact: Run exactly iteration_limit sims, even fewer than the number of legal moves
         :return: chosen_action, actions: list, probs: np.array
         where each action in actions corresponds to the prob in probs, actions[0]'s prob is probs[0] and so on
         returns the top action and action distribution for the storage buffer
@@ -805,6 +820,8 @@ class MCTS:
         len_legal_actions = len(self.game.get_legal_actions())
         if len_legal_actions == 1: # if there is only 1 move left
             iteration_limit = 1
+        elif exact and iteration_limit is not True:
+            pass
         elif (iteration_limit is not None and (iteration_limit is True or iteration_limit < len_legal_actions)) and time_limit is None:
             iteration_limit = len_legal_actions * 3
         elif iteration_limit is None and time_limit is True:
@@ -892,6 +909,7 @@ class MCTS:
         # arrives here with clean priors. Re-draw the root noise on every move, which is
         # exactly where alpha zero applies it. Expanded children keep their order, only
         # the unexpanded tail is re-sorted.
+        raw_priors = child_prob_priors
         if child.is_terminal is None and self.use_dirichlet:
             child_prob_priors = self._apply_dirichlet(child_prob_priors, self.dirichlet_epsilon)
             num_expanded = len(child.children)
@@ -900,12 +918,15 @@ class MCTS:
                 child_prob_priors[num_expanded:] = child_prob_priors[num_expanded:][tail_order]
                 child_legal_actions = child_legal_actions.copy()
                 child_legal_actions[num_expanded:] = child_legal_actions[num_expanded:][tail_order]
+                raw_priors = raw_priors.copy()
+                raw_priors[num_expanded:] = raw_priors[num_expanded:][tail_order]
 
         new_root = Root(board=self.game.board.copy(),
                         action_history=child.action_history,
                         current_player=child_current_player,
                         child_legal_actions=child_legal_actions,
-                        child_prob_priors=child_prob_priors)
+                        child_prob_priors=child_prob_priors,
+                        raw_priors=raw_priors)
 
         if child.is_terminal is None:
             new_root.children = child.children

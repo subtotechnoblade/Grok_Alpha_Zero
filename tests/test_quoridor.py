@@ -203,7 +203,8 @@ class TestFrames(unittest.TestCase):
 
     def test_white_sees_what_black_sees(self):
         for board, player in self.positions(2):
-            np.testing.assert_array_equal(state(board, player)[..., :13], state(flip_board(board), -player)[..., :13])
+            planes = [p for p in range(state(board, player).shape[-1]) if p != 13]
+            np.testing.assert_array_equal(state(board, player)[..., planes], state(flip_board(board), -player)[..., planes])
 
     def test_policy_indices(self):
         for board, player in self.positions(3):

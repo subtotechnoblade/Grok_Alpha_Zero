@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import tensorflow as tf
 
-def dedup_average(states, policies, values):
+def dedup_average(states, policies, values, sample_weights=None):
     """Merge byte-identical states into ONE sample whose targets are the
     occurrence-weighted mean of the originals.
 
@@ -47,14 +47,18 @@ def dedup_average(states, policies, values):
     values = np.asarray(values, dtype=np.float64).reshape(len(states), -1)
 
     flat = states.reshape(len(states), -1)
-    uniq, inverse, counts = np.unique(flat, axis=0, return_inverse=True, return_counts=True)
+    uniq, inverse = np.unique(flat, axis=0, return_inverse=True)
+    inverse = inverse.reshape(-1)
+    weights = (np.ones(len(states)) if sample_weights is None
+               else np.asarray(sample_weights, dtype=np.float64).reshape(-1))
+    counts = np.bincount(inverse, weights=weights, minlength=len(uniq))
 
     policy_means = np.zeros((len(uniq), policies.shape[1]))
     value_means = np.zeros((len(uniq), values.shape[1]))
-    np.add.at(policy_means, inverse, policies)
-    np.add.at(value_means, inverse, values)
-    policy_means /= counts[:, None]
-    value_means /= counts[:, None]
+    np.add.at(policy_means, inverse, policies * weights[:, None])
+    np.add.at(value_means, inverse, values * weights[:, None])
+    policy_means /= np.maximum(counts, 1e-12)[:, None]
+    value_means /= np.maximum(counts, 1e-12)[:, None]
     # a mean of normalized distributions is still normalized, no renorm needed
 
     # return lists of per-sample arrays, exactly the shape split() accumulates
@@ -136,6 +140,7 @@ class Create_Train_Test_Split:
         print(f"Collecting data from {len(self.files)} generations!")
         self.train_states, self.train_policies, self.train_values = [], [], []
         self.test_states, self.test_policies, self.test_values = [], [], []
+        train_base, test_base = [], []
 
         train_percent = self.train_percent
         test_percent = self.test_percent
@@ -189,12 +194,19 @@ class Create_Train_Test_Split:
 
                     if is_test:
                         states, policies, values = self.test_states, self.test_policies, self.test_values
+                        base = test_base
                     else:
                         states, policies, values = self.train_states, self.train_policies, self.train_values
+                        base = train_base
 
                     # every augmentation of a game follows that game into the same split
                     for dataset_id in range(first_dataset_id, first_dataset_id + augmentations):
-                        states += list(file[f"boards_{dataset_id}"])
+                        game_boards = file[f"boards_{dataset_id}"]
+                        states += list(game_boards)
+                        if f"sample_weights_{dataset_id}" in file:
+                            base += list(file[f"sample_weights_{dataset_id}"][:])
+                        else:
+                            base += [1.0] * len(game_boards)
                         if self.opponent_policy:
                             policies += list(np.concatenate([file[f"policies_{dataset_id}"][:],
                                                              file[f"opponent_policies_{dataset_id}"][:]], axis=1))
@@ -219,9 +231,9 @@ class Create_Train_Test_Split:
         if self.dedup_average:
             num_train, num_test = len(self.train_states), len(self.test_states)
             self.train_states, self.train_policies, self.train_values, train_counts = dedup_average(
-                self.train_states, self.train_policies, self.train_values)
+                self.train_states, self.train_policies, self.train_values, train_base)
             self.test_states, self.test_policies, self.test_values, test_counts = dedup_average(
-                self.test_states, self.test_policies, self.test_values)
+                self.test_states, self.test_policies, self.test_values, test_base)
 
             # sample weight = occurrence count, normalized to MEAN 1.0 per split side so
             # the effective learning rate stays where it was tuned. Normalizing per side
@@ -238,8 +250,9 @@ class Create_Train_Test_Split:
                       f"(the most repeated position pulls {self.train_weights.max():.0f}x a unique one)")
         else:
             # no dedup -> every stored sample already carries its own frequency
-            self.train_weights = np.ones(len(self.train_states), dtype=np.float32)
-            self.test_weights = np.ones(len(self.test_states), dtype=np.float32)
+            train_base, test_base = np.asarray(train_base, np.float32), np.asarray(test_base, np.float32)
+            self.train_weights = train_base * (len(train_base) / max(1e-12, train_base.sum()))
+            self.test_weights = test_base * (len(test_base) / max(1e-12, test_base.sum()))
 
         num_test = len(self.test_states)
         (self.test_states, self.test_policies, self.test_values, self.test_weights,
@@ -266,12 +279,13 @@ class Create_Train_Test_Split:
 
 class Dataloader(tf.keras.utils.PyDataset):
     def __init__(self, states, policies, values, batch_size, weights=None, aux_heads=False,
-                 soft_policy_temperature=None, opponent_policy=False, value_width=1, *args, **kwargs):
+                 soft_policy_temperature=None, opponent_policy=False, value_width=1, input_dtype=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         np.random.seed()
         self.aux_heads = aux_heads
         self.opponent_policy = opponent_policy
         self.value_width = value_width
+        self.input_dtype = input_dtype
         self.soft_policy_temperature = soft_policy_temperature
         self.states = states
         self.policies = policies
@@ -305,7 +319,7 @@ class Dataloader(tf.keras.utils.PyDataset):
     def __getitem__(self, idx):
         batched_indexes = self.batch_indexes[idx]
         len_batched_indexes = len(batched_indexes)
-        states = np.zeros((len_batched_indexes, *self.states[0].shape), dtype=self.states[0].dtype)
+        states = np.zeros((len_batched_indexes, *self.states[0].shape), dtype=self.input_dtype or self.states[0].dtype)
         policies = np.zeros((len_batched_indexes, *self.policies[0].shape), dtype=self.policies[0].dtype)
         values = np.zeros((len_batched_indexes, *self.values[0].shape), dtype=self.values[0].dtype)
 
@@ -343,7 +357,8 @@ def Create_Dataset(folder_path,
                    aux_heads=False,
                    soft_policy_temperature=None,
                    opponent_policy=False,
-                   value_width=1):
+                   value_width=1,
+                   input_dtype=None):
     ((train_states, train_policies, train_values, train_weights),
      (test_states, test_policies, test_values, test_weights)) = Create_Train_Test_Split(
         folder_path,
@@ -362,13 +377,15 @@ def Create_Dataset(folder_path,
                                   weights=train_weights, aux_heads=aux_heads,
                                   soft_policy_temperature=soft_policy_temperature,
                                   opponent_policy=opponent_policy,
-                                  value_width=value_width)
+                                  value_width=value_width,
+                                  input_dtype=input_dtype)
     test_dataloader = Dataloader(test_states, test_policies, test_values,
                                  train_batch_size if test_batch_size is None else test_batch_size,
                                  weights=test_weights, aux_heads=aux_heads,
                                  soft_policy_temperature=soft_policy_temperature,
                                  opponent_policy=opponent_policy,
-                                  value_width=value_width)
+                                  value_width=value_width,
+                                  input_dtype=input_dtype)
     return train_dataloader, test_dataloader
 
 if __name__ == "__main__":

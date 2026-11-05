@@ -226,6 +226,11 @@ class TrainConfig(ConfigBase):
         "Evaluate every other position under one random board symmetry, so the "
         "net's orientation bias deeper in the tree averages out instead of "
         "steering every game the same way. Free: same number of evals."))
+    nn_input_dtype = Param(None, help=(
+        "Network input dtype: None = float32, 'uint8' = states go to the GPU as bytes (4x less to copy) and the "
+        "model casts them itself. uint8 needs every state value in 0..255. int8 is not offered: TensorRT rejects "
+        "int8 inputs without quantization scales."),
+        check=lambda v: None if v in (None, "uint8") else "must be None or 'uint8'")
     dml_device_id = Param(None, help=(
         "Pin the DirectML adapter on multi-GPU machines (None = default). "
         "On this machine: 0 = 760M igpu, 1 = RTX 2060."))
@@ -268,6 +273,35 @@ class TrainConfig(ConfigBase):
     soft_policy_temperature = Param(4.0, help=(
         "T for the soft policy target. 1 = same target as the main policy head."),
         check=_positive)
+    value_discount = Param(1.0, help=(
+        "Decisive results decay by this per ply to the end: a win n plies away targets +discount^n, a loss "
+        "-discount^n, so faster wins and slower losses score better. 1.0 = off."),
+        check=lambda v: None if 0.0 < v <= 1.0 else "must be in (0, 1]")
+    full_search_prob = Param(1.0, help=(
+        "Playout cap randomization: chance a move gets the full MCTS_iteration_limit search (with root noise) "
+        "and is recorded. Other moves run cheap_sims without noise and only pick the move. 1.0 = off. "
+        "Exploration-ply moves are always full."), check=lambda v: None if 0.0 < v <= 1.0 else "must be in (0, 1]")
+    cheap_sims = Param(128, help="Sims for a cheap (unrecorded) search.", check=_positive)
+    escalate_policy = Param(False, help=(
+        "Continue a cheap search to the full budget and record it when KL(cheap visits || prior) is above the "
+        "escalate_percentile of recent cheap searches, or the most visited move is not the top prior."))
+    escalate_value = Param(False, help=(
+        "Same, when |root Q - network value| is above the escalate_percentile. Costs one extra network call per "
+        "cheap search."))
+    escalate_close = Param(False, help=(
+        "Same, when the two best moves with close_min_visits visits are within close_gap in Q."))
+    escalate_percentile = Param(90.0, help="Running percentile the policy and value signals must beat.",
+                                check=lambda v: None if 0.0 <= v < 100.0 else "must be in [0, 100)")
+    close_gap = Param(0.02, help="Q gap for escalate_close.", check=_non_negative)
+    close_min_visits = Param(10, help="Visits a move needs to count for escalate_close.", check=_positive)
+    cheap_policy_targets = Param(False, help=(
+        "Also record cheap positions, with a completed-Q policy target (softmax(log prior + sigma(completed Q))) "
+        "instead of visit counts, at sample weight cheap_target_weight."))
+    cheap_target_weight = Param(0.25, help="Sample weight of a cheap position's targets.", check=_non_negative)
+    completed_q_scale = Param(0.1, help="c_scale in sigma(q) = (50 + max visits) * c_scale * q.", check=_positive)
+    surprise_weighting = Param(False, help=(
+        "KataGo policy surprise weighting: a recorded full search gets weight 0.5 + 0.5 * KL(target || prior) / "
+        "mean KL over that game's full searches, so weights still average 1."))
     opening_actions = Param([], help=(
         "Forced-opening book: [[action, prob], ...] applied to move 0. "
         "Probabilities may sum below 1, the remainder plays the search move. "
@@ -330,6 +364,8 @@ class TrainConfig(ConfigBase):
             if total > 1.0 + 1e-9:
                 raise ValueError(
                     f"opening_positions probabilities sum to {total:.3f} > 1")
+        if self.full_search_prob < 1.0 and self.cheap_sims >= self.MCTS_iteration_limit:
+            raise ValueError("cheap_sims must be below MCTS_iteration_limit when full_search_prob < 1")
 
 
 class AlphaZeroConfig(TrainConfig):
@@ -380,6 +416,8 @@ class GumbelAZConfig(TrainConfig):
         super().validate()
         if self.wdl_head:
             raise ValueError("wdl_head is not supported with gumbel AlphaZero")
+        if self.full_search_prob < 1.0 or self.cheap_policy_targets or self.surprise_weighting:
+            raise ValueError("playout caps, cheap policy targets and surprise weighting need PUCT, not gumbel")
         if self.MCTS_time_limit is not None:
             raise ValueError(
                 "gumbel uses iteration_limit for sequential halving, "

@@ -13,6 +13,9 @@ import multiprocessing as mp
 
 from MCTS import MCTS
 from MCTS_Gumbel import MCTS_Gumbel
+from Playout_Cap import Playout_Cap, REASONS, completed_q_policy, root_signals
+
+SEARCH_KINDS = REASONS + ("cheap",)
 
 from Client_Server import Batched_Session, start_batch_server, create_wakeups
 from Transport import ChannelSpec, create_slots
@@ -42,6 +45,10 @@ class Self_Play:
         self.folder_path = folder_path
         self.generation = generation
         self.wdl = bool(train_config.get("wdl_head", False))
+        self.cap = Playout_Cap(train_config)
+        self.use_cap = self.cap.enabled and generation > 0 and not train_config["use_gumbel"]
+        self.record_cheap = self.use_cap and bool(train_config.get("cheap_policy_targets", False))
+        self.surprise_weighting = bool(train_config.get("surprise_weighting", False)) and not train_config["use_gumbel"]
 
         leaves_per_batch = 1 if train_config["use_gumbel"] else self.train_config.get("leaves_per_batch", 1)
         self.cycles = self.train_config["MCTS_iteration_limit"] // leaves_per_batch
@@ -77,34 +84,61 @@ class Self_Play:
                                  c_scale=self.train_config["c_scale"],
                                  activation_fn="stablemax" if self.build_config.get("use_stablemax") else "softmax")
 
+    def _explore(self, ply):
+        if ply % 2 == 0:
+            return ply // 2 < self.train_config["num_explore_actions_first"]
+        return (ply - 1) // 2 < self.train_config["num_explore_actions_second"]
+
+    def _root_actions(self):
+        root = self.mcts.root
+        actions = [child.action_history[-1] for child in root.children]
+        unexpanded = getattr(root, "child_legal_actions", None)
+        if unexpanded is not None:
+            actions += list(unexpanded[len(actions):])
+        return actions
+
     def play(self):
         board_states = []
         improved_policies = []
         target_q = []
         target_d = []
         target_z = []
+        plies, sample_weights, surprises, kinds = [], [], [], []
+        search_counts = np.zeros(len(SEARCH_KINDS) + 2, dtype=np.int64)  # kinds..., moves, sims
 
+        full = True  # the first root was built with noise
         actions_count = 0
         winner = -2
         while winner == -2 and actions_count < self.train_config["max_actions"]:
             if _stop_requested["value"]:
                 return None  # Ctrl+C: drop the unfinished game, nothing is written
-            board_states.append(self.game.get_input_state().copy())
+            state = self.game.get_input_state().copy()
 
             current_move_num = len(self.game.action_history)
+            kind, net_value, sims = "random", 0.0, self.iteration_limit
 
             # using normal MCTS
             if not self.train_config["use_gumbel"]:
-                if current_move_num % 2 == 0:
-                    explore = current_move_num // 2 < self.train_config["num_explore_actions_first"]
-                else:
-                    explore = (current_move_num - 1) // 2 < self.train_config["num_explore_actions_second"]
+                explore = self._explore(current_move_num)
                 self.mcts.update_hyperparams(tau=1.0 if explore else 0)
 
-                action, action_probs = self.mcts.run(
-                    iteration_limit=self.iteration_limit,
-                    time_limit=self.time_limit,
-                    use_bar=False)
+                if full or not self.use_cap:
+                    kind = "explore" if explore else "random"
+                    action, action_probs = self.mcts.run(
+                        iteration_limit=self.iteration_limit,
+                        time_limit=self.time_limit,
+                        use_bar=False)
+                else:
+                    sims = self.cap.cheap_sims
+                    action, action_probs = self.mcts.run(iteration_limit=sims, use_bar=False, exact=True)
+                    root = self.mcts.root
+                    if self.cap.needs_net_value or self.record_cheap:
+                        net_value = self.mcts.root_value()
+                    kind = self.cap.escalate(root.child_visits, root.child_values, self.mcts.root_priors(), net_value)
+                    if kind is not None:
+                        action, action_probs = self.mcts.run(iteration_limit=self.iteration_limit - sims,
+                                                             use_bar=False, exact=True)
+                        sims = self.iteration_limit
 
             # else if we are using gumbel we need to reset the tree class
             else:
@@ -112,17 +146,40 @@ class Self_Play:
                     iteration_limit=self.iteration_limit,
                     time_limit=self.time_limit, use_bar=False)
 
-            improved_policy = self.game.compute_policy_improvement(map(lambda x: x[:2], action_probs)) # This takes the first and seconds element of which is the [action, prob]
-            improved_policies.append(improved_policy)
+            search_counts[SEARCH_KINDS.index(kind or "cheap")] += 1
+            search_counts[-2] += 1
+            search_counts[-1] += sims
 
-            # the played action's stats (gumbel doesn't always play the 0th action in action probs)
-            played = next(entry for entry in action_probs if np.array_equal(entry[0], action))
-            target_q.append(played[2])
-            if self.wdl:
-                target_d.append(played[8])
+            if kind is not None or self.record_cheap:
+                if kind is None:
+                    root = self.mcts.root
+                    policy = completed_q_policy(root.child_visits, root.child_values, self.mcts.root_priors(), net_value,
+                                                c_scale=self.train_config.get("completed_q_scale", 0.1))
+                    improved_policy = self.game.compute_policy_improvement(zip(self._root_actions(), policy))
+                    sample_weights.append(self.train_config.get("cheap_target_weight", 0.25))
+                    surprises.append(np.nan)
+                else:
+                    improved_policy = self.game.compute_policy_improvement(map(lambda x: x[:2], action_probs)) # This takes the first and seconds element of which is the [action, prob]
+                    sample_weights.append(1.0)
+                    if self.surprise_weighting:
+                        root = self.mcts.root
+                        surprises.append(root_signals(root.child_visits, root.child_values, self.mcts.root_priors(),
+                                                      0.0, 1)[0])
+                    else:
+                        surprises.append(np.nan)
+                board_states.append(state)
+                improved_policies.append(improved_policy)
+                plies.append(current_move_num)
+                kinds.append(kind or "cheap")
 
-            target_z.append(self.game.get_next_player())  # Important that this is before do_action()
-            # We can safely say that target_values are the players that played the move, not the next player
+                # the played action's stats (gumbel doesn't always play the 0th action in action probs)
+                played = next(entry for entry in action_probs if np.array_equal(entry[0], action))
+                target_q.append(played[2])
+                if self.wdl:
+                    target_d.append(played[8])
+
+                target_z.append(self.game.get_next_player())  # Important that this is before do_action()
+                # the player that made this position's move, not the next player
 
             if current_move_num == 0 and self.train_config.get("opening_actions", False):
                 sample_actions, weights = zip(*self.train_config["opening_actions"])
@@ -142,6 +199,9 @@ class Self_Play:
 
             if winner == -2:  # or else there will be an error, because you are pruning a winning move
                 if not self.train_config["use_gumbel"]:
+                    if self.use_cap:
+                        full = self._explore(len(self.game.action_history)) or self.cap.full_search()
+                        self.mcts.use_dirichlet = full  # root noise only on full searches
                     create_new_root = self.train_config.get("create_new_root", False)
                     self.mcts.prune_tree(action, create_new_root)
                 else:
@@ -157,17 +217,26 @@ class Self_Play:
                 # (the mover on the final ply), zeroing their value targets and
                 # inflating every draw rate in game_stats
 
+        game_length = len(self.game.action_history)
+        if not board_states:
+            self._write(None, winner, game_length, search_counts)
+            return 0
         board_states = np.array(board_states, dtype=self.game.board.dtype)
         improved_policies = np.array(improved_policies, dtype=np.float32)
+        plies = np.array(plies, dtype=np.int64)
 
         target_q = np.array(target_q, dtype=np.float32).reshape((-1, 1))
         target_z = np.array(target_z, dtype=np.float32).reshape((-1, 1))
+        target_z *= winner  # +1 where the mover won, -1 where it lost, 0 for a draw
+        discount = self.train_config.get("value_discount", 1.0)
+        if discount < 1.0:
+            target_z *= (discount ** (game_length - 1 - plies)).astype(np.float32).reshape((-1, 1))
 
-        if winner == target_z[-1][0] == -1:  # if player -1 just won
-            target_z *= -1.0  # Flip it so that the player that won, evaluates to 1 (winner)
-        elif winner == 0:  # if it a draw or
-            target_z[:] = 0.0
-        # else the player that played was 1, and won which is 1, thus no need to invert
+        sample_weights = np.array(sample_weights, dtype=np.float32)
+        surprises = np.array(surprises, dtype=np.float64)
+        full_rows = ~np.isnan(surprises)
+        if self.surprise_weighting and full_rows.any() and surprises[full_rows].mean() > 0:
+            sample_weights[full_rows] *= 0.5 + 0.5 * surprises[full_rows] / surprises[full_rows].mean()
         # augmentation
 
         # weighted average of q and z. q alone suffers from the horizon effect, z alone is
@@ -182,7 +251,8 @@ class Self_Play:
             q_weight = 0.0
         if self.wdl:
             z = target_z[:, 0]
-            outcome = np.stack([z == 1, z == 0, z == -1], axis=1).astype(np.float32)
+            outcome = np.stack([(1 + z) / 2, (z == 0).astype(np.float32), (1 - z) / 2], axis=1).astype(np.float32)
+            outcome[z == 0] = (0.0, 1.0, 0.0)
             q = target_q[:, 0]
             d = np.clip(np.array(target_d, dtype=np.float32), 0.0, 1.0 - np.abs(q))
             searched = np.stack([(1.0 - d + q) / 2, d, (1.0 - d - q) / 2], axis=1)
@@ -196,24 +266,38 @@ class Self_Play:
         if self.train_config.get("opponent_policy", False):
             perm = getattr(self.game, "opponent_policy_perm", None)
             opponent_policies = np.zeros_like(augmented_policies)
-            opponent_policies[:, :-1] = augmented_policies[:, 1:] if perm is None else augmented_policies[:, 1:][..., perm]
+            consecutive = np.flatnonzero(plies[1:] == plies[:-1] + 1)
+            following = augmented_policies[:, consecutive + 1]
+            opponent_policies[:, consecutive] = following if perm is None else following[..., perm]
         aux_targets = None
         if self.train_config.get("aux_heads", False):
             aux_targets = self.game.compute_aux_targets(self.game.board, np.array(self.game.action_history))
-            aux_targets = np.asarray(aux_targets, dtype=np.float32)[-board_states.shape[0]:]
+            aux_targets = np.asarray(aux_targets, dtype=np.float32)[plies]
+        weighted = self.record_cheap or self.surprise_weighting
+        rows = (augmented_board_states, augmented_policies, augmented_values, opponent_policies, aux_targets,
+                sample_weights if weighted else None)
+        self._write(rows, winner, game_length, search_counts)
+        return board_states.shape[0]
 
+    def _write(self, rows, winner, game_length, search_counts):
         # Assume that a .h5 file has been created and the max moves dataset is already created
         with self.lock, h5.File(f"{self.folder_path}/Self_Play_Data.h5", "r+") as file:
-            game_length = len(self.game.action_history)
-
             # [max_actions, total_actions, num_unaugmented_games, player -1 wins, draws, player 1 wins]
             if file["game_stats"][0] < game_length:
                 file["game_stats"][0] = game_length
 
-            file["game_stats"][1] += board_states.shape[0]  # adds to
             file["game_stats"][2] += 1  # adds a game to num_unaugmented_games
-
             file["game_stats"][winner + 4] += 1  # adding winners/ draws
+
+            if "search_stats" not in file:
+                file.create_dataset("search_stats", data=np.zeros(len(search_counts), dtype=np.int64))
+            file["search_stats"][...] = file["search_stats"][...] + search_counts
+
+            if rows is None:
+                return
+            augmented_board_states, augmented_policies, augmented_values, opponent_policies, aux_targets, \
+                sample_weights = rows
+            file["game_stats"][1] += augmented_board_states.shape[1]
 
             dataset_name = sum(key.startswith("boards_") for key in file.keys())  # starts from 0
             for inc in range(augmented_policies.shape[0]):
@@ -248,7 +332,13 @@ class Self_Play:
                                         dtype=np.float32,
                                         data=aux_targets,
                                         chunks=None)
-        return board_states.shape[0]
+
+                if sample_weights is not None:
+                    file.create_dataset(f"sample_weights_{dataset_name + inc}",
+                                        maxshape=(None,),
+                                        dtype=np.float32,
+                                        data=sample_weights,
+                                        chunks=None)
 
 
 def starting_game(game_class, train_config):
@@ -401,7 +491,8 @@ def run_self_play(game_class,
     input_state = game.get_input_state()
     inputs_shape = input_state.shape
     # integer and bool states travel as they are (int8 is 4x less than float32), anything else as float32
-    wire_dtype = input_state.dtype if input_state.dtype.kind in "biu" else np.float32
+    wire_dtype = (np.dtype(train_config["nn_input_dtype"]) if train_config.get("nn_input_dtype")
+                  else input_state.dtype if input_state.dtype.kind in "biu" else np.float32)
     policy_shape = game.policy_shape
     str_board_shape = convert_shape(inputs_shape)
     del game, input_state

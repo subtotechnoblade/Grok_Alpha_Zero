@@ -209,6 +209,12 @@ def Print_Stats(folder_path):
         print(f"Player -1 winrate: {round(player1_wins / num_unaugmented_games, 4)}")
         print(f"Draw rate: {round(draws / num_unaugmented_games, 4)}")
         print(f"Player 1 winrate: {round(player2_wins / num_unaugmented_games, 4)}\n")
+        if "search_stats" in file:
+            from Self_Play import SEARCH_KINDS
+            counts = file["search_stats"][:]
+            moves = max(int(counts[-2]), 1)
+            shares = ", ".join(f"{kind} {counts[i] / moves:.1%}" for i, kind in enumerate(SEARCH_KINDS))
+            print(f"Searches: {shares}; {counts[-1] / moves:.0f} sims per move\n")
 
 
 def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_folder_path,
@@ -257,7 +263,8 @@ def Train_NN(game_class, build_model_fn, configs, generation, folder_path, save_
                                                        soft_policy_temperature=train_config.get("soft_policy_temperature")
                                                        if train_config.get("soft_policy", False) else None,
                                                        opponent_policy=train_config.get("opponent_policy", False),
-                                                       value_width=3 if train_config.get("wdl_head", False) else 1)
+                                                       value_width=3 if train_config.get("wdl_head", False) else 1,
+                                                       input_dtype=train_config.get("nn_input_dtype"))
     model = train(train_dataloader, test_dataloader, model, learning_rate, configs,
                   run_dir=Path(run_dir).as_posix())
     Make_Generation_Folder(run_dir, generation + 1)
@@ -280,7 +287,8 @@ def Create_onnx(game_class, build_model_fn, configs, folder_path):
         # Invalid device or cannot modify virtual devices once initialized.
         pass
     print("Converting tensorflow model to onnx\n")
-    input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), tf.float32, name="inputs")]
+    input_dtype = configs[1].get("nn_input_dtype") or "float32"
+    input_signature = [tf.TensorSpec((None, *game.get_input_state().shape), getattr(tf, input_dtype), name="inputs")]
 
     mixed_precision_policy = build_config.get("mixed_precision")
     if mixed_precision_policy is not None:
@@ -391,7 +399,8 @@ def Run(game_class, build_model_fn, configs, run_dir):
     # deleting it just bought a ~5s recompile in every worker
 
     if not Game_Tester(game_class, aux_heads=train_config.get("aux_heads", False),
-                       opponent_policy=train_config.get("opponent_policy", False)).test():
+                       opponent_policy=train_config.get("opponent_policy", False),
+                       nn_input_dtype=train_config.get("nn_input_dtype")).test():
         raise ValueError("Tests failed, training cannot continue!")
 
     os.makedirs(run_dir, exist_ok=True)

@@ -11,10 +11,11 @@ class Game_Tester:
     # single measurement. Time this many calls and divide.
     TIMING_REPEATS = 200
 
-    def __init__(self, game_class, aux_heads=False, opponent_policy=False):
+    def __init__(self, game_class, aux_heads=False, opponent_policy=False, nn_input_dtype=None):
         self.game_class = game_class
         self.aux_heads = aux_heads
         self.opponent_policy = opponent_policy
+        self.nn_input_dtype = nn_input_dtype
         if not isinstance(game_class, type):
             raise TypeError(
                 "Please give the class, not an instance, example: Game_Tester(Game) not Game_Tester(Game())")
@@ -237,10 +238,14 @@ class Game_Tester:
             print("Outputs are different")
             return False
 
-        if NN_state.dtype != NN_state_MCTS.dtype != np.float32:
+        if NN_state.dtype != NN_state_MCTS.dtype:
             print("Checking if get_input_state and get_input_state_MCTS return the same array: Fail\n")
-            print("Dtypes are different")
+            print(f"Dtypes are different: {NN_state.dtype} and {NN_state_MCTS.dtype}")
             return False
+
+        if self.nn_input_dtype is None:
+            print(self.color_text(f"nn_input_dtype is None, so the network input is float32 ({NN_state.dtype} states). "
+                                  f"'uint8' moves 4x fewer bytes to the GPU per position", "yellow"))
 
         print("Checking if get_input_state and get_input_state_MCTS return the same array: Pass\n")
         return True
@@ -524,7 +529,7 @@ class Game_Tester:
             return False
 
         self.reset()
-        while self.game.check_win() == -2 and len(self.game.action_history) < 400:
+        while (not self.game.action_history or self.game.check_win() == -2) and len(self.game.action_history) < 400:
             legal_actions = self.game.get_legal_actions()
             self.game.do_action(legal_actions[np.random.randint(len(legal_actions))])
         num_positions = len(self.game.action_history)
@@ -557,6 +562,29 @@ class Game_Tester:
         print(f"Checking compute_aux_targets: Pass ({num_aux_heads} heads over a {num_positions} move game)\n")
         return True
 
+    def check_nn_input_range(self, games=5):
+        info = np.iinfo(np.dtype(self.nn_input_dtype))
+        low, high = np.inf, -np.inf
+        for _ in range(games):
+            self.reset()
+            while (not self.game.action_history or self.game.check_win() == -2) and len(self.game.action_history) < 400:
+                state = self.game.get_input_state()
+                if state.dtype.kind not in "biu":
+                    print("Checking states fit nn_input_dtype: Fail")
+                    print(f"nn_input_dtype is {self.nn_input_dtype} but get_input_state returns {state.dtype}")
+                    self.reset()
+                    return False
+                low, high = min(low, state.min()), max(high, state.max())
+                legal_actions = self.game.get_legal_actions()
+                self.game.do_action(legal_actions[np.random.randint(len(legal_actions))])
+        self.reset()
+        if low < info.min or high > info.max:
+            print("Checking states fit nn_input_dtype: Fail")
+            print(f"States range over [{low}, {high}] but {self.nn_input_dtype} holds [{info.min}, {info.max}]")
+            return False
+        print(f"Checking states fit nn_input_dtype ({self.nn_input_dtype}, seen [{low}, {high}]): Pass\n")
+        return True
+
     def check_opponent_policy_perm(self):
         perm = getattr(self.game, "opponent_policy_perm", None)
         if perm is None:
@@ -586,16 +614,16 @@ class Game_Tester:
         while winner == -2:
             try:
                 action, probs = mcts.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
-            except Exception:
+            except Exception as error:
                 print("Checking if everything works with MCTS: Fail")
-                print("MCTS doesn't work, might want to test that!")
+                print(f"MCTS doesn't work, might want to test that! {error!r}")
                 return False
 
             try:
                 action, probs = mcts_gumbel.run(iteration_limit=len(self.game.get_legal_actions()), use_bar=False)
-            except Exception:
+            except Exception as error:
                 print("Checking if everything works with MCTS: Fail")
-                print("MCTS gumbel doesn't work, might want to test that!")
+                print(f"MCTS gumbel doesn't work, might want to test that! {error!r}")
                 return False
 
 
@@ -665,6 +693,10 @@ class Game_Tester:
             return False
 
         if self.opponent_policy and not self.check_opponent_policy_perm():
+            print(self.color_text("Tests Failed"))
+            return False
+
+        if self.nn_input_dtype is not None and not self.check_nn_input_range():
             print(self.color_text("Tests Failed"))
             return False
 

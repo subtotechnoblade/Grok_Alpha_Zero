@@ -57,7 +57,9 @@ def compute_speed(game_class,
 
     sess = rt.InferenceSession(onnx_file_path, providers=providers)
 
-    dummy_inputs = np.random.uniform(-1, 2, (max_shape, *game.get_input_state().shape)).astype(np.float32)
+    from Client_Server import session_input_dtypes
+    dummy_inputs = np.random.randint(0, 2, (max_shape, *game.get_input_state().shape)).astype(
+        next(iter(session_input_dtypes(sess).values())))
 
     for _ in range(500):
         policy, value = sess.run(["policy", "value"], input_feed={"inputs": dummy_inputs})

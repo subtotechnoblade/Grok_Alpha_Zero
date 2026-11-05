@@ -55,7 +55,9 @@ def cache_tensorrt(game_class,
                                providers=providers)
 
 
-    dummy_inputs = np.random.uniform(-1, 2, (1, *game.get_input_state().shape)).astype(np.float32)
+    from Client_Server import session_input_dtypes
+    dummy_inputs = np.random.randint(0, 2, (1, *game.get_input_state().shape)).astype(
+        next(iter(session_input_dtypes(sess).values())))
 
     for _ in range(warmup_iterations):
         policy, value = sess.run(["policy", "value"],

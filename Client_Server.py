@@ -29,6 +29,15 @@ def _needs_fixed_shapes(providers):
     return any("Dml" in (p[0] if isinstance(p, tuple) else p) for p in providers)
 
 
+ORT_DTYPES = {"tensor(float)": np.float32, "tensor(float16)": np.float16,
+              "tensor(uint8)": np.uint8, "tensor(int8)": np.int8}
+
+
+def session_input_dtypes(sess):
+    """{input name: numpy dtype} an onnxruntime session expects."""
+    return {i.name: ORT_DTYPES.get(i.type, np.float32) for i in sess.get_inputs()}
+
+
 def make_engine(file_path, providers, max_batch, buckets=None, batch_axis=0):
     """Pick the session strategy the execution provider needs.
 
@@ -51,6 +60,9 @@ class DynamicEngine:
 
     def bucket_for(self, batch):
         return batch
+
+    def input_dtypes(self):
+        return session_input_dtypes(self.sess)
 
     def run(self, output_names, input_feed, run_options=None):
         return self.sess.run(output_names, input_feed, run_options)
@@ -136,6 +148,9 @@ class BucketedEngine:
         pad = [(0, 0)] * arr.ndim
         pad[self.batch_axis] = (0, size - current)
         return np.pad(arr, pad)
+
+    def input_dtypes(self):
+        return session_input_dtypes(next(iter(self.sessions.values())))
 
     def run(self, output_names, input_feed, run_options=None):
         # Pad up to the nearest bucket, run, trim back. Callers hand us any batch size
@@ -572,7 +587,8 @@ def start_batch_server(spec, slots, providers, file_path, request_ready=None, re
     import signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)  # the parent terminates the server once workers have stopped
     engine = make_engine(file_path, providers, spec.max_rows * len(slots))
-    Batch_Server(spec, slots, engine, request_ready, response_events).serve_forever()
+    Batch_Server(spec, slots, engine, request_ready, response_events,
+                 model_dtypes=engine.input_dtypes()).serve_forever()
 
 
 if __name__ == "__main__":

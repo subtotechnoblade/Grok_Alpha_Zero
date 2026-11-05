@@ -3,7 +3,8 @@ from numba import njit
 
 SIZE = 9
 WALLS = 10
-NUM_PLANES = 14
+NUM_PLANES = 20
+WALL_PLANES = (2, 3, 14, 15, 16, 17, 18, 19)
 MAX_ACTIONS = 8 + 2 * (SIZE - 1) * (SIZE - 1)
 NUM_AUX_HEADS = 5
 MOVES_LEFT_SCALE = 100.0
@@ -202,11 +203,56 @@ def _input_state(board, to_move):
                 state[r, c, 4 + d] = 0 if _can_move(H, V, r, c, d, n) else 1
     state[:, :, 8] = _walls_left(board, to_move)
     state[:, :, 9] = _walls_left(board, -to_move)
-    state[:, :, 10] = np.minimum(_dist_map(H, V, 0, n), 127).astype(np.int8)
-    state[:, :, 11] = np.minimum(_dist_map(H, V, n - 1, n), 127).astype(np.int8)
+    for plane, goal_row in ((10, 0), (11, n - 1)):
+        dist = _dist_map(H, V, goal_row, n)
+        state[:, :, plane] = np.where(dist < 0, 127, np.minimum(dist, 127)).astype(np.int8)
     state[:, :, 12] = 1
     state[:, :, 13] = 1 if to_move == -1 else 0
+    _wall_impact(H, V, mr, mc, orow, oc, n, state)
     return state
+
+
+@njit(cache=True)
+def _wall_impact(H, V, mr, mc, tr, tc, n, state):
+    """Planes 14-19 per wall groove: H legal, V legal, my path increase (H, V), their path increase (H, V).
+    Only walls cutting a current shortest path can change a distance, so only those are searched."""
+    my_map = _dist_map(H, V, 0, n)
+    their_map = _dist_map(H, V, n - 1, n)
+    my_base, their_base = my_map[mr, mc], their_map[tr, tc]
+    my_vert = np.zeros((n, n), dtype=np.bool_)
+    my_horiz = np.zeros((n, n), dtype=np.bool_)
+    their_vert = np.zeros((n, n), dtype=np.bool_)
+    their_horiz = np.zeros((n, n), dtype=np.bool_)
+    _mark_path(H, V, my_map, mr, mc, n, my_vert, my_horiz)
+    _mark_path(H, V, their_map, tr, tc, n, their_vert, their_horiz)
+    for t in (1, 2):
+        plane = H if t == 1 else V
+        for gr in range(n - 1):
+            for gc in range(n - 1):
+                if not _wall_fits(H, V, t, gr, gc, n):
+                    continue
+                if t == 1:
+                    cuts_me = my_vert[gr, gc] or my_vert[gr, gc + 1]
+                    cuts_them = their_vert[gr, gc] or their_vert[gr, gc + 1]
+                else:
+                    cuts_me = my_horiz[gr, gc] or my_horiz[gr + 1, gc]
+                    cuts_them = their_horiz[gr, gc] or their_horiz[gr + 1, gc]
+                my_delta = 0
+                their_delta = 0
+                if cuts_me or cuts_them:
+                    plane[gr, gc] = 1
+                    if cuts_me:
+                        d = _dist_map(H, V, 0, n)[mr, mc]
+                        my_delta = -1 if d < 0 else d - my_base
+                    if cuts_them and my_delta >= 0:
+                        d = _dist_map(H, V, n - 1, n)[tr, tc]
+                        their_delta = -1 if d < 0 else d - their_base
+                    plane[gr, gc] = 0
+                    if my_delta < 0 or their_delta < 0:
+                        continue
+                state[gr, gc, 13 + t] = 1
+                state[gr, gc, 15 + t] = min(my_delta, 127)
+                state[gr, gc, 17 + t] = min(their_delta, 127)
 
 
 def _mirror_policy_perm(n):
@@ -238,7 +284,7 @@ FLIP_PERM = _flip_policy_perm(SIZE)
 def mirror_states(states):
     """(..., n, n, NUM_PLANES) canonical states mirrored left-right."""
     out = np.flip(states, -2).copy()
-    for ch in (2, 3):
+    for ch in WALL_PLANES:
         out[..., :-1, ch] = states[..., -2::-1, ch]
         out[..., -1, ch] = 0
     out[..., 6], out[..., 7] = np.flip(states[..., 7], -1), np.flip(states[..., 6], -1)
