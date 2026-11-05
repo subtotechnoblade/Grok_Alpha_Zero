@@ -55,17 +55,19 @@ def dedup_average(states, policies, values, sample_weights=None):
 
     policy_means = np.zeros((len(uniq), policies.shape[1]))
     value_means = np.zeros((len(uniq), values.shape[1]))
-    np.add.at(policy_means, inverse, policies * weights[:, None])
-    np.add.at(value_means, inverse, values * weights[:, None])
-    policy_means /= np.maximum(counts, 1e-12)[:, None]
-    value_means /= np.maximum(counts, 1e-12)[:, None]
+    with np.errstate(under="ignore"):
+        np.add.at(policy_means, inverse, policies * weights[:, None])
+        np.add.at(value_means, inverse, values * weights[:, None])
+        policy_means /= np.maximum(counts, 1e-12)[:, None]
+        value_means /= np.maximum(counts, 1e-12)[:, None]
     # a mean of normalized distributions is still normalized, no renorm needed
 
     # return lists of per-sample arrays, exactly the shape split() accumulates
-    return (list(uniq.reshape(-1, *states.shape[1:])),
-            list(policy_means.astype(np.float32)),
-            list(value_means.astype(np.float32)),
-            counts.astype(np.float32))
+    with np.errstate(under="ignore"):
+        return (list(uniq.reshape(-1, *states.shape[1:])),
+                list(policy_means.astype(np.float32)),
+                list(value_means.astype(np.float32)),
+                counts.astype(np.float32))
 
 
 

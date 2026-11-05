@@ -2,11 +2,12 @@
 
 Each move is either a full search (recorded as training data) or a cheap one that only picks the move. A cheap
 search escalates to a full one, continuing the same tree, when it looks surprising:
-    policy: KL(cheap visits || prior) above a running percentile, or the most visited move is not the top prior
+    policy: KL(cheap visits || prior) above a running percentile
     value:  |root Q - network value| above a running percentile
-    close:  the two best moves (with enough visits) within close_gap of each other in Q
-Running percentiles are over this worker's recent cheap searches, so the escalation rate stays roughly fixed as
-the network improves.
+    close:  the Q gap between the two best moves (with enough visits) below the matching running percentile,
+            and below close_gap
+Running percentiles are over this worker's recent cheap searches, so each trigger fires on about
+(100 - escalate_percentile)% of them however the network improves.
 """
 from collections import deque
 
@@ -63,7 +64,7 @@ class Playout_Cap:
         self.close_gap = float(train_config.get("close_gap", 0.02))
         self.close_min_visits = int(train_config.get("close_min_visits", 10))
         self.min_history = min_history
-        self.history = {"policy": deque(maxlen=history), "value": deque(maxlen=history)}
+        self.history = {name: deque(maxlen=history) for name in ("policy", "value", "close")}
 
     @property
     def enabled(self):
@@ -84,13 +85,14 @@ class Playout_Cap:
 
     def escalate(self, child_visits, child_values, child_priors, net_value=0.0):
         """The reason a cheap search should become a full one, or None."""
-        kl, argmax_changed, value_surprise, gap = root_signals(child_visits, child_values, child_priors, net_value,
-                                                               self.close_min_visits)
+        kl, _, value_surprise, gap = root_signals(child_visits, child_values, child_priors, net_value,
+                                                  self.close_min_visits)
         reason = None
-        if self.triggers["policy"] and (self._above("policy", kl) or argmax_changed):
+        if self.triggers["policy"] and self._above("policy", kl):
             reason = "policy"
         if self.triggers["value"] and self._above("value", value_surprise) and reason is None:
             reason = "value"
-        if self.triggers["close"] and gap < self.close_gap and reason is None:
+        if self.triggers["close"] and np.isfinite(gap) and self._above("close", -gap) and gap < self.close_gap \
+                and reason is None:
             reason = "close"
         return reason

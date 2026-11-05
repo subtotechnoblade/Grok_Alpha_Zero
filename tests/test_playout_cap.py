@@ -55,8 +55,24 @@ class EscalationTest(unittest.TestCase):
     def test_triggers_are_independent(self):
         cap = Playout_Cap(config(escalate_policy=False, escalate_value=False, escalate_close=True))
         priors = np.array([0.7, 0.2, 0.1])
+        for gap in np.linspace(0.005, 0.3, 60):
+            cap.escalate([50, 50, 0], [10, 10 + 50 * gap, 0], priors)
         self.assertIsNone(cap.escalate([10, 80, 10], [-5, 24, 0], priors))
-        self.assertEqual(cap.escalate([50, 50, 0], [10, 10.5, 0], priors), "close")
+        self.assertEqual(cap.escalate([50, 50, 0], [10, 10.05, 0], priors), "close")
+        self.assertIsNone(cap.escalate([50, 50, 0], [10, 25, 0], priors))
+
+    def test_every_trigger_keeps_its_rate(self):
+        np.random.seed(2)
+        cap = Playout_Cap(config(escalate_percentile=95.0))
+        priors = np.array([0.4, 0.3, 0.2, 0.1])
+        reasons = []
+        for _ in range(4000):
+            visits = np.random.multinomial(128, priors).astype(float)
+            values = visits * np.random.uniform(-0.2, 0.2, 4)
+            reasons.append(cap.escalate(visits, values, priors, np.random.uniform(-0.3, 0.3)))
+        for name in ("policy", "value", "close"):
+            self.assertLess(reasons.count(name) / 4000, 0.08, name)
+        self.assertLess(sum(r is not None for r in reasons) / 4000, 0.16)
 
     def test_off_by_default(self):
         cap = Playout_Cap({})

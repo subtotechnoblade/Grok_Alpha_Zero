@@ -63,7 +63,7 @@ class GomokuTrain(AlphaZeroConfig):
     escalate_policy = True
     escalate_value = True
     escalate_close = True
-    escalate_percentile = 90.0
+    escalate_percentile = 95.0
     close_gap = 0.02
     cheap_policy_targets = True
     cheap_target_weight = 0.25

@@ -284,13 +284,16 @@ class TrainConfig(ConfigBase):
     cheap_sims = Param(128, help="Sims for a cheap (unrecorded) search.", check=_positive)
     escalate_policy = Param(False, help=(
         "Continue a cheap search to the full budget and record it when KL(cheap visits || prior) is above the "
-        "escalate_percentile of recent cheap searches, or the most visited move is not the top prior."))
+        "escalate_percentile of recent cheap searches."))
     escalate_value = Param(False, help=(
         "Same, when |root Q - network value| is above the escalate_percentile. Costs one extra network call per "
         "cheap search."))
     escalate_close = Param(False, help=(
-        "Same, when the two best moves with close_min_visits visits are within close_gap in Q."))
-    escalate_percentile = Param(90.0, help="Running percentile the policy and value signals must beat.",
+        "Same, when the Q gap between the two best moves with close_min_visits visits is among the narrowest "
+        "(100 - escalate_percentile)% of recent cheap searches and below close_gap."))
+    escalate_percentile = Param(90.0, help=(
+        "Running percentile each trigger's signal must beat, so each fires on about (100 - this)% of cheap "
+        "searches."),
                                 check=lambda v: None if 0.0 <= v < 100.0 else "must be in [0, 100)")
     close_gap = Param(0.02, help="Q gap for escalate_close.", check=_non_negative)
     close_min_visits = Param(10, help="Visits a move needs to count for escalate_close.", check=_positive)
